@@ -1,0 +1,59 @@
+header {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+  // background-color: oklch(95% 0 0);
+  padding-inline: 80px;
+  align-items: center;
+
+  & > h1,
+  & > p {
+    text-align: center;
+  }
+}
+
+main {
+  max-width: 1280px;
+  margin-inline: auto;
+
+  & > .creature {
+    display: grid;
+    position: absolute;
+    border-radius: 50%;
+    aspect-ratio: 1;
+    background-color: oklch(95% 0 0 / 0.5);
+    text-align: center;
+    align-items: center;
+
+    &.starling {
+      width: 12vh;
+    }
+
+    &.sardine {
+      width: 10vh;
+    }
+
+    &.grasshopper {
+      width: 8vh;
+    }
+
+    &.ant {
+      width: 5vh;
+    }
+
+    &.bat {
+      width: 12vh;
+    }
+
+    &.sheep {
+      width: 25vh;
+    }
+
+    &.bee {
+      width: 8vh;
+    }
+
+    &.firefly {
+      width: 6vh;
+    }
+  }
+}

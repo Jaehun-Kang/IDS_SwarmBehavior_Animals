@@ -1,25 +1,57 @@
-// import { useState } from "react";
+import { useState, useRef } from "react";
 import "./App.css";
 
 function App() {
+  const main = useRef(null);
+  const sim = useRef(null);
+
+  function onAnimalClick(e) {
+    console.log(e.currentTarget.id);
+    main.current.style.display = "none";
+    sim.current.display = "block";
+  }
+
   return (
     <div className="app">
-      <header>
-        <h1>타이틀</h1>
-      </header>
-      <main>
-        <div className="creature starling">찌르레기</div>
-        <div className="creature sardine">정어리</div>
-        <div className="creature grasshopper">메뚜기</div>
-        <div className="creature ant">개미</div>
-        <div className="creature bat">박쥐</div>
-        <div className="creature sheep">양</div>
-        <div className="creature bee">꿀벌</div>
-        <div className="creature firefly">반딧불이</div>
-        <div className="creature spiny-lobster">닭새우</div>
-        <div className="creature krill">크릴</div>
-        <div className="creature wolf">늑대</div>
-      </main>
+      <div className="main" ref={main}>
+        <h1>
+          Swarm
+          <br />
+          Behavior
+        </h1>
+
+        <div onClick={onAnimalClick} className="creature" id="starling">
+          <p>찌르레기</p>
+        </div>
+        <div onClick={onAnimalClick} className="creature" id="sardine">
+          <p>정어리</p>
+        </div>
+        <div onClick={onAnimalClick} className="creature" id="grasshopper">
+          <p>메뚜기</p>
+        </div>
+        <div onClick={onAnimalClick} className="creature" id="ant">
+          <p>개미</p>
+        </div>
+        <div onClick={onAnimalClick} className="creature" id="bat">
+          <p>박쥐</p>
+        </div>
+        <div onClick={onAnimalClick} className="creature" id="sheep">
+          <p>양</p>
+        </div>
+        <div onClick={onAnimalClick} className="creature" id="bee">
+          <p>꿀벌</p>
+        </div>
+        <div onClick={onAnimalClick} className="creature" id="firefly">
+          <p>반딧불이</p>
+        </div>
+        <div onClick={onAnimalClick} className="creature" id="spiny_lobster">
+          <p>닭새우</p>
+        </div>
+        <div onClick={onAnimalClick} className="creature" id="krill">
+          <p>크릴</p>
+        </div>
+      </div>
+      <div className="sim" ref={sim}></div>
     </div>
   );
 }

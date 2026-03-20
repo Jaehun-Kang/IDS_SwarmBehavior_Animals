@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Playfair:ital,opsz,wght@0,5..1200,300..900;1,5..1200,300..900&display=swap");
+
 *,
 *::before,
 *::after {
@@ -8,4 +10,14 @@ html,
 body {
   margin: 0;
   overflow: hidden;
+  background-color: oklch(0.9909 0.0123 91.51);
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  user-select: none;
+  margin: 0;
 }

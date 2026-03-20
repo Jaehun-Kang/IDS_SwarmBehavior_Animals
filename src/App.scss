@@ -1,19 +1,15 @@
-header {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
-  // background-color: oklch(95% 0 0);
-  padding-inline: 80px;
-  align-items: center;
+.main {
+  margin-inline: auto;
 
-  & > h1,
-  & > p {
+  & > h1 {
+    color: oklch(0.4777 0.0208 81.25);
+    font-family: "Playfair", serif;
+    font-size: 7rem;
+    line-height: 90%;
+    padding-top: 25vh;
+
     text-align: center;
   }
-}
-
-main {
-  max-width: 1280px;
-  margin-inline: auto;
 
   & > .creature {
     display: grid;
@@ -24,36 +20,55 @@ main {
     text-align: center;
     align-items: center;
 
-    &.starling {
+    &:hover {
+      cursor: pointer;
+      background-color: red;
+    }
+
+    &#starling {
       width: 12vh;
     }
 
-    &.sardine {
+    &#sardine {
       width: 10vh;
     }
 
-    &.grasshopper {
+    &#grasshopper {
       width: 8vh;
     }
 
-    &.ant {
+    &#ant {
       width: 5vh;
     }
 
-    &.bat {
+    &#bat {
       width: 12vh;
     }
 
-    &.sheep {
+    &#sheep {
       width: 25vh;
     }
 
-    &.bee {
+    &#bee {
       width: 8vh;
     }
 
-    &.firefly {
+    &#firefly {
       width: 6vh;
     }
+
+    &#spiny_lobster {
+      width: 12vh;
+    }
+
+    &#kirll {
+      width: 3vh;
+    }
   }
+}
+
+.sim {
+  width: 100vw;
+  height: 100vh;
+  background-color: #fff;
 }

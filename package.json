@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://jaehun-kang.github.io/IDS_SwarmBehavior_Animals",
+  "homepage": "https://jaehun-kang.github.io/IDS_SwarmBehavior_Animals/",
   "scripts": {
     "dev": "cross-env BROWSER=chrome vite",
     "build": "vite build",

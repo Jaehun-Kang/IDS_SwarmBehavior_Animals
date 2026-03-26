@@ -1,7 +1,13 @@
-.main {
+.home {
   margin-inline: auto;
+  display: block;
+  width: 100vw;
+  height: 100vh;
 
-  & > h1 {
+  & h1 {
+    position: relative;
+    z-index: 10;
+    pointer-events: none;
     color: oklch(0.4777 0.0208 81.25);
     font-family: "Playfair", serif;
     font-size: 7rem;
@@ -11,7 +17,7 @@
     text-align: center;
   }
 
-  & > .creature {
+  & .creature {
     display: grid;
     position: absolute;
     border-radius: 50%;
@@ -22,7 +28,7 @@
 
     &:hover {
       cursor: pointer;
-      background-color: red;
+      background-color: rgba(255, 115, 115, 0.5);
     }
 
     &#starling {
@@ -71,4 +77,5 @@
   width: 100vw;
   height: 100vh;
   background-color: #fff;
+  display: none;
 }

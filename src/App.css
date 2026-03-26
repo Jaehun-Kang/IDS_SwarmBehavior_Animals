@@ -1,7 +1,13 @@
-.main {
+.home {
   margin-inline: auto;
+  display: block;
+  width: 100vw;
+  height: 100vh;
 }
-.main > h1 {
+.home h1 {
+  position: relative;
+  z-index: 10;
+  pointer-events: none;
   color: oklch(47.77% 0.0208 81.25deg);
   font-family: "Playfair", serif;
   font-size: 7rem;
@@ -9,7 +15,7 @@
   padding-top: 25vh;
   text-align: center;
 }
-.main > .creature {
+.home .creature {
   display: grid;
   position: absolute;
   border-radius: 50%;
@@ -18,38 +24,38 @@
   text-align: center;
   align-items: center;
 }
-.main > .creature:hover {
+.home .creature:hover {
   cursor: pointer;
-  background-color: red;
+  background-color: rgba(255, 115, 115, 0.5);
 }
-.main > .creature#starling {
+.home .creature#starling {
   width: 12vh;
 }
-.main > .creature#sardine {
+.home .creature#sardine {
   width: 10vh;
 }
-.main > .creature#grasshopper {
+.home .creature#grasshopper {
   width: 8vh;
 }
-.main > .creature#ant {
+.home .creature#ant {
   width: 5vh;
 }
-.main > .creature#bat {
+.home .creature#bat {
   width: 12vh;
 }
-.main > .creature#sheep {
+.home .creature#sheep {
   width: 25vh;
 }
-.main > .creature#bee {
+.home .creature#bee {
   width: 8vh;
 }
-.main > .creature#firefly {
+.home .creature#firefly {
   width: 6vh;
 }
-.main > .creature#spiny_lobster {
+.home .creature#spiny_lobster {
   width: 12vh;
 }
-.main > .creature#kirll {
+.home .creature#kirll {
   width: 3vh;
 }
 
@@ -57,4 +63,5 @@
   width: 100vw;
   height: 100vh;
   background-color: #fff;
+  display: none;
 }

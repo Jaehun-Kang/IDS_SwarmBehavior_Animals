@@ -1,22 +1,37 @@
-import { useRef } from "react";
+import { useState } from "react";
 import "./App.css";
 import Home from "./Home.jsx";
 import Sim from "./Sim.jsx";
 
 function App() {
-  const home = useRef(null);
-  const sim = useRef(null);
+  const [selectedAnimal, setSelectedAnimal] = useState(null);
+  const [savedPosition, setSavedPosition] = useState(null);
 
   function onAnimalClick(e) {
-    console.log(e.currentTarget.id);
-    home.current.style.display = "none";
-    sim.current.style.display = "block";
+    const animalId = e.currentTarget.id;
+    const el = e.currentTarget;
+
+    // 현재 위치 저장
+    const position = {
+      x: parseFloat(el.style.left) || 0,
+      y: parseFloat(el.style.top) || 0,
+    };
+
+    setSavedPosition({ animalId, position });
+    setSelectedAnimal(animalId);
+  }
+
+  function onBackClick() {
+    setSelectedAnimal(null);
   }
 
   return (
     <div className="app">
-      <Home ref={home} onAnimalClick={onAnimalClick} />
-      <Sim ref={sim} />
+      {selectedAnimal === null ? (
+        <Home onAnimalClick={onAnimalClick} savedPosition={savedPosition} />
+      ) : (
+        <Sim selectedAnimal={selectedAnimal} onBackClick={onBackClick} />
+      )}
     </div>
   );
 }

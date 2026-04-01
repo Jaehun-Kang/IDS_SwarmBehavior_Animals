@@ -13,7 +13,7 @@
     "predeploy": "npm run build"
   },
   "dependencies": {
-    "p5": "github:p5-wrapper/react",
+    "@p5-wrapper/react": "latest",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-syntax-highlighter": "^16.1.1"

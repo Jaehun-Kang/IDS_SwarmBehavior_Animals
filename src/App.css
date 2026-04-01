@@ -46,6 +46,9 @@
 .home .creature#sheep {
   width: 25vh;
 }
+.home .creature#penguin {
+  width: 22vh;
+}
 .home .creature#bee {
   width: 8vh;
 }
@@ -55,8 +58,8 @@
 .home .creature#spiny_lobster {
   width: 12vh;
 }
-.home .creature#kirll {
-  width: 3vh;
+.home .creature#krill {
+  width: 7vh;
 }
 
 .sim {

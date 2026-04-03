@@ -5,7 +5,7 @@
   "type": "module",
   "homepage": "https://jaehun-kang.github.io/IDS_SwarmBehavior_Animals/",
   "scripts": {
-    "dev": "cross-env BROWSER=chrome vite",
+    "dev": "cross-env BROWSER=chrome vite --open",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "cross-env BROWSER=chrome vite preview",

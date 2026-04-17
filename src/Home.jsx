@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import sprite_starling from "./assets/starling_flying.svg";
 
 // 동적으로 모든 동물 behavior 모듈 로드
 const behaviorModules = import.meta.glob(
@@ -415,6 +416,16 @@ function Home(props) {
 
         el.style.left = animal.x + "px";
         el.style.top = animal.y + "px";
+
+        // 찌르레기는 회전 적용
+        if (el.id === "starling") {
+          const sprite = el.querySelector(".sprite_starling");
+          if (sprite && animal.rotation !== undefined) {
+            const scaleX = animal.scaleX !== undefined ? animal.scaleX : 1;
+            const scaleY = animal.scaleY !== undefined ? animal.scaleY : 1;
+            sprite.style.transform = `rotate(${animal.rotation}deg) scaleX(${scaleX}) scaleY(${scaleY})`;
+          }
+        }
       });
 
       animationRef.current = requestAnimationFrame(animate);
@@ -474,7 +485,8 @@ function Home(props) {
           id={animal.id}
           style={{ zIndex: 10, opacity: animalsLoaded ? 1 : 0 }}
         >
-          <p>{animal.name}</p>
+          {animal.id === "starling" && <div className="sprite_starling" />}
+          {/* <p>{animal.name}</p> */}
         </div>
       ))}
     </div>

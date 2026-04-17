@@ -12,11 +12,28 @@ export function initStarling(rect, width, height) {
     height,
     pattern: "uniform",
     time: 0,
+    rotation: 0,
   };
 }
 
 export function updateStarling(animal, rect) {
   // uniform 패턴: 직진 움직임만
+
+  // 진행 방향 벡터(vx, vy)의 각도 계산 (라디안 -> 도 변환)
+  let rotation = (Math.atan2(animal.vy, animal.vx) * 180) / Math.PI;
+  let scaleX = 1;
+  // let scaleY = 1;
+
+  // x축 음의 방향(왼쪽)으로 가면 x축, y축 반사
+  if (Math.abs(rotation) > 90) {
+    scaleX = -1;
+    // scaleY = -1;
+    rotation = rotation > 0 ? rotation - 180 : rotation + 180;
+  }
+
+  animal.rotation = rotation;
+  animal.scaleX = scaleX;
+  // animal.scaleY = scaleY;
 
   // 위치 업데이트
   animal.x += animal.vx;

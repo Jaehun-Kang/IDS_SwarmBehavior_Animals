@@ -43,6 +43,7 @@
 }
 .home .creature#starling {
   width: 12vh;
+  background-color: transparent;
 }
 .home .creature#starling .sprite_starling {
   width: 100%;

@@ -10,11 +10,12 @@ export function initStarling(rect, width, height) {
     baseSpeed: speed,
     width,
     height,
-    pattern: "uniform",
+    // pattern: "uniform",
     time: 0,
     rotation: 0,
     flyType: "starling_fly1",
-    flyTypeLock: true,
+    flyTypeLock: false,
+    randomType: Math.random(),
   };
 }
 
@@ -37,8 +38,11 @@ export function updateStarling(animal, rect) {
       animal.flyTypeLock = false;
     }
   } else {
+    
     if (!animal.flyTypeLock) {
-      animal.flyType = Math.random() > 0.5 ? "starling_fly2" : "starling_fly3";
+      animal.randomType = Math.random();
+      animal.flyType =
+        animal.randomType > 0.5 ? "starling_fly2" : "starling_fly3";
       animal.flyTypeLock = true;
     }
   }

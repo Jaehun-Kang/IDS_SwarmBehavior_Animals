@@ -69,7 +69,8 @@ export function applySpriteStarling(el, animal) {
   sprite.style.transform = `rotate(${animal.rotation}deg) scaleX(${scaleX})`;
 
   if (animal.flyType) {
-    sprite.className = "sprite_starling " + animal.flyType;
+    const next = "sprite_starling " + animal.flyType;
+    if (sprite.className !== next) sprite.className = next;
   }
 }
 

@@ -12,18 +12,22 @@ export function initBee(rect, width, height) {
     height,
     pattern: "wave",
     time: 0,
+    rotation: 0,
+    scaleX: 1,
+    beeType: "bee_fly",
   };
 }
 
 export function updateBee(animal, rect) {
-  // 파동: 상하 움직임 추가
   animal.vy = Math.sin(animal.time * 0.1) * 2;
 
-  // 위치 업데이트
+  animal.rotation = 0;
+  if (Math.abs(animal.vx) > 0.01) animal.scaleX = animal.vx < 0 ? -1 : 1;
+  animal.beeType = "bee_fly";
+
   animal.x += animal.vx;
   animal.y += animal.vy;
 
-  // 벽 충돌 감지
   if (animal.x <= 0 || animal.x + animal.width >= rect.width) {
     animal.vx *= -1;
     animal.x = Math.max(0, Math.min(rect.width - animal.width, animal.x));
@@ -34,4 +38,18 @@ export function updateBee(animal, rect) {
   }
 }
 
-export default { init: initBee, update: updateBee };
+export function applySpriteBee(el, animal) {
+  const sprite = el.querySelector(".sprite_bee");
+  if (!sprite) return;
+  sprite.style.transform = `rotate(${animal.rotation}deg) scaleX(${animal.scaleX})`;
+  if (animal.beeType) {
+    const next = "sprite_bee " + animal.beeType;
+    if (sprite.className !== next) sprite.className = next;
+  }
+}
+
+export default {
+  init: initBee,
+  update: updateBee,
+  applySprite: applySpriteBee,
+};

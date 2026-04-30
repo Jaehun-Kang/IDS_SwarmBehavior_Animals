@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_레이어_2" data-name="레이어 2" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 120 85">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: url(#_무제_그라디언트_38-4);
+      }
+
+      .cls-2 {
+        fill: url(#_무제_그라디언트_38);
+      }
+
+      .cls-3 {
+        fill: #f0f0e7;
+      }
+
+      .cls-4 {
+        fill: none;
+      }
+
+      .cls-5 {
+        fill: url(#_무제_그라디언트_38-3);
+      }
+
+      .cls-6 {
+        fill: #e07348;
+      }
+
+      .cls-7 {
+        fill: url(#_무제_그라디언트_38-5);
+      }
+
+      .cls-8 {
+        fill: #202020;
+      }
+
+      .cls-9 {
+        fill: url(#_무제_그라디언트_38-2);
+      }
+    </style>
+    <linearGradient id="_무제_그라디언트_38" data-name="무제 그라디언트 38" x1="91.25" y1="15" x2="91.25" y2="10" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f0f0e7"/>
+      <stop offset=".5" stop-color="#dad093"/>
+      <stop offset="1" stop-color="#e07348"/>
+    </linearGradient>
+    <linearGradient id="_무제_그라디언트_38-2" data-name="무제 그라디언트 38" x1="-1531.25" y1="15" x2="-1531.25" y2="10" gradientTransform="translate(-1422.5) rotate(-180) scale(1 -1)" xlink:href="#_무제_그라디언트_38"/>
+    <linearGradient id="_무제_그라디언트_38-3" data-name="무제 그라디언트 38" x1="52.5" y1="15" x2="52.5" xlink:href="#_무제_그라디언트_38"/>
+    <linearGradient id="_무제_그라디언트_38-4" data-name="무제 그라디언트 38" x1="-1612.5" y1="15" x2="-1612.5" y2="10" gradientTransform="translate(-1545) rotate(-180) scale(1 -1)" xlink:href="#_무제_그라디언트_38"/>
+    <linearGradient id="_무제_그라디언트_38-5" data-name="무제 그라디언트 38" x1="20" y1="15" x2="20" y2="10" xlink:href="#_무제_그라디언트_38"/>
+  </defs>
+  <g id="_레이어_1-2" data-name="레이어 1">
+    <g>
+      <path class="cls-8" d="M90,80h0c2.76,0,5,2.24,5,5h-10c0-2.76,2.24-5,5-5Z"/>
+      <path class="cls-8" d="M105,80h10c0,2.76-2.24,5-5,5h0c-2.76,0-5-2.24-5-5h0Z" transform="translate(220 165) rotate(180)"/>
+      <path class="cls-8" d="M120,60h0V25c0-5.52-4.48-10-10-10h-5v15h10v25c0,2.76,2.24,5,5,5Z"/>
+      <path class="cls-8" d="M80,60h0V25c0-5.52,4.48-10,10-10h5v15h-10v25c0,2.76-2.24,5-5,5Z"/>
+      <path class="cls-8" d="M105,85h-10c-5.52,0-10-4.48-10-10V20c0-2.76,2.24-5,5-5h20c2.76,0,5,2.24,5,5v55c0,5.52-4.48,10-10,10Z"/>
+      <path class="cls-8" d="M110,15h-20v-5C90,4.48,94.48,0,100,0h0c5.52,0,10,4.48,10,10v5Z"/>
+      <path class="cls-2" d="M90,15h0v-5s0,0,0,0c1.38,0,2.5,1.12,2.5,2.5h0c0,1.38-1.12,2.5-2.5,2.5Z"/>
+      <path class="cls-9" d="M110,15h0v-5s0,0,0,0c-1.38,0-2.5,1.12-2.5,2.5h0c0,1.38,1.12,2.5,2.5,2.5Z"/>
+      <rect class="cls-4" x="80" width="40" height="85"/>
+    </g>
+    <g>
+      <path class="cls-8" d="M45,70h30v7.44c0,4.17-3.39,7.56-7.56,7.56h-14.87c-4.17,0-7.56-3.39-7.56-7.56v-7.44h0Z"/>
+      <path class="cls-8" d="M80,60h0V25c0-5.52-4.48-10-10-10h-5v15h10v25c0,2.76,2.24,5,5,5Z"/>
+      <path class="cls-8" d="M40,60h0V25c0-5.52,4.48-10,10-10h5v15h-10v25c0,2.76-2.24,5-5,5Z"/>
+      <path class="cls-3" d="M60,85h0c-8.28,0-15-6.72-15-15V20c0-2.76,2.24-5,5-5h20c2.76,0,5,2.24,5,5v50c0,8.28-6.72,15-15,15Z"/>
+      <path class="cls-8" d="M50,80h0c2.76,0,5,2.24,5,5h-10c0-2.76,2.24-5,5-5Z"/>
+      <path class="cls-8" d="M65,80h10c0,2.76-2.24,5-5,5h0c-2.76,0-5-2.24-5-5h0Z" transform="translate(140 165) rotate(180)"/>
+      <path class="cls-8" d="M70,15h-20v-5C50,4.48,54.48,0,60,0h0c5.52,0,10,4.48,10,10v5Z"/>
+      <path class="cls-5" d="M55,15h-2.5s-2.5,0-2.5,0v-5s0,0,0,0c1.38,0,2.5,1.12,2.5,2.5h0c0,1.38,1.12,2.5,2.5,2.5h0Z"/>
+      <path class="cls-1" d="M65,15h2.5s2.5,0,2.5,0v-5s0,0,0,0c-1.38,0-2.5,1.12-2.5,2.5h0c0,1.38-1.12,2.5-2.5,2.5h0Z"/>
+      <polygon class="cls-6" points="55 10 60 0 65 10 60 2.5 55 10"/>
+      <rect class="cls-4" x="40" width="40" height="85"/>
+    </g>
+    <g>
+      <path class="cls-3" d="M15,85h0v-30h10V20c0-2.76-2.24-5-5-5h0,10c2.76,0,5,2.24,5,5v45c0,11.05-8.95,20-20,20Z"/>
+      <path class="cls-8" d="M25,80h0c2.76,0,5,2.24,5,5h0s-30,0-30,0h0c2.76,0,5-2.24,5-5h0V15h15c2.76,0,5,2.24,5,5v40h0c-2.76,0-5-2.24-5-5h0s0,20,0,20c0,2.76,2.24,5,5,5Z"/>
+      <path class="cls-8" d="M30,10v5H5C5,6.72,11.72,0,20,0h20,0c-5.52,0-10,4.48-10,10Z"/>
+      <path class="cls-7" d="M25,15h-7.5c-1.38,0-2.5-1.12-2.5-2.5h0c0-1.38,1.12-2.5,2.5-2.5h0c1.38,0,2.5,1.12,2.5,2.5h0c0,1.38,1.12,2.5,2.5,2.5h2.5Z"/>
+      <path class="cls-6" d="M25,10c0-5,5-10,15-10-5,0-15,5-15,10Z"/>
+      <rect class="cls-4" width="40" height="85"/>
+    </g>
+  </g>
+</svg>

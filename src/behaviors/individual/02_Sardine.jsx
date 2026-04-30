@@ -80,7 +80,8 @@ export function applySpriteSardine(el, animal) {
   sprite.style.transform = `rotate(${animal.rotation}deg) scaleX(${scaleX})`;
 
   if (animal.swimType) {
-    sprite.className = "sprite_sardine " + animal.swimType;
+    const next = "sprite_sardine " + animal.swimType;
+    if (sprite.className !== next) sprite.className = next;
   }
 }
 

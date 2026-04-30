@@ -24,6 +24,26 @@ const ANIMAL_KOREAN_NAMES = {
   krill: "크릴",
 };
 
+// z-index
+export const computeZIndicesFromCSS = (ids) => {
+  const style = getComputedStyle(document.documentElement);
+  const sizes = ids.map((id) => {
+    const cssId = id.replace(/_/g, "-");
+    const val = style.getPropertyValue(`--${cssId}-size`).trim();
+    return { id, size: parseFloat(val) || 0 };
+  });
+  sizes.sort((a, b) => b.size - a.size);
+  const result = {};
+  let z = 1;
+  let prevSize = null;
+  sizes.forEach(({ id, size }) => {
+    if (prevSize !== null && size < prevSize) z++;
+    result[id] = z;
+    prevSize = size;
+  });
+  return result;
+};
+
 const generateAnimalsData = () => {
   return Object.entries(behaviorModules)
     .map(([path, moduleExport]) => {

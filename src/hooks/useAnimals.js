@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { behaviorMap } from "../behaviors/animalData";
+import { behaviorMap, computeZIndicesFromCSS } from "../behaviors/animalData";
 
 export function useAnimals(homeRef, fontsLoaded, savedPosition) {
   const animalsRef = useRef({});
@@ -34,6 +34,13 @@ export function useAnimals(homeRef, fontsLoaded, savedPosition) {
       }
     });
 
+    // CSS 변수 기반 z-index 적용
+    const ids = Array.from(creatures).map((el) => el.id);
+    const zIndices = computeZIndicesFromCSS(ids);
+    creatures.forEach((el) => {
+      if (zIndices[el.id] !== undefined) el.style.zIndex = zIndices[el.id];
+    });
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
     setAnimalsLoaded(true);
   }, [fontsLoaded]);
@@ -54,6 +61,13 @@ export function useAnimals(homeRef, fontsLoaded, savedPosition) {
       creatures.forEach((el) => {
         const animal = animalsRef.current[el.id];
         if (!animal) return;
+
+        if (hoveredIdRef.current) {
+          el.style.pointerEvents =
+            el.id === hoveredIdRef.current ? "auto" : "none";
+        } else {
+          el.style.pointerEvents = "auto";
+        }
 
         if (el.id === hoveredIdRef.current) return;
 

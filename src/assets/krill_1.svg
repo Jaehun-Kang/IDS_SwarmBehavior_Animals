@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_레이어_2" data-name="레이어 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 290 75">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #380010;
+      }
+
+      .cls-2 {
+        fill: #809cc3;
+      }
+
+      .cls-3 {
+        fill: #fef421;
+      }
+
+      .cls-4 {
+        fill: none;
+      }
+    </style>
+  </defs>
+  <g id="_레이어_1-2" data-name="레이어 1">
+    <g>
+      <polygon class="cls-2" points="120 15 75 30 75 10 120 5 120 15"/>
+      <polygon class="cls-2" points="120 10 120 5 145 0 120 10"/>
+      <rect class="cls-1" x="120" y="2.5" width="5" height="5" rx="2.5" ry="2.5"/>
+      <rect class="cls-2" x="65" y="10" width="10" height="20"/>
+      <polygon class="cls-2" points="65 30 55 25 55 10 65 10 65 30"/>
+      <rect class="cls-2" x="45" y="10" width="10" height="15"/>
+      <polygon class="cls-2" points="45 25 35 20 35 10 45 10 45 25"/>
+      <rect class="cls-2" x="25" y="10" width="10" height="10"/>
+      <polygon class="cls-2" points="25 20 15 15 15 10 25 10 25 20"/>
+      <polygon class="cls-2" points="15 10 0 15 0 10 15 10 15 10"/>
+      <path class="cls-3" d="M113.2,13.1l-24.91,8.3c-1.62.54-3.29-.67-3.29-2.37v-4.41c0-1.22.88-2.27,2.09-2.47l24.85-4.14c1.6-.27,3.06.97,3.06,2.59h0c0,1.13-.72,2.14-1.8,2.49Z"/>
+      <polygon class="cls-2" points="25 35 20 15 25 20 25 35"/>
+      <polygon class="cls-2" points="35.04 40.04 30 20 35 20 35.04 40.04"/>
+      <polygon class="cls-2" points="45.04 45.04 40 20 45 25 45.04 45.04"/>
+      <polygon class="cls-2" points="55.04 45.04 50 25 55 25 55.04 45.04"/>
+      <polygon class="cls-2" points="65.04 50.04 60 25 65 30 65.04 50.04"/>
+      <polygon class="cls-2" points="75.04 50.04 70 30 75 30 75.04 50.04"/>
+      <rect class="cls-4" width="145" height="75"/>
+    </g>
+    <g>
+      <path class="cls-2" d="M220,5h0c5.52,0,10,4.48,10,10v15h-20v-15c0-5.52,4.48-10,10-10Z"/>
+      <path class="cls-3" d="M220,7.5h0c4.14,0,7.5,3.36,7.5,7.5v5c0,1.38-1.12,2.5-2.5,2.5h-10c-1.38,0-2.5-1.12-2.5-2.5v-5c0-4.14,3.36-7.5,7.5-7.5Z"/>
+      <rect class="cls-1" x="212.5" y="2.5" width="5" height="5" rx="2.5" ry="2.5"/>
+      <rect class="cls-1" x="222.5" y="2.5" width="5" height="5" rx="2.5" ry="2.5"/>
+      <polygon class="cls-2" points="220 0 217.5 10 222.5 10 220 0"/>
+      <polygon class="cls-2" points="210 50 215 30 210 30 210 50"/>
+      <polygon class="cls-2" points="230 50 225 30 230 30 230 50"/>
+      <path class="cls-2" d="M225,25h-10s0-15,0-15c0-2.76,2.24-5,5-5h0c2.76,0,5,2.24,5,5v15Z"/>
+      <rect class="cls-4" x="145" width="145" height="75"/>
+    </g>
+  </g>
+</svg>

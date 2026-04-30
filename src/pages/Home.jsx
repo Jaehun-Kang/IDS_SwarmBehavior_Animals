@@ -60,10 +60,23 @@ function Home(props) {
           onMouseLeave={() => (hoveredIdRef.current = null)}
           className="creature"
           id={animal.id}
-          style={{ zIndex: 10, opacity: animalsLoaded ? 1 : 0 }}
+          style={{ opacity: animalsLoaded ? 1 : 0 }}
         >
           {animal.id === "starling" && <div className="sprite_starling" />}
           {animal.id === "sardine" && <div className="sprite_sardine" />}
+          {animal.id === "grasshopper" && (
+            <div className="sprite_grasshopper" />
+          )}
+          {animal.id === "ant" && <div className="sprite_ant" />}
+          {animal.id === "bat" && <div className="sprite_bat" />}
+          {animal.id === "sheep" && <div className="sprite_sheep" />}
+          {animal.id === "penguin" && <div className="sprite_penguin" />}
+          {animal.id === "bee" && <div className="sprite_bee" />}
+          {animal.id === "firefly" && <div className="sprite_firefly" />}
+          {animal.id === "spiny_lobster" && (
+            <div className="sprite_spiny_lobster" />
+          )}
+          {animal.id === "krill" && <div className="sprite_krill" />}
         </div>
       ))}
     </div>

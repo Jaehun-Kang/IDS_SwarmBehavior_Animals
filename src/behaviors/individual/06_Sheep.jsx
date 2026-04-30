@@ -12,17 +12,20 @@ export function initSheep(rect, width, height) {
     height,
     pattern: "uniform",
     time: 0,
+    rotation: 0,
+    scaleX: 1,
+    sheepType: "sheep_walk",
   };
 }
 
 export function updateSheep(animal, rect) {
-  // uniform 패턴: 직진 움직임만
+  animal.rotation = 0;
+  if (Math.abs(animal.vx) > 0.01) animal.scaleX = animal.vx < 0 ? -1 : 1;
+  animal.sheepType = "sheep_walk";
 
-  // 위치 업데이트
   animal.x += animal.vx;
   animal.y += animal.vy;
 
-  // 벽 충돌 감지
   if (animal.x <= 0 || animal.x + animal.width >= rect.width) {
     animal.vx *= -1;
     animal.x = Math.max(0, Math.min(rect.width - animal.width, animal.x));
@@ -33,4 +36,18 @@ export function updateSheep(animal, rect) {
   }
 }
 
-export default { init: initSheep, update: updateSheep };
+export function applySpriteSheep(el, animal) {
+  const sprite = el.querySelector(".sprite_sheep");
+  if (!sprite) return;
+  sprite.style.transform = `rotate(${animal.rotation}deg) scaleX(${animal.scaleX})`;
+  if (animal.sheepType) {
+    const next = "sprite_sheep " + animal.sheepType;
+    if (sprite.className !== next) sprite.className = next;
+  }
+}
+
+export default {
+  init: initSheep,
+  update: updateSheep,
+  applySprite: applySpriteSheep,
+};

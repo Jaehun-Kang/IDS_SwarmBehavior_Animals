@@ -12,17 +12,20 @@ export function initKrill(rect, width, height) {
     height,
     pattern: "uniform",
     time: 0,
+    rotation: 0,
+    scaleX: 1,
+    krillType: "krill_swim",
   };
 }
 
 export function updateKrill(animal, rect) {
-  // uniform 패턴: 직진 움직임만
+  animal.rotation = 0;
+  if (Math.abs(animal.vx) > 0.01) animal.scaleX = animal.vx < 0 ? -1 : 1;
+  animal.krillType = "krill_swim";
 
-  // 위치 업데이트
   animal.x += animal.vx;
   animal.y += animal.vy;
 
-  // 벽 충돌 감지
   if (animal.x <= 0 || animal.x + animal.width >= rect.width) {
     animal.vx *= -1;
     animal.x = Math.max(0, Math.min(rect.width - animal.width, animal.x));
@@ -33,4 +36,18 @@ export function updateKrill(animal, rect) {
   }
 }
 
-export default { init: initKrill, update: updateKrill };
+export function applySpriteKrill(el, animal) {
+  const sprite = el.querySelector(".sprite_krill");
+  if (!sprite) return;
+  sprite.style.transform = `rotate(${animal.rotation}deg) scaleX(${animal.scaleX})`;
+  if (animal.krillType) {
+    const next = "sprite_krill " + animal.krillType;
+    if (sprite.className !== next) sprite.className = next;
+  }
+}
+
+export default {
+  init: initKrill,
+  update: updateKrill,
+  applySprite: applySpriteKrill,
+};

@@ -1,3 +1,28 @@
+:root {
+  --starling-size: 10vh;
+  --sardine-size: 8vh;
+  --grasshopper-size: 8vh;
+  --ant-size: 5vh;
+  --bat-size: 12vh;
+  --sheep-size: 20vh;
+  --penguin-size: 7vh;
+  --bee-size: 5vh;
+  --firefly-size: 5vh;
+  --spiny-lobster-size: 16vh;
+  --krill-size: 5vh;
+  --starling-ratio: 1;
+  --sardine-ratio: 150 / 50;
+  --grasshopper-ratio: 115 / 110;
+  --ant-ratio: 160 / 70;
+  --bat-ratio: 95 / 200;
+  --sheep-ratio: 115 / 75;
+  --penguin-ratio: 40 / 85;
+  --bee-ratio: 100 / 150;
+  --firefly-ratio: 120 / 160;
+  --spiny-lobster-ratio: 165 / 180;
+  --krill-ratio: 145 / 75;
+}
+
 .home {
   position: relative;
   overflow: hidden;
@@ -45,7 +70,8 @@
   pointer-events: none;
 }
 .home .creature#starling {
-  width: 10vh;
+  width: var(--starling-size);
+  aspect-ratio: var(--starling-ratio);
   background-color: transparent;
 }
 .home .creature#starling .sprite_starling {
@@ -72,7 +98,8 @@
   }
 }
 .home .creature#sardine {
-  width: 10vh;
+  width: var(--sardine-size);
+  aspect-ratio: var(--sardine-ratio);
   background-color: transparent;
 }
 .home .creature#sardine .sprite_sardine {
@@ -91,31 +118,252 @@
   background-position: 100% center;
 }
 .home .creature#grasshopper {
-  width: 8vh;
+  width: var(--grasshopper-size);
+  aspect-ratio: var(--grasshopper-ratio);
+  background-color: transparent;
+}
+.home .creature#grasshopper .sprite_grasshopper {
+  width: 100%;
+  height: 100%;
+  background: url("../assets/grasshopper_1.svg") 0 center no-repeat;
+  background-size: 500% 100%;
+}
+.home .creature#grasshopper .sprite_grasshopper.grasshopper_idle {
+  background-position: 0% center;
+}
+.home .creature#grasshopper .sprite_grasshopper.grasshopper_idle_front {
+  background-position: 25% center;
+}
+.home .creature#grasshopper .sprite_grasshopper.grasshopper_jump {
+  background-position: 50% center;
+}
+.home .creature#grasshopper .sprite_grasshopper.grasshopper_fly {
+  animation: grasshopper-fly 200ms steps(2) infinite;
+}
+@keyframes grasshopper-fly {
+  from {
+    background-position: 75% center;
+  }
+  to {
+    background-position: 125% center;
+  }
 }
 .home .creature#ant {
-  width: 5vh;
+  width: var(--ant-size);
+  aspect-ratio: var(--ant-ratio);
+  background-color: transparent;
+}
+.home .creature#ant .sprite_ant {
+  width: 100%;
+  height: 100%;
+  background: url("../assets/ant_1.svg") 0 center no-repeat;
+  background-size: 300% 100%;
+}
+.home .creature#ant .sprite_ant.ant_walk {
+  background-position: 0% center;
+}
+.home .creature#ant .sprite_ant.ant_front {
+  background-position: 50% center;
+}
+.home .creature#ant .sprite_ant.ant_top {
+  background-position: 100% center;
 }
 .home .creature#bat {
-  width: 12vh;
+  height: var(--bat-size);
+  aspect-ratio: var(--bat-ratio);
+  background-color: transparent;
+}
+.home .creature#bat .sprite_bat {
+  width: 100%;
+  height: 100%;
+  background: url("../assets/bat_1.svg") 0 center no-repeat;
+  background-size: 200% 100%;
+}
+.home .creature#bat .sprite_bat.bat_fly {
+  animation: bat-fly 200ms steps(2) infinite;
+}
+@keyframes bat-fly {
+  from {
+    background-position: 0% center;
+  }
+  to {
+    background-position: 200% center;
+  }
 }
 .home .creature#sheep {
-  width: 25vh;
+  width: var(--sheep-size);
+  aspect-ratio: var(--sheep-ratio);
+  background-color: transparent;
+}
+.home .creature#sheep .sprite_sheep {
+  width: 100%;
+  height: 100%;
+  background: url("../assets/sheep_1.svg") 0 center no-repeat;
+  background-size: 200% 100%;
+}
+.home .creature#sheep .sprite_sheep.sheep_walk {
+  background-position: 0% center;
+}
+.home .creature#sheep .sprite_sheep.sheep_front {
+  background-position: 100% center;
 }
 .home .creature#penguin {
-  width: 22vh;
+  width: var(--penguin-size);
+  aspect-ratio: var(--penguin-ratio);
+  background-color: transparent;
+}
+.home .creature#penguin .sprite_penguin {
+  width: 100%;
+  height: 100%;
+  background: url("../assets/penguin_1.svg") 0 center no-repeat;
+  background-size: 300% 100%;
+}
+.home .creature#penguin .sprite_penguin.penguin_walk {
+  background-position: 0% center;
+}
+.home .creature#penguin .sprite_penguin.penguin_front {
+  background-position: 50% center;
+}
+.home .creature#penguin .sprite_penguin.penguin_back {
+  background-position: 100% center;
 }
 .home .creature#bee {
-  width: 8vh;
+  width: var(--bee-size);
+  aspect-ratio: var(--bee-ratio);
+  background-color: transparent;
+}
+.home .creature#bee .sprite_bee {
+  width: 100%;
+  height: 100%;
+  background: url("../assets/bee_1.svg") 0 center no-repeat;
+  background-size: 600% 100%;
+}
+.home .creature#bee .sprite_bee.bee_fly {
+  animation: bee-fly 150ms steps(2) infinite;
+}
+.home .creature#bee .sprite_bee.bee_top_fly {
+  animation: bee-top-fly 150ms steps(2) infinite;
+}
+@keyframes bee-fly {
+  from {
+    background-position: 80% center;
+  }
+  to {
+    background-position: 120% center;
+  }
+}
+@keyframes bee-top-fly {
+  from {
+    background-position: 20% center;
+  }
+  to {
+    background-position: 60% center;
+  }
 }
 .home .creature#firefly {
-  width: 6vh;
+  width: var(--firefly-size);
+  aspect-ratio: var(--firefly-ratio);
+  background-color: transparent;
+}
+.home .creature#firefly .sprite_firefly {
+  width: 100%;
+  height: 100%;
+  background: url("../assets/firefly_1.svg") 0 0 no-repeat;
+  background-size: 600% 200%;
+}
+.home .creature#firefly .sprite_firefly.firefly_glow {
+  animation: firefly-glow 150ms steps(2) infinite;
+}
+.home .creature#firefly .sprite_firefly.firefly_dark {
+  animation: firefly-dark 150ms steps(2) infinite;
+}
+.home .creature#firefly .sprite_firefly.firefly_lit_top_fly {
+  animation: firefly-lit-top-fly 150ms steps(2) infinite;
+}
+.home .creature#firefly .sprite_firefly.firefly_dark_top_fly {
+  animation: firefly-dark-top-fly 150ms steps(2) infinite;
+}
+@keyframes firefly-glow {
+  from {
+    background-position: 80% 0%;
+  }
+  to {
+    background-position: 120% 0%;
+  }
+}
+@keyframes firefly-dark {
+  from {
+    background-position: 80% 100%;
+  }
+  to {
+    background-position: 120% 100%;
+  }
+}
+@keyframes firefly-lit-top-fly {
+  from {
+    background-position: 20% 0%;
+  }
+  to {
+    background-position: 60% 0%;
+  }
+}
+@keyframes firefly-dark-top-fly {
+  from {
+    background-position: 20% 100%;
+  }
+  to {
+    background-position: 60% 100%;
+  }
 }
 .home .creature#spiny_lobster {
-  width: 12vh;
+  width: var(--spiny-lobster-size);
+  aspect-ratio: var(--spiny-lobster-ratio);
+  background-color: transparent;
+}
+.home .creature#spiny_lobster .sprite_spiny_lobster {
+  width: 100%;
+  height: 100%;
+  background: url("../assets/spinylobster_1.svg") 0 center no-repeat;
+  background-size: 400% 100%;
+}
+.home .creature#spiny_lobster .sprite_spiny_lobster.lobster_swim {
+  animation: lobster-swim 800ms steps(2) infinite;
+}
+.home .creature#spiny_lobster .sprite_spiny_lobster.lobster_top {
+  animation: lobster-top 800ms steps(2) infinite;
+}
+@keyframes lobster-swim {
+  from {
+    background-position: 0% center;
+  }
+  to {
+    background-position: 66.6666666667% center;
+  }
+}
+@keyframes lobster-top {
+  from {
+    background-position: 66.6666666667% center;
+  }
+  to {
+    background-position: 133.3333333333% center;
+  }
 }
 .home .creature#krill {
-  width: 7vh;
+  width: var(--krill-size);
+  aspect-ratio: var(--krill-ratio);
+  background-color: transparent;
+}
+.home .creature#krill .sprite_krill {
+  width: 100%;
+  height: 100%;
+  background: url("../assets/krill_1.svg") 0 center no-repeat;
+  background-size: 200% 100%;
+}
+.home .creature#krill .sprite_krill.krill_swim {
+  background-position: 0% center;
+}
+.home .creature#krill .sprite_krill.krill_front {
+  background-position: 100% center;
 }
 
 .sim {

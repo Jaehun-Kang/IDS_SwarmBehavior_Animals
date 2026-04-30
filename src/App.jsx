@@ -1,7 +1,7 @@
 import { useState } from "react";
-import "./App.css";
-import Home from "./Home.jsx";
-import Sim from "./Sim.jsx";
+import "./styles/App.css";
+import Home from "./pages/Home.jsx";
+import Sim from "./pages/Sim.jsx";
 
 function App() {
   const [selectedAnimal, setSelectedAnimal] = useState(null);

@@ -51,7 +51,7 @@
 .home .creature#starling .sprite_starling {
   width: 100%;
   height: 100%;
-  background: url("./assets/starling_1.svg") 0 center no-repeat;
+  background: url("../assets/starling_1.svg") 0 center no-repeat;
   background-size: 400% 100%;
 }
 .home .creature#starling .sprite_starling.starling_fly1 {
@@ -78,7 +78,7 @@
 .home .creature#sardine .sprite_sardine {
   width: 100%;
   height: 100%;
-  background: url("./assets/sardine_1.svg") 0 center no-repeat;
+  background: url("../assets/sardine_1.svg") 0 center no-repeat;
   background-size: 300% 100%;
 }
 .home .creature#sardine .sprite_sardine.sardine_swim1 {

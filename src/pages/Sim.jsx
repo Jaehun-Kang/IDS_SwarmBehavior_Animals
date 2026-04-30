@@ -15,7 +15,7 @@ const animalNames = {
 };
 
 // 동적으로 모든 Swarm 모듈 로드
-const swarmModuleFiles = import.meta.glob("./behaviors/swarm/[0-9]*_*.jsx", {
+const swarmModuleFiles = import.meta.glob("../behaviors/swarm/[0-9]*_*.jsx", {
   eager: false,
 });
 

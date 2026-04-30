@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_레이어_2" data-name="레이어 2" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 450 50">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #34454f;
+      }
+
+      .cls-2 {
+        fill: #fff;
+      }
+
+      .cls-3, .cls-4 {
+        fill: none;
+      }
+
+      .cls-5 {
+        fill: #e7f0f7;
+      }
+
+      .cls-6 {
+        fill: url(#_무제_그라디언트_20-2);
+      }
+
+      .cls-4 {
+        stroke: #34454f;
+        stroke-miterlimit: 10;
+      }
+
+      .cls-7 {
+        fill: url(#_무제_그라디언트_20);
+      }
+    </style>
+    <linearGradient id="_무제_그라디언트_20" data-name="무제 그라디언트 20" x1="67.5" y1="25" x2="67.5" y2="5" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e7f0f7"/>
+      <stop offset=".07" stop-color="#c1ccd3"/>
+      <stop offset=".16" stop-color="#9ca8b0"/>
+      <stop offset=".25" stop-color="#7b8992"/>
+      <stop offset=".36" stop-color="#617079"/>
+      <stop offset=".47" stop-color="#4d5d66"/>
+      <stop offset=".59" stop-color="#3e4f59"/>
+      <stop offset=".75" stop-color="#364751"/>
+      <stop offset="1" stop-color="#34454f"/>
+    </linearGradient>
+    <linearGradient id="_무제_그라디언트_20-2" data-name="무제 그라디언트 20" x1="225" y1="24.11" x2="225" xlink:href="#_무제_그라디언트_20"/>
+  </defs>
+  <g id="_레이어_1-2" data-name="레이어 1">
+    <g>
+      <path class="cls-7" d="M100,25H35L15,5h105c0,11.05-8.95,20-20,20Z"/>
+      <path class="cls-5" d="M140,25l-20,20H15l20-20h65c.34,0,.69-.01,1.03-.03.71-.03,1.41-.11,2.1-.22.15-.02.29-.04.42-.07.14-.02.28-.05.42-.08.24-.05.48-.1.71-.16.24-.05.47-.11.7-.18.68-.18,1.34-.4,1.99-.67.17-.06.33-.13.49-.2.33-.13.66-.28.98-.45.25-.12.5-.25.75-.39.27-.15.53-.29.78-.45.54-.32,1.07-.68,1.59-1.07.25-.19.51-.39.76-.6.25-.2.49-.41.73-.63.23-.21.46-.43.69-.66.23-.23.45-.46.66-.69.86-.95,1.63-1.98,2.3-3.08.17-.28.33-.56.48-.84.36-.65.67-1.31.95-2,.19-.47.36-.94.51-1.42.02-.04.04-.09.04-.13.07-.2.13-.38.18-.58.08-.3.16-.6.23-.91.09-.41.17-.82.24-1.23.05-.29.1-.59.13-.89.03-.26.06-.52.07-.79.02-.18.03-.37.04-.55.02-.34.03-.69.03-1.03l20,20Z"/>
+      <circle class="cls-2" cx="122.5" cy="25" r="7.5"/>
+      <circle class="cls-1" cx="122.5" cy="25" r="5"/>
+      <polygon class="cls-1" points="35 25 15 45 10 45 30 25 10 5 15 5 35 25"/>
+      <polygon class="cls-1" points="110 40 100 45 90 45 110 40"/>
+      <polygon class="cls-1" points="70 0 65 5 85 5 70 0"/>
+      <circle class="cls-1" cx="97.5" cy="25" r="2.5"/>
+      <circle class="cls-1" cx="90" cy="25" r="2.5"/>
+      <circle class="cls-1" cx="82.5" cy="25" r="2.5"/>
+      <circle class="cls-1" cx="75" cy="25" r="2.5"/>
+      <circle class="cls-1" cx="67.5" cy="25" r="2.5"/>
+      <circle class="cls-1" cx="60" cy="25" r="2.5"/>
+      <circle class="cls-1" cx="52.5" cy="25" r="2.5"/>
+      <rect class="cls-3" width="150" height="50"/>
+    </g>
+    <g>
+      <path class="cls-5" d="M226.5,43l-1.5,2-1.5-2c-8-10.67-8-25.33,0-36l1.5-2,1.5,2c8,10.67,8,25.33,0,36Z"/>
+      <line class="cls-4" x1="225" y1="10" x2="225"/>
+      <path class="cls-6" d="M223.5,11.5c-3.75,3.75-5.74,8.16-5.98,12.61.17-6.03,2.17-12.02,5.98-17.11l1.5-2,1.5,2c3.81,5.09,5.81,11.08,5.98,17.11-.24-4.45-2.23-8.86-5.98-12.61l-1.5-1.5-1.5,1.5Z"/>
+      <polygon class="cls-1" points="228.75 40 233.75 45 238.75 45 228.75 40"/>
+      <polygon class="cls-1" points="221.25 40 216.25 45 211.25 45 221.25 40"/>
+      <ellipse class="cls-2" cx="220" cy="25" rx="1.88" ry="7.5"/>
+      <ellipse class="cls-1" cx="220" cy="25" rx=".94" ry="4.37"/>
+      <rect class="cls-3" x="150" width="150" height="50"/>
+      <ellipse class="cls-2" cx="230" cy="25" rx="1.88" ry="7.5"/>
+      <ellipse class="cls-1" cx="230" cy="25" rx=".94" ry="4.37"/>
+    </g>
+    <g>
+      <path class="cls-1" d="M376.5,43l-1.5,2-1.5-2c-8-10.67-8-25.33,0-36l1.5-2,1.5,2c8,10.67,8,25.33,0,36Z"/>
+      <line class="cls-4" x1="375" y1="10" x2="375"/>
+      <polygon class="cls-1" points="378.75 40 383.75 45 388.75 45 378.75 40"/>
+      <polygon class="cls-1" points="371.25 40 366.25 45 361.25 45 371.25 40"/>
+      <rect class="cls-3" x="300" width="150" height="50"/>
+    </g>
+  </g>
+</svg>

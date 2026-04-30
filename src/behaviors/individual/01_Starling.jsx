@@ -1,7 +1,7 @@
-// 찌르레기 - 빠른 속도, 직선 움직임
+// 찌르레기
 export function initStarling(rect, width, height) {
-  const speed = Math.random() * 2 + 3;
-  const angle = Math.random() * Math.PI * 2;
+  const speed = Math.random() * 2 + 3; // 3~5
+  const angle = Math.random() * Math.PI * 2; // 0~360도
   return {
     x: Math.random() * (rect.width - width),
     y: Math.random() * (rect.height - height),
@@ -10,7 +10,6 @@ export function initStarling(rect, width, height) {
     baseSpeed: speed,
     width,
     height,
-    // pattern: "uniform",
     time: 0,
     rotation: 0,
     flyType: "starling_fly1",
@@ -20,13 +19,11 @@ export function initStarling(rect, width, height) {
 }
 
 export function updateStarling(animal, rect) {
-  // uniform 패턴: 직진 움직임만
-
-  // 진행 방향 벡터(vx, vy)의 각도 계산 (라디안 -> 도 변환)
+  // 진행 방향
   let rotation = (Math.atan2(animal.vy, animal.vx) * 180) / Math.PI;
   let scaleX = 1;
 
-  // x축 음의 방향(왼쪽)으로 가면 x축, y축 반사
+  // 스프라이트 방향 보정
   if (Math.abs(rotation) > 90) {
     scaleX = -1;
     rotation = rotation > 0 ? rotation - 180 : rotation + 180;
@@ -38,7 +35,6 @@ export function updateStarling(animal, rect) {
       animal.flyTypeLock = false;
     }
   } else {
-    
     if (!animal.flyTypeLock) {
       animal.randomType = Math.random();
       animal.flyType =
@@ -65,4 +61,20 @@ export function updateStarling(animal, rect) {
   }
 }
 
-export default { init: initStarling, update: updateStarling };
+export function applySpriteStarling(el, animal) {
+  const sprite = el.querySelector(".sprite_starling");
+  if (!sprite) return;
+
+  const scaleX = animal.scaleX !== undefined ? animal.scaleX : 1;
+  sprite.style.transform = `rotate(${animal.rotation}deg) scaleX(${scaleX})`;
+
+  if (animal.flyType) {
+    sprite.className = "sprite_starling " + animal.flyType;
+  }
+}
+
+export default {
+  init: initStarling,
+  update: updateStarling,
+  applySprite: applySpriteStarling,
+};

@@ -11,17 +11,17 @@
   // --spiny-lobster-size: 12vh;
   // --krill-size: 12vh;
 
-  --starling-size: 10vh;
-  --sardine-size: 8vh;
-  --grasshopper-size: 8vh;
-  --ant-size: 5vh;
-  --bat-size: 12vh;
-  --sheep-size: 20vh;
-  --penguin-size: 16vh;
-  --bee-size: 5vh;
-  --firefly-size: 5vh;
-  --spiny-lobster-size: 16vh;
-  --krill-size: 5vh;
+  --starling-size: 13vh;
+  --sardine-size: 12vh;
+  --grasshopper-size: 10vh;
+  --ant-size: 8vh;
+  --bat-size: 20vh;
+  --sheep-size: 22vh;
+  --penguin-size: 18vh;
+  --bee-size: 9vh;
+  --firefly-size: 9vh;
+  --spiny-lobster-size: 20vh;
+  --krill-size: 11vh;
 
   --starling-ratio: 1;
   --sardine-ratio: 150 / 50;
@@ -243,11 +243,11 @@
 
         &.bat_fly1 {
           // 1-2 프레임 - 측면 비행
-          animation: bat-fly1 200ms steps(2) infinite;
+          animation: bat-fly1 100ms steps(2) infinite;
         }
         &.bat_fly2 {
           // 3-4 프레임 - 윗면 비행
-          animation: bat-fly2 200ms steps(2) infinite;
+          animation: bat-fly2 100ms steps(2) infinite;
         }
         &.bat_fly3 {
           // 3 프레임 - 윗면
@@ -378,16 +378,16 @@
         background-size: 600% 200%; // 6열 x 2행
 
         &.firefly_glow {
-          animation: firefly-glow 150ms steps(2) infinite;
+          animation: firefly-glow 50ms steps(2) infinite;
         }
         &.firefly_dark {
-          animation: firefly-dark 150ms steps(2) infinite;
+          animation: firefly-dark 50ms steps(2) infinite;
         }
         &.firefly_lit_top_fly {
-          animation: firefly-lit-top-fly 150ms steps(2) infinite;
+          animation: firefly-lit-top-fly 50ms steps(2) infinite;
         }
         &.firefly_dark_top_fly {
-          animation: firefly-dark-top-fly 150ms steps(2) infinite;
+          animation: firefly-dark-top-fly 50ms steps(2) infinite;
         }
       }
 

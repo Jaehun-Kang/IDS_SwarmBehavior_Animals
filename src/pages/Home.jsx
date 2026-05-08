@@ -4,7 +4,7 @@ import { useParticleCanvas } from "../hooks/useParticleCanvas";
 import { useAnimals } from "../hooks/useAnimals";
 
 const HOME_ANIMALS = animals.flatMap((animal) =>
-  Array.from({ length: 4 }, (_, index) => ({
+  Array.from({ length: 3 }, (_, index) => ({
     ...animal,
     speciesId: animal.id,
     instanceId: `${animal.id}-${index + 1}`,

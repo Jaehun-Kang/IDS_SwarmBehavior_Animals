@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { behaviorMap, computeCreatureZIndex } from "../behaviors/animalData";
 
-// 홈 종 식별
+// 종 식별
 const getSpeciesId = (el) => el.dataset.speciesId || el.id;
 
 // 종별 그룹 구성
@@ -49,7 +49,7 @@ export function useAnimals(homeRef, fontsLoaded, savedPosition) {
         animal.speciesId = speciesId;
         animal.instanceIndex = Number(el.dataset.instanceIndex || 0);
 
-        // 종별 홈 초기 배치
+        // 종별 초기 배치
         behavior.homeInit({
           animal,
           speciesId,

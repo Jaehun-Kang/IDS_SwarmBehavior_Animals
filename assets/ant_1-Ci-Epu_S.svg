@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_레이어_2" data-name="레이어 2" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 480 70">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: url(#_무제_그라디언트_544-5);
+      }
+
+      .cls-2 {
+        fill: url(#_무제_그라디언트_544-3);
+      }
+
+      .cls-3 {
+        fill: #4f4843;
+      }
+
+      .cls-4 {
+        fill: url(#_무제_그라디언트_544-6);
+      }
+
+      .cls-5 {
+        fill: url(#_무제_그라디언트_544-8);
+      }
+
+      .cls-6 {
+        fill: none;
+      }
+
+      .cls-7 {
+        fill: url(#_무제_그라디언트_544-4);
+      }
+
+      .cls-8 {
+        fill: url(#_무제_그라디언트_544-2);
+      }
+
+      .cls-9 {
+        fill: #edd787;
+      }
+
+      .cls-10 {
+        fill: url(#_무제_그라디언트_544-7);
+      }
+
+      .cls-11 {
+        fill: #d5c179;
+      }
+
+      .cls-12 {
+        fill: url(#_무제_그라디언트_579);
+      }
+
+      .cls-13 {
+        fill: url(#_무제_그라디언트_544);
+      }
+    </style>
+    <linearGradient id="_무제_그라디언트_544" data-name="무제 그라디언트 544" x1="125" y1="40" x2="125" y2="10" gradientTransform="translate(250 50) rotate(-180)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ab7227"/>
+      <stop offset=".03" stop-color="#b48135"/>
+      <stop offset=".1" stop-color="#c69b4e"/>
+      <stop offset=".18" stop-color="#d4b163"/>
+      <stop offset=".27" stop-color="#dfc273"/>
+      <stop offset=".39" stop-color="#e7ce7e"/>
+      <stop offset=".55" stop-color="#ebd585"/>
+      <stop offset="1" stop-color="#edd787"/>
+    </linearGradient>
+    <linearGradient id="_무제_그라디언트_544-2" data-name="무제 그라디언트 544" x1="95" x2="95" y2="15" gradientTransform="translate(190 55) rotate(180)" xlink:href="#_무제_그라디언트_544"/>
+    <linearGradient id="_무제_그라디언트_544-3" data-name="무제 그라디언트 544" x1="35" y1="40" x2="35" y2="0" gradientTransform="translate(70 40) rotate(-180)" xlink:href="#_무제_그라디언트_544"/>
+    <linearGradient id="_무제_그라디언트_544-4" data-name="무제 그라디언트 544" x1="75" y1="40" x2="75" y2="20" gradientTransform="translate(150 60) rotate(180)" xlink:href="#_무제_그라디언트_544"/>
+    <linearGradient id="_무제_그라디언트_579" data-name="무제 그라디언트 579" x1="240" y1="48.28" x2="240" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ab7227"/>
+      <stop offset=".06" stop-color="#b6883d"/>
+      <stop offset=".15" stop-color="#c19d53"/>
+      <stop offset=".24" stop-color="#caad64"/>
+      <stop offset=".36" stop-color="#d0b870"/>
+      <stop offset=".53" stop-color="#d4bf77"/>
+      <stop offset="1" stop-color="#d5c179"/>
+    </linearGradient>
+    <linearGradient id="_무제_그라디언트_544-5" data-name="무제 그라디언트 544" x1="230" y1="40" x2="230" y2="10" gradientTransform="matrix(1,0,0,1,0,0)" xlink:href="#_무제_그라디언트_544"/>
+    <linearGradient id="_무제_그라디언트_544-6" data-name="무제 그라디언트 544" x1="250" y1="40" x2="250" y2="10" gradientTransform="matrix(1,0,0,1,0,0)" xlink:href="#_무제_그라디언트_544"/>
+    <linearGradient id="_무제_그라디언트_544-7" data-name="무제 그라디언트 544" x1="460" y1="25" x2="430" y2="25" gradientTransform="matrix(1,0,0,1,0,0)" xlink:href="#_무제_그라디언트_544"/>
+    <linearGradient id="_무제_그라디언트_544-8" data-name="무제 그라디언트 544" x1="460" y1="45" x2="430" y2="45" gradientTransform="matrix(1,0,0,1,0,0)" xlink:href="#_무제_그라디언트_544"/>
+  </defs>
+  <g id="_레이어_1-2" data-name="레이어 1">
+    <g>
+      <path class="cls-13" d="M115,10h0c13.8,0,25,11.2,25,25h0c0,2.76-2.24,5-5,5h-10c-8.28,0-15-6.72-15-15v-10c0-2.76,2.24-5,5-5Z" transform="translate(250 50) rotate(180)"/>
+      <path class="cls-8" d="M105,15h5c0,13.8-11.2,25-25,25h-5c0-13.8,11.2-25,25-25Z" transform="translate(190 55) rotate(-180)"/>
+      <path class="cls-2" d="M10,0h60c0,22.08-17.92,40-40,40h0C13.44,40,0,26.56,0,10H0C0,4.48,4.48,0,10,0Z" transform="translate(70 40) rotate(180)"/>
+      <path class="cls-7" d="M70,20h0c5.52,0,10,4.48,10,10v5c0,2.76-2.24,5-5,5h0c-2.76,0-5-2.24-5-5v-15h0Z" transform="translate(150 60) rotate(-180)"/>
+      <circle class="cls-3" cx="120" cy="20" r="2.5"/>
+      <path class="cls-3" d="M160,65c-12.1,0-22.18-8.59-24.5-20-.33-1.62-.5-3.29-.5-5v-2.5c0-1.38,1.12-2.5,2.5-2.5h0c1.38,0,2.5,1.12,2.5,2.5v7.5c0,11.05,8.95,20,20,20Z"/>
+      <rect class="cls-6" y="0" width="160" height="70"/>
+    </g>
+    <g>
+      <path class="cls-12" d="M260,20c0,13.06-8.34,24.17-20,28.28-11.66-4.11-20-15.22-20-28.28,0-5.52,2.24-10.52,5.86-14.14s8.62-5.86,14.14-5.86,10.52,2.24,14.14,5.86,5.86,8.62,5.86,14.14Z"/>
+      <path class="cls-1" d="M235,10h0c2.76,0,5,2.24,5,5v25h-10c-5.52,0-10-4.48-10-10v-5c0-8.28,6.72-15,15-15Z"/>
+      <path class="cls-4" d="M245,10h0c8.28,0,15,6.72,15,15v5c0,5.52-4.48,10-10,10h-10V15c0-2.76,2.24-5,5-5Z"/>
+      <path class="cls-3" d="M220,45v5c0,8,6.28,14.55,14.18,14.98-10.78-.43-19.36-9.39-19.18-20.33.09-5.39,4.61-9.65,10-9.65h10s0,0,0,0c0,2.76-2.24,5-5,5h-5c-2.76,0-5,2.24-5,5Z"/>
+      <path class="cls-3" d="M265,44.65c.19,10.94-8.39,19.89-19.18,20.33,7.9-.43,14.18-6.98,14.18-14.98v-5c0-2.76-2.24-5-5-5h-5c-2.76,0-5-2.24-5-5h0s10,0,10,0c5.39,0,9.91,4.27,10,9.65Z"/>
+      <circle class="cls-3" cx="255" cy="20" r="2.5"/>
+      <circle class="cls-3" cx="225" cy="20" r="2.5"/>
+      <rect class="cls-6" x="160" width="160" height="70"/>
+    </g>
+    <g>
+      <rect class="cls-11" x="430" y="30" width="5" height="10"/>
+      <path class="cls-9" d="M390,35h0c0,8.28-6.72,15-15,15h-30s-16.7,0-25-15c8.3-15,25-15,25-15h30c8.28,0,15,6.72,15,15Z"/>
+      <rect class="cls-9" x="390" y="30" width="10" height="10" rx="5" ry="5"/>
+      <path class="cls-9" d="M410,25h15c2.76,0,5,2.24,5,5v10c0,2.76-2.24,5-5,5h-15c-5.52,0-10-4.48-10-10h0c0-5.52,4.48-10,10-10Z"/>
+      <path class="cls-10" d="M440,15h10c5.52,0,10,4.48,10,10v10h-25c-2.76,0-5-2.24-5-5v-5c0-5.52,4.48-10,10-10Z"/>
+      <path class="cls-5" d="M435,35h25v10c0,5.52-4.48,10-10,10h-10c-5.52,0-10-4.48-10-10v-5c0-2.76,2.24-5,5-5Z"/>
+      <circle class="cls-3" cx="440" cy="20" r="2.5"/>
+      <circle class="cls-3" cx="440" cy="50" r="2.5"/>
+      <path class="cls-3" d="M480,20h0c0-2.76-2.24-5-5-5h-10c-2.76,0-5,2.24-5,5v5h0c-2.76,0-5-2.24-5-5h0c0-5.52,4.48-10,10-10h5c5.52,0,10,4.48,10,10h0Z"/>
+      <path class="cls-3" d="M480,50h0c0,2.76-2.24,5-5,5h-10c-2.76,0-5-2.24-5-5v-5h0c-2.76,0-5,2.24-5,5h0c0,5.52,4.48,10,10,10h5c5.52,0,10-4.48,10-10h0Z"/>
+      <rect class="cls-6" x="320" width="160" height="70"/>
+    </g>
+  </g>
+</svg>

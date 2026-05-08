@@ -24,24 +24,25 @@ const ANIMAL_KOREAN_NAMES = {
   krill: "크릴",
 };
 
-// z-index
-export const computeZIndicesFromCSS = (ids) => {
-  const style = getComputedStyle(document.documentElement);
-  const sizes = ids.map((id) => {
-    const cssId = id.replace(/_/g, "-");
-    const val = style.getPropertyValue(`--${cssId}-size`).trim();
-    return { id, size: parseFloat(val) || 0 };
-  });
-  sizes.sort((a, b) => b.size - a.size);
-  const result = {};
-  let z = 1;
-  let prevSize = null;
-  sizes.forEach(({ id, size }) => {
-    if (prevSize !== null && size < prevSize) z++;
-    result[id] = z;
-    prevSize = size;
-  });
-  return result;
+const Z_INDEX_GROUPS = {
+  starling: 3,
+  bat: 3,
+  bee: 3,
+  firefly: 3,
+  sardine: 2,
+  krill: 2,
+  grasshopper: 1,
+  ant: 1,
+  sheep: 1,
+  penguin: 1,
+  spiny_lobster: 1,
+};
+
+const Z_INDEX_BAND_SIZE = 10000;
+
+export const computeCreatureZIndex = (speciesId, y) => {
+  const group = Z_INDEX_GROUPS[speciesId] || 0;
+  return group * Z_INDEX_BAND_SIZE + Math.round(y);
 };
 
 const generateAnimalsData = () => {

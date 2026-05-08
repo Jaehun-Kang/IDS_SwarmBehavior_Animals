@@ -93,35 +93,55 @@ export class Effect {
     window.addEventListener("mousemove", this.mouseListener);
   }
 
-  wrapText(text, offsetY = 0) {
+  wrapText(text, offsetY = 0, _retries = 20) {
     if (!this.context) {
       return;
     }
 
-    this.context.fillStyle = "oklch(0.4777 0.0208 81.25)";
-    this.context.font = `bold ${this.fontSize}px Playfair`;
-    this.context.textAlign = "center";
-    this.context.textBaseline = "middle";
+    const fontStr = `bold ${this.fontSize}px Playfair`;
 
-    const y = this.textY + offsetY;
-    this.context.fillText(text, this.textX, y);
-    this.convertToParticles();
+    // 소형 테스트 캔버스로 폰트 래스터화 여부 확인
+    const test = document.createElement("canvas");
+    test.width = 60;
+    test.height = 60;
+    const testCtx = test.getContext("2d");
+    testCtx.font = fontStr;
+    testCtx.fillStyle = "#000";
+    testCtx.fillText("S", 5, 45);
+    const testData = testCtx.getImageData(0, 0, 60, 60).data;
+    const fontReady = testData.some((v, i) => i % 4 === 3 && v > 0);
+
+    // 폰트 미준비 시 재시도
+    if (!fontReady) {
+      if (_retries > 0) {
+        requestAnimationFrame(() => this.wrapText(text, offsetY, _retries - 1));
+      }
+      return;
+    }
+
+    // 오프스크린 캔버스에서 텍스트 픽셀 추출
+    const offscreen = document.createElement("canvas");
+    offscreen.width = this.canvasWidth;
+    offscreen.height = this.canvasHeight;
+    const offCtx = offscreen.getContext("2d");
+
+    offCtx.fillStyle = "oklch(0.4777 0.0208 81.25)";
+    offCtx.font = fontStr;
+    offCtx.textAlign = "center";
+    offCtx.textBaseline = "middle";
+    offCtx.fillText(text, this.textX, this.textY + offsetY);
+
+    this.convertToParticles(offCtx);
   }
 
-  convertToParticles() {
-    if (!this.context) {
+  convertToParticles(sourceCtx) {
+    const ctx = sourceCtx || this.context;
+    if (!ctx) {
       return;
     }
 
-    const pixels = this.context.getImageData(
-      0,
-      0,
-      this.canvasWidth,
-      this.canvasHeight,
-    );
+    const pixels = ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
     const data = pixels.data;
-
-    this.context.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
 
     for (let y = 0; y < this.canvasHeight; y += this.gap) {
       for (let x = 0; x < this.canvasWidth; x += this.gap) {

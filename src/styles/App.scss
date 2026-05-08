@@ -1,11 +1,23 @@
 :root {
+  // --starling-size: 12vh;
+  // --sardine-size: 12vh;
+  // --grasshopper-size: 12vh;
+  // --ant-size: 12vh;
+  // --bat-size: 12vh;
+  // --sheep-size: 12vh;
+  // --penguin-size: 12vh;
+  // --bee-size: 12vh;
+  // --firefly-size: 12vh;
+  // --spiny-lobster-size: 12vh;
+  // --krill-size: 12vh;
+
   --starling-size: 10vh;
   --sardine-size: 8vh;
   --grasshopper-size: 8vh;
   --ant-size: 5vh;
   --bat-size: 12vh;
   --sheep-size: 20vh;
-  --penguin-size: 7vh;
+  --penguin-size: 16vh;
   --bee-size: 5vh;
   --firefly-size: 5vh;
   --spiny-lobster-size: 16vh;
@@ -15,11 +27,11 @@
   --sardine-ratio: 150 / 50;
   --grasshopper-ratio: 115 / 110;
   --ant-ratio: 160 / 70;
-  --bat-ratio: 95 / 200;
+  --bat-ratio: 95 / 215;
   --sheep-ratio: 115 / 75;
-  --penguin-ratio: 40 / 85;
+  --penguin-ratio: 45 / 85;
   --bee-ratio: 100 / 150;
-  --firefly-ratio: 120 / 160;
+  --firefly-ratio: 135 / 160;
   --spiny-lobster-ratio: 165 / 180;
   --krill-ratio: 145 / 75;
 }
@@ -49,6 +61,7 @@
     pointer-events: none;
     color: oklch(0.4777 0.0208 81.25);
     font-family: "Playfair", serif;
+    font-optical-sizing: auto;
     font-size: 7rem;
     line-height: 90%;
     padding-top: 25vh;
@@ -75,7 +88,7 @@
       pointer-events: none;
     }
 
-    &#starling {
+    &[data-species-id="starling"] {
       width: var(--starling-size);
       aspect-ratio: var(--starling-ratio);
       background-color: transparent;
@@ -84,7 +97,7 @@
         width: 100%;
         height: 100%;
         background: url("../assets/starling_1.svg") 0 center no-repeat;
-        background-size: 400% 100%; // 총 4프레임
+        background-size: 600% 100%; // 총 6프레임
 
         &.starling_fly1 {
           // 1,2 프레임
@@ -92,11 +105,19 @@
         }
         &.starling_fly2 {
           // 3 프레임
-          background-position: calc(2 * 100% / 3) 0%;
+          background-position: calc(2 * 100% / 5) 0%;
         }
         &.starling_fly3 {
           // 4 프레임
-          background-position: 100% 0%;
+          background-position: calc(3 * 100% / 5) 0%;
+        }
+        &.starling_fly4 {
+          // 5,6 프레임
+          animation: starling-fly4 100ms steps(2) infinite;
+        }
+        &.starling_fly5 {
+          // 5 프레임
+          background-position: calc(4 * 100% / 5) 0%;
         }
       }
 
@@ -105,12 +126,20 @@
           background-position: 0%;
         }
         to {
-          background-position: calc(2 * 100% / 3) 0%;
+          background-position: calc(2 * 100% / 5) 0%;
+        }
+      }
+      @keyframes starling-fly4 {
+        from {
+          background-position: calc(4 * 100% / 5) 0%;
+        }
+        to {
+          background-position: calc(6 * 100% / 5) 0%;
         }
       }
     }
 
-    &#sardine {
+    &[data-species-id="sardine"] {
       width: var(--sardine-size);
       aspect-ratio: var(--sardine-ratio);
       background-color: transparent;
@@ -136,7 +165,7 @@
       }
     }
 
-    &#grasshopper {
+    &[data-species-id="grasshopper"] {
       width: var(--grasshopper-size);
       aspect-ratio: var(--grasshopper-ratio);
       background-color: transparent;
@@ -175,7 +204,7 @@
       }
     }
 
-    &#ant {
+    &[data-species-id="ant"] {
       width: var(--ant-size);
       aspect-ratio: var(--ant-ratio);
       background-color: transparent;
@@ -201,7 +230,7 @@
       }
     }
 
-    &#bat {
+    &[data-species-id="bat"] {
       height: var(--bat-size);
       aspect-ratio: var(--bat-ratio);
       background-color: transparent;
@@ -210,25 +239,42 @@
         width: 100%;
         height: 100%;
         background: url("../assets/bat_1.svg") 0 center no-repeat;
-        background-size: 200% 100%; // 2프레임
+        background-size: 400% 100%; // 4프레임
 
-        &.bat_fly {
+        &.bat_fly1 {
           // 1-2 프레임 - 측면 비행
-          animation: bat-fly 200ms steps(2) infinite;
+          animation: bat-fly1 200ms steps(2) infinite;
+        }
+        &.bat_fly2 {
+          // 3-4 프레임 - 윗면 비행
+          animation: bat-fly2 200ms steps(2) infinite;
+        }
+        &.bat_fly3 {
+          // 3 프레임 - 윗면
+          background-position: calc(2 * 100% / 3) center;
         }
       }
 
-      @keyframes bat-fly {
+      @keyframes bat-fly1 {
         from {
           background-position: 0% center;
         }
         to {
-          background-position: calc(2 * 100% / 1) center;
+          background-position: calc(2 * 100% / 3) center;
+        }
+      }
+
+      @keyframes bat-fly2 {
+        from {
+          background-position: calc(2 * 100% / 3) center;
+        }
+        to {
+          background-position: calc(4 * 100% / 3) center;
         }
       }
     }
 
-    &#sheep {
+    &[data-species-id="sheep"] {
       width: var(--sheep-size);
       aspect-ratio: var(--sheep-ratio);
       background-color: transparent;
@@ -237,7 +283,7 @@
         width: 100%;
         height: 100%;
         background: url("../assets/sheep_1.svg") 0 center no-repeat;
-        background-size: 200% 100%; // 2프레임
+        background-size: 300% 100%; // 3프레임
 
         &.sheep_walk {
           // 1 프레임 - 측면
@@ -245,13 +291,17 @@
         }
         &.sheep_front {
           // 2 프레임 - 정면
+          background-position: calc(1 * 100% / 2) center;
+        }
+        &.sheep_back {
+          // 3 프레임 - 후면
           background-position: 100% center;
         }
       }
     }
 
-    &#penguin {
-      width: var(--penguin-size);
+    &[data-species-id="penguin"] {
+      height: var(--penguin-size);
       aspect-ratio: var(--penguin-ratio);
       background-color: transparent;
 
@@ -276,7 +326,7 @@
       }
     }
 
-    &#bee {
+    &[data-species-id="bee"] {
       width: var(--bee-size);
       aspect-ratio: var(--bee-ratio);
       background-color: transparent;
@@ -289,11 +339,11 @@
 
         &.bee_fly {
           // 5-6 프레임 - 측면 비행
-          animation: bee-fly 150ms steps(2) infinite;
+          animation: bee-fly 50ms steps(2) infinite;
         }
         &.bee_top_fly {
           // 2-3 프레임 - 윗면 비행
-          animation: bee-top-fly 150ms steps(2) infinite;
+          animation: bee-top-fly 50ms steps(2) infinite;
         }
       }
 
@@ -316,7 +366,7 @@
       }
     }
 
-    &#firefly {
+    &[data-species-id="firefly"] {
       width: var(--firefly-size);
       aspect-ratio: var(--firefly-ratio);
       background-color: transparent;
@@ -375,7 +425,7 @@
       }
     }
 
-    &#spiny_lobster {
+    &[data-species-id="spiny_lobster"] {
       width: var(--spiny-lobster-size);
       aspect-ratio: var(--spiny-lobster-ratio);
       background-color: transparent;
@@ -414,7 +464,7 @@
       }
     }
 
-    &#krill {
+    &[data-species-id="krill"] {
       width: var(--krill-size);
       aspect-ratio: var(--krill-ratio);
       background-color: transparent;

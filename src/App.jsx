@@ -8,7 +8,8 @@ function App() {
   const [savedPosition, setSavedPosition] = useState(null);
 
   function onAnimalClick(e) {
-    const animalId = e.currentTarget.id;
+    const animalId = e.currentTarget.dataset.speciesId || e.currentTarget.id;
+    const instanceId = e.currentTarget.id;
     const el = e.currentTarget;
 
     // 현재 위치 저장
@@ -17,7 +18,7 @@ function App() {
       y: parseFloat(el.style.top) || 0,
     };
 
-    setSavedPosition({ animalId, position });
+    setSavedPosition({ animalId, instanceId, position });
     setSelectedAnimal(animalId);
   }
 

@@ -1,0 +1,10 @@
+- If both a .scss file and a .css file with the same name exist, only modify the .scss file.
+- Do not rename existing variables, functions, classes, or file names.
+- Prefer editing existing code over rewriting entire files.
+- Preserve the current project structure and naming conventions.
+- Prioritize visual consistency over aggressive optimization.
+- Avoid creating new files unless necessary.
+- Do not remove existing comments.
+- Reuse existing utilities and helper functions when possible.
+- Avoid changing import paths unless required.
+- Do not introduce new dependencies without permission.

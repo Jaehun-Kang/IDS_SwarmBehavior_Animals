@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { animals } from "../behaviors/animalData";
+import { getAnimalDetails } from "../behaviors/animalDetails";
 import { useParticleCanvas } from "../hooks/useParticleCanvas";
 import { useAnimals } from "../hooks/useAnimals";
+import "../styles/Home.css";
 
 const HOME_ANIMALS = animals.flatMap((animal) =>
-  Array.from({ length: 3 }, (_, index) => ({
+  Array.from({ length: 10 }, (_, index) => ({
     ...animal,
     speciesId: animal.id,
     instanceId: `${animal.id}-${index + 1}`,
@@ -34,6 +36,11 @@ function renderSprite(speciesId) {
 function Home(props) {
   const homeRef = useRef(null);
   const [fontsLoaded, setFontsLoaded] = useState(false);
+  const [particleTextState, setParticleTextState] = useState({
+    speciesId: null,
+    lineCount: 2,
+    isSettled: false,
+  });
 
   // 폰트 로드 대기
   useEffect(() => {
@@ -54,12 +61,16 @@ function Home(props) {
     return () => clearTimeout(initialDelay);
   }, []);
 
-  useParticleCanvas(homeRef, fontsLoaded);
   const { animalsLoaded, hoveredIdRef } = useAnimals(
     homeRef,
     fontsLoaded,
     props.savedPosition,
   );
+  useParticleCanvas(homeRef, fontsLoaded, hoveredIdRef, setParticleTextState);
+
+  const subtitle = particleTextState.speciesId
+    ? getAnimalDetails(particleTextState.speciesId)?.korean || ""
+    : "";
 
   return (
     <div className="home" ref={homeRef}>
@@ -72,13 +83,20 @@ function Home(props) {
             transform: "translate(-50%, -50%)",
             textAlign: "center",
             zIndex: 1000,
-            color: "oklch(0.4777 0.0208 81.25)",
+            color: "var(--theme-text-strong)",
             fontSize: "1.5rem",
           }}
         >
           <p>로딩 중...</p>
         </div>
       )}
+
+      <div
+        className={`home-particle-subtitle${particleTextState.lineCount > 1 ? " is-wrapped-title" : ""}${particleTextState.isSettled && subtitle ? " is-visible" : ""}`}
+        aria-hidden={!particleTextState.isSettled || !subtitle}
+      >
+        {subtitle}
+      </div>
 
       {HOME_ANIMALS.map((animal) => (
         <div

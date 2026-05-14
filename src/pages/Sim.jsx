@@ -1,17 +1,18 @@
 import React from "react";
+import "../styles/Sim.css";
 
 const animalNames = {
-  starling: "찌르레기",
-  sardine: "정어리",
-  grasshopper: "메뚜기",
-  ant: "개미",
-  bat: "박쥐",
-  sheep: "양",
-  penguin: "펭귄",
-  bee: "꿀벌",
-  firefly: "반딧불이",
-  spiny_lobster: "닭새우",
-  krill: "크릴",
+  starling: "흰점찌르레기",
+  sardine: "태평양정어리",
+  grasshopper: "사막메뚜기",
+  ant: "군대개미",
+  bat: "멕시코자유꼬리박쥐",
+  sheep: "메리노양",
+  penguin: "황제펭귄",
+  bee: "재래꿀벌",
+  firefly: "동기반딧불이",
+  spiny_lobster: "카리브해닭새우",
+  krill: "남극크릴",
 };
 
 // 동적으로 모든 Swarm 모듈 로드
@@ -48,10 +49,15 @@ const generateSwarmModules = () => {
 const swarmModules = generateSwarmModules();
 
 // 캔버스 렌더링 컴포넌트
-function SwarmCanvas({ animalId }) {
+function SwarmCanvas({ animalId, animalLabel, onBackClick, onDetailClick }) {
   const [SwarmComponent, setSwarmComponent] = React.useState(null);
+  const [swarmUi, setSwarmUi] = React.useState(null);
+  const [sanitizeControls, setSanitizeControls] = React.useState(() => null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState(null);
+  const [gpuError, setGpuError] = React.useState("");
+  const [controls, setControls] = React.useState(null);
+  const [isControlPanelOpen, setIsControlPanelOpen] = React.useState(true);
   const [retryCount, setRetryCount] = React.useState(0);
   const containerRef = React.useRef(null);
   const timeoutRef = React.useRef(null);
@@ -78,6 +84,15 @@ function SwarmCanvas({ animalId }) {
         const module = await Promise.race([modulePromise, timeoutPromise]);
 
         setSwarmComponent(() => module.App);
+        setSwarmUi(module.App?.ui ?? null);
+        setSanitizeControls(() => module.App?.sanitizeControlState ?? null);
+        setControls(
+          module.App?.ui?.defaultControlState
+            ? { ...module.App.ui.defaultControlState }
+            : null,
+        );
+        setGpuError("");
+        setIsControlPanelOpen(true);
         setIsLoading(false);
         setRetryCount(0);
       } catch (err) {
@@ -98,6 +113,7 @@ function SwarmCanvas({ animalId }) {
 
   React.useEffect(() => {
     loadSwarmModule();
+    const container = containerRef.current;
 
     return () => {
       if (timeoutRef.current) {
@@ -106,9 +122,12 @@ function SwarmCanvas({ animalId }) {
 
       // 언마운트 시 제거
       setSwarmComponent(null);
+      setSwarmUi(null);
+      setSanitizeControls(null);
+      setControls(null);
+      setGpuError("");
 
       // 모든 캔버스, WebGL 정리
-      const container = containerRef.current;
       if (container) {
         const canvases = container.querySelectorAll("canvas");
         canvases.forEach((canvas) => {
@@ -125,25 +144,10 @@ function SwarmCanvas({ animalId }) {
 
   if (isLoading) {
     return (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: "1.5rem",
-          color: "oklch(0.4777 0.0208 81.25)",
-          backgroundColor: "oklch(0.99 0.01 91)",
-          flexDirection: "column",
-          gap: "1rem",
-        }}
-      >
+      <div className="sim-state sim-state--loading">
         <p>시뮬레이션 로딩 중...</p>
         {retryCount > 0 && (
-          <p style={{ fontSize: "0.9rem", opacity: 0.7 }}>
-            재시도 중... ({retryCount}/2)
-          </p>
+          <p className="sim-state__subtext">재시도 중... ({retryCount}/2)</p>
         )}
       </div>
     );
@@ -151,31 +155,13 @@ function SwarmCanvas({ animalId }) {
 
   if (loadError) {
     return (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "#ff6b6b",
-          backgroundColor: "oklch(0.99 0.01 91)",
-          flexDirection: "column",
-          gap: "1rem",
-          padding: "2rem",
-          textAlign: "center",
-        }}
-      >
-        <div>
-          <p style={{ marginBottom: "1rem", fontSize: "1.2rem" }}>
-            ⚠ 시뮬레이션 로드 실패
-          </p>
-          <p
-            style={{ marginBottom: "0.5rem", fontSize: "0.9rem", opacity: 0.7 }}
-          >
+      <div className="sim-state sim-state--error">
+        <div className="sim-state__content">
+          <p className="sim-state__title">⚠ 시뮬레이션 로드 실패</p>
+          <p className="sim-state__subtext sim-state__subtext--tight">
             {String(loadError?.message || "Unknown error")}
           </p>
-          <p style={{ fontSize: "0.85rem", opacity: 0.6 }}>
+          <p className="sim-state__caption">
             페이지를 새로고침하거나 나중에 다시 시도해주세요.
           </p>
         </div>
@@ -183,44 +169,148 @@ function SwarmCanvas({ animalId }) {
     );
   }
 
+  const resolvedControls = controls
+    ? sanitizeControls
+      ? sanitizeControls(controls)
+      : controls
+    : null;
+
+  const handleControlChange = (key, rawValue) => {
+    const nextValue = Number(rawValue);
+
+    setControls((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const nextControls = {
+        ...current,
+        [key]: nextValue,
+      };
+
+      return sanitizeControls ? sanitizeControls(nextControls) : nextControls;
+    });
+  };
+
+  const handleControlReset = (key) => {
+    if (!swarmUi?.defaultControlState) {
+      return;
+    }
+
+    handleControlChange(key, swarmUi.defaultControlState[key]);
+  };
+
   return (
-    <div ref={containerRef} style={{ width: "100%", height: "100%" }}>
+    <div ref={containerRef} className="sim-canvas">
       {SwarmComponent ? (
-        <SwarmComponent />
+        <SwarmComponent
+          controls={resolvedControls}
+          onGpuErrorChange={setGpuError}
+        />
       ) : (
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "oklch(0.4777 0.0208 81.25)",
-            backgroundColor: "oklch(0.99 0.01 91)",
-          }}
-        >
+        <div className="sim-state sim-state--placeholder">
           <p>컴포넌트 준비 중...</p>
         </div>
       )}
+      <div className="sim-overlay-stack">
+        <button
+          className="sim-overlay-button theme-button"
+          onClick={onBackClick}
+        >
+          ← 뒤로가기
+        </button>
+        <button
+          className="info_btn sim-overlay-button theme-button"
+          onClick={onDetailClick}
+        >
+          📋 정보
+        </button>
+      </div>
+      {gpuError ? (
+        <div className="sim-gpu-error sim-overlay-panel">{gpuError}</div>
+      ) : null}
+      {animalLabel ? (
+        <div className="animal_name theme-panel-title sim-animal-title">
+          {animalLabel}
+        </div>
+      ) : null}
+      {swarmUi?.controlFields && resolvedControls ? (
+        <div
+          className={[
+            "sim-control-panel",
+            "sim-overlay-panel",
+            isControlPanelOpen ? "is-open" : "is-collapsed",
+          ].join(" ")}
+        >
+          <div className="sim-control-panel__header">
+            <div className="theme-panel-title sim-control-panel__title">
+              Simulation Params
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsControlPanelOpen((current) => !current)}
+              className="theme-button theme-button-compact"
+            >
+              {isControlPanelOpen ? "Collapse" : "Expand"}
+            </button>
+          </div>
+          <div
+            className={[
+              "sim-control-panel__body",
+              isControlPanelOpen ? "is-open" : "is-collapsed",
+            ].join(" ")}
+          >
+            {swarmUi.controlFields.map((field) => (
+              <label key={field.key} className="sim-control-field">
+                <div className="sim-control-field__row">
+                  <span>{field.label}</span>
+                  <div className="sim-control-field__value-group">
+                    <span className="sim-control-field__value">
+                      {field.formatValue(resolvedControls[field.key])}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleControlReset(field.key)}
+                      className="theme-button theme-button-compact sim-control-reset"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+                <input
+                  className="sim-control-slider"
+                  type="range"
+                  min={field.min}
+                  max={field.max}
+                  step={field.step}
+                  value={resolvedControls[field.key]}
+                  onChange={(event) =>
+                    handleControlChange(field.key, event.target.value)
+                  }
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
 
 function Sim(props) {
-  const { selectedAnimal, onBackClick } = props;
+  const { selectedAnimal, onBackClick, onDetailClick } = props;
+  const animalLabel = selectedAnimal ? animalNames[selectedAnimal] : "";
 
   return (
     <div className="sim">
-      <button className="back_btn" onClick={onBackClick}>
-        ← 뒤로가기
-      </button>
-
       {selectedAnimal && (
-        <div className="animal_name">{animalNames[selectedAnimal]}</div>
-      )}
-
-      {selectedAnimal && (
-        <SwarmCanvas key={selectedAnimal} animalId={selectedAnimal} />
+        <SwarmCanvas
+          key={selectedAnimal}
+          animalId={selectedAnimal}
+          animalLabel={animalLabel}
+          onBackClick={onBackClick}
+          onDetailClick={onDetailClick}
+        />
       )}
     </div>
   );

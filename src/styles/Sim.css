@@ -1,0 +1,193 @@
+.sim {
+  --sim-left-overlay-width: 320px;
+  --sim-overlay-gap: 14px;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--theme-bg);
+  position: relative;
+}
+.sim .sim-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.sim .sim-overlay-panel {
+  border-radius: 18px;
+  background: var(--theme-panel);
+  box-shadow: var(--theme-shadow);
+  backdrop-filter: blur(18px);
+  color: var(--theme-text);
+  font-family: var(--theme-ui-font);
+}
+.sim .sim-state {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 1rem;
+  background-color: var(--theme-bg);
+}
+.sim .sim-state--loading, .sim .sim-state--placeholder {
+  color: var(--theme-text-strong);
+  font-size: 1.5rem;
+}
+.sim .sim-state--error {
+  padding: 2rem;
+  color: var(--theme-accent-strong);
+  text-align: center;
+}
+.sim .sim-state__content {
+  max-width: 28rem;
+}
+.sim .sim-state__title {
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+.sim .sim-state__subtext {
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+.sim .sim-state__subtext--tight {
+  margin-bottom: 0.5rem;
+}
+.sim .sim-state__caption {
+  font-size: 0.85rem;
+  opacity: 0.6;
+}
+.sim .sim-overlay-stack {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  z-index: 120;
+  width: var(--sim-left-overlay-width);
+  max-width: calc(100vw - 72px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sim-overlay-gap);
+}
+.sim .sim-overlay-button {
+  align-self: flex-start;
+}
+.sim .sim-gpu-error {
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  z-index: 120;
+  max-width: min(420px, 100vw - 48px);
+  padding: 12px 16px;
+  color: var(--theme-accent-strong);
+  border: 1px solid color-mix(in srgb, var(--theme-accent-strong) 26%, white);
+}
+.sim .sim-animal-title {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  z-index: 120;
+  min-width: 180px;
+  max-width: min(420px, 100vw - 440px);
+  font-size: 22px;
+  text-align: center;
+  pointer-events: none;
+  -webkit-user-select: none;
+     -moz-user-select: none;
+          user-select: none;
+  transform: translateX(-50%);
+}
+.sim .sim-control-panel {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  width: 280px;
+  overflow: hidden;
+  transition: padding 240ms ease, box-shadow 240ms ease, background 240ms ease;
+}
+.sim .sim-control-panel.is-open {
+  padding: 14px 16px;
+}
+.sim .sim-control-panel.is-collapsed {
+  padding: 12px 16px;
+}
+.sim .sim-control-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.sim-control-panel.is-collapsed .sim .sim-control-panel__header {
+  margin-bottom: 0;
+}
+.sim .sim-control-panel__title {
+  font-size: 18px;
+}
+.sim .sim-control-panel__body {
+  overflow: hidden;
+  transition: max-height 280ms ease, opacity 180ms ease;
+}
+.sim .sim-control-panel__body.is-open {
+  max-height: 520px;
+  opacity: 1;
+}
+.sim .sim-control-panel__body.is-collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+.sim .sim-control-field {
+  display: block;
+  margin-top: 10px;
+  font-size: 12px;
+}
+.sim .sim-control-field__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.sim .sim-control-field__value-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sim .sim-control-field__value {
+  color: var(--theme-text-soft);
+}
+.sim .sim-control-reset {
+  flex: 0 0 auto;
+}
+.sim .sim-control-slider {
+  width: 100%;
+  accent-color: var(--theme-text-strong);
+}
+.sim .sim-control-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--theme-text-soft) 18%, white);
+}
+.sim .sim-control-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  background: var(--theme-text-strong);
+  box-shadow: 0 2px 8px rgba(37, 33, 27, 0.15);
+}
+.sim .sim-control-slider::-moz-range-track {
+  height: 6px;
+  border: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--theme-text-soft) 18%, white);
+}
+.sim .sim-control-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  background: var(--theme-text-strong);
+  box-shadow: 0 2px 8px rgba(37, 33, 27, 0.15);
+}

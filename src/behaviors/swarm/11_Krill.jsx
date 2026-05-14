@@ -1,6 +1,7 @@
 // 크릴 krill
 import * as React from "react";
 import { P5Canvas } from "@p5-wrapper/react";
+import { getThemeBackgroundHex } from "../../utils/theme";
 
 export function App() {
   const p5InstanceRef = React.useRef(null);
@@ -14,7 +15,7 @@ export function App() {
     };
 
     p5.draw = () => {
-      p5.background(250);
+      p5.background(getThemeBackgroundHex());
       p5.normalMaterial();
       p5.push();
       p5.rotateZ(p5.frameCount * 0.011);

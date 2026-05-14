@@ -1,10 +1,12 @@
 import { useState } from "react";
-import "./styles/App.css";
+import "./styles/App.scss";
 import Home from "./pages/Home.jsx";
 import Sim from "./pages/Sim.jsx";
+import Detail from "./pages/Detail.jsx";
 
 function App() {
   const [selectedAnimal, setSelectedAnimal] = useState(null);
+  const [currentPage, setCurrentPage] = useState("home"); // home | sim | detail
   const [savedPosition, setSavedPosition] = useState(null);
 
   function onAnimalClick(e) {
@@ -20,18 +22,35 @@ function App() {
 
     setSavedPosition({ animalId, instanceId, position });
     setSelectedAnimal(animalId);
+    setCurrentPage("sim");
   }
 
-  function onBackClick() {
-    setSelectedAnimal(null);
+  function onSimBackClick() {
+    setCurrentPage("home");
+  }
+
+  function onSimDetailClick() {
+    setCurrentPage("detail");
+  }
+
+  function onDetailBackClick() {
+    setCurrentPage("sim");
   }
 
   return (
     <div className="app">
-      {selectedAnimal === null ? (
+      {currentPage === "home" && (
         <Home onAnimalClick={onAnimalClick} savedPosition={savedPosition} />
-      ) : (
-        <Sim selectedAnimal={selectedAnimal} onBackClick={onBackClick} />
+      )}
+      {currentPage === "sim" && (
+        <Sim
+          selectedAnimal={selectedAnimal}
+          onBackClick={onSimBackClick}
+          onDetailClick={onSimDetailClick}
+        />
+      )}
+      {currentPage === "detail" && selectedAnimal && (
+        <Detail animalId={selectedAnimal} onBackClick={onDetailBackClick} />
       )}
     </div>
   );

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { computeTextZIndex } from "../behaviors/animalData";
 import { animals } from "../behaviors/animalData";
 import { getAnimalDetails } from "../behaviors/animalDetails";
 import { useParticleCanvas } from "../hooks/useParticleCanvas";
@@ -13,6 +14,8 @@ const HOME_ANIMALS = animals.flatMap((animal) =>
     instanceIndex: index,
   })),
 );
+
+const DEFAULT_SUBTITLE_KEY = "__default__";
 
 function renderSprite(speciesId) {
   if (speciesId === "starling") return <div className="sprite_starling" />;
@@ -35,11 +38,18 @@ function renderSprite(speciesId) {
 
 function Home(props) {
   const homeRef = useRef(null);
+  const particleObstacleBoxRef = useRef(null);
+  const subtitleRef = useRef(null);
   const [fontsLoaded, setFontsLoaded] = useState(false);
+  const [committedSubtitleSpeciesId, setCommittedSubtitleSpeciesId] =
+    useState(null);
+  const [committedTitleBottomY, setCommittedTitleBottomY] = useState(0);
   const [particleTextState, setParticleTextState] = useState({
     speciesId: null,
     lineCount: 2,
     isSettled: false,
+    textZIndex: computeTextZIndex(0),
+    titleBottomY: 0,
   });
 
   // 폰트 로드 대기
@@ -65,12 +75,49 @@ function Home(props) {
     homeRef,
     fontsLoaded,
     props.savedPosition,
+    particleObstacleBoxRef,
   );
-  useParticleCanvas(homeRef, fontsLoaded, hoveredIdRef, setParticleTextState);
+  useParticleCanvas(
+    homeRef,
+    fontsLoaded,
+    hoveredIdRef,
+    setParticleTextState,
+    particleObstacleBoxRef,
+    subtitleRef,
+  );
 
-  const subtitle = particleTextState.speciesId
-    ? getAnimalDetails(particleTextState.speciesId)?.korean || ""
-    : "";
+  useEffect(() => {
+    let frameId;
+
+    if (particleTextState.isSettled) {
+      const nextSpeciesId = particleTextState.speciesId ?? DEFAULT_SUBTITLE_KEY;
+      const nextTitleBottomY = particleTextState.titleBottomY;
+      frameId = requestAnimationFrame(() => {
+        setCommittedSubtitleSpeciesId(nextSpeciesId);
+        setCommittedTitleBottomY(nextTitleBottomY);
+      });
+    }
+
+    return () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+    };
+  }, [
+    particleTextState.isSettled,
+    particleTextState.speciesId,
+    particleTextState.titleBottomY,
+  ]);
+
+  const currentSubtitleKey =
+    particleTextState.speciesId ?? DEFAULT_SUBTITLE_KEY;
+  const subtitleKey = committedSubtitleSpeciesId ?? DEFAULT_SUBTITLE_KEY;
+  const subtitle =
+    subtitleKey === DEFAULT_SUBTITLE_KEY
+      ? "군집행동"
+      : getAnimalDetails(subtitleKey)?.korean || "";
+  const isSubtitleVisible =
+    particleTextState.isSettled && subtitleKey === currentSubtitleKey;
 
   return (
     <div className="home" ref={homeRef}>
@@ -92,8 +139,13 @@ function Home(props) {
       )}
 
       <div
-        className={`home-particle-subtitle${particleTextState.lineCount > 1 ? " is-wrapped-title" : ""}${particleTextState.isSettled && subtitle ? " is-visible" : ""}`}
-        aria-hidden={!particleTextState.isSettled || !subtitle}
+        ref={subtitleRef}
+        className={`home-particle-subtitle${isSubtitleVisible && subtitle ? " is-visible" : ""}`}
+        aria-hidden={!isSubtitleVisible || !subtitle}
+        style={{
+          top: `${committedTitleBottomY + 60}px`,
+          zIndex: particleTextState.textZIndex,
+        }}
       >
         {subtitle}
       </div>

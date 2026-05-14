@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { computeTextZIndex } from "../behaviors/animalData";
 import { getAnimalDetails } from "../behaviors/animalDetails";
 import { Effect } from "../utils/ParticleEffect";
 
@@ -11,6 +12,114 @@ const measureTextWidth = (text, fontSize) => {
 
   context.font = `bold ${fontSize}px Playfair`;
   return context.measureText(text).width;
+};
+
+const measureTextBox = (text, fontSize, centerX, centerY) => {
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return {
+      left: centerX,
+      right: centerX,
+      top: centerY,
+      bottom: centerY,
+    };
+  }
+
+  context.font = `bold ${fontSize}px Playfair`;
+  const metrics = context.measureText(text);
+  const ascent = metrics.actualBoundingBoxAscent || fontSize * 0.72;
+  const descent = metrics.actualBoundingBoxDescent || fontSize * 0.22;
+  const width = metrics.width;
+
+  return {
+    left: centerX - width / 2,
+    right: centerX + width / 2,
+    top: centerY - ascent,
+    bottom: centerY + descent,
+  };
+};
+
+const getLayoutBounds = (lines, centerX, centerY) => {
+  if (!lines.length) {
+    return null;
+  }
+
+  const boxes = lines.map(({ text, offsetY = 0, fontSize }) =>
+    measureTextBox(text, fontSize, centerX, centerY + offsetY),
+  );
+
+  return {
+    left: Math.min(...boxes.map((box) => box.left)),
+    right: Math.max(...boxes.map((box) => box.right)),
+    top: Math.min(...boxes.map((box) => box.top)),
+    bottom: Math.max(...boxes.map((box) => box.bottom)),
+  };
+};
+
+const getParticleBounds = (effect) => {
+  if (!effect?.particles?.length) {
+    return null;
+  }
+
+  const size = (effect.gap || 0) * 0.5;
+  return {
+    left: Math.min(...effect.particles.map((particle) => particle.originX)),
+    right:
+      Math.max(...effect.particles.map((particle) => particle.originX)) + size,
+    top: Math.min(...effect.particles.map((particle) => particle.originY)),
+    bottom:
+      Math.max(...effect.particles.map((particle) => particle.originY)) + size,
+  };
+};
+
+const mergeBounds = (...boxes) => {
+  const validBoxes = boxes.filter(Boolean);
+  if (!validBoxes.length) {
+    return null;
+  }
+
+  return {
+    left: Math.min(...validBoxes.map((box) => box.left)),
+    right: Math.max(...validBoxes.map((box) => box.right)),
+    top: Math.min(...validBoxes.map((box) => box.top)),
+    bottom: Math.max(...validBoxes.map((box) => box.bottom)),
+  };
+};
+
+const getTitleBounds = (effect, layoutBounds) => {
+  return mergeBounds(getParticleBounds(effect), layoutBounds);
+};
+
+const getSubtitleBounds = (homeRef, subtitleRef) => {
+  const homeEl = homeRef?.current;
+  const subtitleEl = subtitleRef?.current;
+  if (!homeEl || !subtitleEl) {
+    return null;
+  }
+
+  const subtitleText = subtitleEl.textContent?.trim();
+  if (!subtitleText) {
+    return null;
+  }
+
+  const styles = window.getComputedStyle(subtitleEl);
+  if (
+    styles.display === "none" ||
+    styles.visibility === "hidden" ||
+    Number.parseFloat(styles.opacity || "0") <= 0.01
+  ) {
+    return null;
+  }
+
+  const homeRect = homeEl.getBoundingClientRect();
+  const subtitleRect = subtitleEl.getBoundingClientRect();
+  return {
+    left: subtitleRect.left - homeRect.left,
+    right: subtitleRect.right - homeRect.left,
+    top: subtitleRect.top - homeRect.top,
+    bottom: subtitleRect.bottom - homeRect.top,
+  };
 };
 
 const getTextLayout = (speciesId, fontSize, canvasWidth) => {
@@ -93,11 +202,38 @@ export function useParticleCanvas(
   fontsLoaded,
   hoveredIdRef,
   onTextStateChange,
+  obstacleBoxRef,
+  subtitleRef,
 ) {
   const canvasRef = useRef(null);
   const effectRef = useRef(null);
   const currentTextKeyRef = useRef(null);
   const currentLineCountRef = useRef(2);
+  const currentObstacleBoxRef = useRef(null);
+  const currentTitleBoundsRef = useRef(null);
+  const subtitleUnlockAtRef = useRef(0);
+
+  const syncTextLayerZIndex = (canvas, obstacleBox, onTextStateChange) => {
+    if (!canvas || !onTextStateChange) {
+      return;
+    }
+
+    const centerY = obstacleBox
+      ? (obstacleBox.top + obstacleBox.bottom) / 2
+      : canvas.height / 2;
+    const zIndex = computeTextZIndex(centerY);
+    canvas.style.zIndex = String(zIndex);
+    onTextStateChange((prevState) => {
+      if (prevState.textZIndex === zIndex) {
+        return prevState;
+      }
+
+      return {
+        ...prevState,
+        textZIndex: zIndex,
+      };
+    });
+  };
 
   useEffect(() => {
     if (!fontsLoaded || !homeRef.current) return;
@@ -124,10 +260,27 @@ export function useParticleCanvas(
 
     const buildInitialTitle = () => {
       if (!effectRef.current) return;
+      const layout = getTextLayout(
+        null,
+        effectRef.current.fontSize,
+        canvas.width,
+      );
       effectRef.current.particles = [];
-      currentLineCountRef.current = 2;
+      currentLineCountRef.current = layout.lineCount;
       effectRef.current.wrapText("Swarm", 0);
       effectRef.current.wrapText("Behavior", effectRef.current.fontSize);
+      currentTitleBoundsRef.current = getTitleBounds(
+        effectRef.current,
+        getLayoutBounds(
+          layout.lines,
+          effectRef.current.textX,
+          effectRef.current.textY,
+        ),
+      );
+      currentObstacleBoxRef.current = mergeBounds(
+        currentTitleBoundsRef.current,
+        getSubtitleBounds(homeRef, subtitleRef),
+      );
     };
 
     const applyText = (speciesId) => {
@@ -138,7 +291,20 @@ export function useParticleCanvas(
         canvas.width,
       );
       currentLineCountRef.current = layout.lineCount;
+      subtitleUnlockAtRef.current = performance.now() + 140;
       effectRef.current.setText(layout.lines);
+      currentTitleBoundsRef.current = getTitleBounds(
+        effectRef.current,
+        getLayoutBounds(
+          layout.lines,
+          effectRef.current.textX,
+          effectRef.current.textY,
+        ),
+      );
+      currentObstacleBoxRef.current = mergeBounds(
+        currentTitleBoundsRef.current,
+        getSubtitleBounds(homeRef, subtitleRef),
+      );
     };
 
     const resizeCanvas = () => {
@@ -175,12 +341,36 @@ export function useParticleCanvas(
         currentTextKeyRef.current = hoveredSpeciesId;
         applyText(hoveredSpeciesId);
       }
+      currentTitleBoundsRef.current = getTitleBounds(
+        effect,
+        currentTitleBoundsRef.current,
+      );
+      currentObstacleBoxRef.current = mergeBounds(
+        currentTitleBoundsRef.current,
+        getSubtitleBounds(homeRef, subtitleRef),
+      );
+      syncTextLayerZIndex(
+        canvas,
+        currentObstacleBoxRef.current,
+        onTextStateChange,
+      );
+      if (obstacleBoxRef) {
+        obstacleBoxRef.current = hoveredSpeciesId
+          ? currentObstacleBoxRef.current
+          : null;
+      }
       if (onTextStateChange) {
-        onTextStateChange({
+        const canShowSubtitle =
+          performance.now() >= subtitleUnlockAtRef.current;
+        onTextStateChange((prevState) => ({
+          ...prevState,
           speciesId: currentTextKeyRef.current,
           lineCount: currentLineCountRef.current,
-          isSettled: effect.isTextReadyForSubtitle(7.5, 0.015),
-        });
+          titleBottomY:
+            currentTitleBoundsRef.current?.bottom ?? prevState.titleBottomY,
+          isSettled:
+            canShowSubtitle && effect.isTextReadyForSubtitle(7.5, 0.015),
+        }));
       }
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       effect.render();
@@ -192,7 +382,19 @@ export function useParticleCanvas(
       cancelAnimationFrame(animationId);
       effect.cleanup();
       effectRef.current = null;
+      currentObstacleBoxRef.current = null;
+      currentTitleBoundsRef.current = null;
+      if (obstacleBoxRef) {
+        obstacleBoxRef.current = null;
+      }
       window.removeEventListener("resize", resizeCanvas);
     };
-  }, [fontsLoaded, homeRef, hoveredIdRef, onTextStateChange]);
+  }, [
+    fontsLoaded,
+    homeRef,
+    hoveredIdRef,
+    onTextStateChange,
+    obstacleBoxRef,
+    subtitleRef,
+  ]);
 }

@@ -57,12 +57,10 @@
 }
 .home .home-particle-subtitle {
   position: absolute;
-  top: 50%;
   left: 50%;
   z-index: 1000001;
   pointer-events: none;
   translate: -50% 0;
-  margin-top: clamp(4.75rem, 11.5vh, 7rem);
   color: color-mix(in srgb, var(--theme-text-strong) 84%, white 16%);
   font-family: var(--theme-ui-font);
   font-size: clamp(0.95rem, 1.4vw, 1.15rem);
@@ -72,9 +70,6 @@
   opacity: 0;
   transform: translate3d(0, 10px, 0);
   transition: opacity 360ms ease, transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.home .home-particle-subtitle.is-wrapped-title {
-  margin-top: clamp(5.75rem, 14vh, 8.25rem);
 }
 .home .home-particle-subtitle.is-visible {
   opacity: 1;
@@ -180,7 +175,7 @@
   background-position: 50% center;
 }
 .home .creature[data-species-id=grasshopper] .sprite_grasshopper.grasshopper_fly {
-  animation: grasshopper-fly 200ms steps(2) infinite;
+  animation: grasshopper-fly 50ms steps(2) infinite;
 }
 @keyframes grasshopper-fly {
   from {
@@ -222,10 +217,10 @@
   background-size: 400% 100%;
 }
 .home .creature[data-species-id=bat] .sprite_bat.bat_fly1 {
-  animation: bat-fly1 200ms steps(2) infinite;
+  animation: bat-fly1 120ms steps(2) infinite;
 }
 .home .creature[data-species-id=bat] .sprite_bat.bat_fly2 {
-  animation: bat-fly2 200ms steps(2) infinite;
+  animation: bat-fly2 120ms steps(2) infinite;
 }
 .home .creature[data-species-id=bat] .sprite_bat.bat_fly3 {
   background-position: 66.6666666667% center;
@@ -298,10 +293,10 @@
   background-size: 600% 100%;
 }
 .home .creature[data-species-id=bee] .sprite_bee.bee_fly {
-  animation: bee-fly 150ms steps(2) infinite;
+  animation: bee-fly 50ms steps(2) infinite;
 }
 .home .creature[data-species-id=bee] .sprite_bee.bee_top_fly {
-  animation: bee-top-fly 150ms steps(2) infinite;
+  animation: bee-top-fly 50ms steps(2) infinite;
 }
 @keyframes bee-fly {
   from {
@@ -331,16 +326,16 @@
   background-size: 600% 200%;
 }
 .home .creature[data-species-id=firefly] .sprite_firefly.firefly_glow {
-  animation: firefly-glow 150ms steps(2) infinite;
+  animation: firefly-glow 35ms steps(2) infinite;
 }
 .home .creature[data-species-id=firefly] .sprite_firefly.firefly_dark {
-  animation: firefly-dark 150ms steps(2) infinite;
+  animation: firefly-dark 35ms steps(2) infinite;
 }
 .home .creature[data-species-id=firefly] .sprite_firefly.firefly_lit_top_fly {
-  animation: firefly-lit-top-fly 150ms steps(2) infinite;
+  animation: firefly-lit-top-fly 70ms steps(2) infinite;
 }
 .home .creature[data-species-id=firefly] .sprite_firefly.firefly_dark_top_fly {
-  animation: firefly-dark-top-fly 150ms steps(2) infinite;
+  animation: firefly-dark-top-fly 70ms steps(2) infinite;
 }
 @keyframes firefly-glow {
   from {

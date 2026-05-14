@@ -38,11 +38,19 @@ const Z_INDEX_GROUPS = {
   spiny_lobster: 1,
 };
 
-const Z_INDEX_BAND_SIZE = 10000;
+const Z_INDEX_Y_OFFSET = 2000;
+const Z_INDEX_GROUP_SLOTS = 10;
+const Z_INDEX_TEXT_SLOT = 9;
 
 export const computeCreatureZIndex = (speciesId, y) => {
   const group = Z_INDEX_GROUPS[speciesId] || 0;
-  return group * Z_INDEX_BAND_SIZE + Math.round(y);
+  const normalizedY = Math.round(y) + Z_INDEX_Y_OFFSET;
+  return normalizedY * Z_INDEX_GROUP_SLOTS + group;
+};
+
+export const computeTextZIndex = (y) => {
+  const normalizedY = Math.round(y) + Z_INDEX_Y_OFFSET;
+  return normalizedY * Z_INDEX_GROUP_SLOTS + Z_INDEX_TEXT_SLOT;
 };
 
 const generateAnimalsData = () => {

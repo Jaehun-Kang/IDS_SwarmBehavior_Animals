@@ -81,6 +81,7 @@ function setNextJumpTarget(animal, minX, maxX, minY, maxY) {
 
   animal.jumpTargetX = Math.max(minX, Math.min(maxX, targetX));
   animal.jumpTargetY = Math.max(minY, Math.min(maxY, targetY));
+  animal.jumpHeight = PARAMS.JUMP_HEIGHT;
 
   animal.jumpDirX = animal.jumpTargetX - animal.jumpStartX;
   animal.jumpDirY = animal.jumpTargetY - animal.jumpStartY;
@@ -129,8 +130,10 @@ export function updateGrasshopper(animal, rect) {
     animal.y = animal.jumpTargetY;
   }
 
-  animal.x = Math.max(minX, Math.min(maxX, animal.x));
-  animal.y = Math.max(minY, Math.min(maxY, animal.y));
+  if (!isJumpAnimating) {
+    animal.x = Math.max(minX, Math.min(maxX, animal.x));
+    animal.y = Math.max(minY, Math.min(maxY, animal.y));
+  }
   animal.vx = 0;
   animal.vy = 0;
 

@@ -102,7 +102,7 @@
     z-index: 120;
     min-width: 180px;
     max-width: min(420px, calc(100vw - 440px));
-    font-size: 22px;
+    font-size: 24px;
     text-align: center;
     pointer-events: none;
     user-select: none;
@@ -165,7 +165,7 @@
   & .sim-control-field {
     display: block;
     margin-top: 10px;
-    font-size: 12px;
+    font-size: 14px;
   }
 
   & .sim-control-field__row {

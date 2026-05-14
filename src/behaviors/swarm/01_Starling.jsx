@@ -724,7 +724,7 @@ const drawBoidsWithWebGL = (gl, renderer, width, height, pixelRatio, boids) => {
     Math.round(width * pixelRatio),
     Math.round(height * pixelRatio),
   );
-  gl.clearColor(250 / 255, 250 / 255, 250 / 255, 1);
+  gl.clearColor(0, 0, 0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT);
   gl.useProgram(renderer.program);
   gl.enable(gl.BLEND);
@@ -1523,7 +1523,7 @@ export function App({ controls, onGpuErrorChange } = {}) {
         width: "100%",
         height: "100%",
         overflow: "hidden",
-        background: "rgb(250, 250, 250)",
+        background: "transparent",
       }}
     >
       <canvas
@@ -1533,20 +1533,6 @@ export function App({ controls, onGpuErrorChange } = {}) {
           width: "100%",
           height: "100%",
           cursor: "crosshair",
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          left: "50%",
-          top: "64%",
-          width: "500px",
-          height: "136px",
-          transform: "translateX(-50%)",
-          borderRadius: "50%",
-          background: "rgba(182, 169, 146, 0.12)",
-          pointerEvents: "none",
-          filter: "blur(1px)",
         }}
       />
     </div>

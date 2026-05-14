@@ -1086,7 +1086,7 @@ const triggerAgitation = (boids, width, height, pointer, now) => {
   });
 };
 
-export function App({ controls, onGpuErrorChange } = {}) {
+export function App({ controls, onGpuErrorChange, isPaused } = {}) {
   const canvasRef = React.useRef(null);
   const pointerRef = React.useRef({
     x: 0,
@@ -1482,7 +1482,9 @@ export function App({ controls, onGpuErrorChange } = {}) {
         boids,
       );
 
-      animationFrame = window.requestAnimationFrame(step);
+      if (!isPaused) {
+        animationFrame = window.requestAnimationFrame(step);
+      }
     };
 
     loadTexture(gl, starlingSpriteSheetUrl)
@@ -1514,7 +1516,7 @@ export function App({ controls, onGpuErrorChange } = {}) {
       destroyRenderer(gl, renderer);
       onGpuErrorChange?.("");
     };
-  }, [onGpuErrorChange, resolvedControls.BOID_COUNT]);
+  }, [onGpuErrorChange, resolvedControls.BOID_COUNT, isPaused]);
 
   return (
     <div

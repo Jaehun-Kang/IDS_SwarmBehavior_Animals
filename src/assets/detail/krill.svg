@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_레이어_1" data-name="레이어 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 110 110">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #380010;
+      }
+
+      .cls-2 {
+        fill: #809cc3;
+      }
+
+      .cls-3 {
+        fill: #fef421;
+      }
+
+      .cls-4 {
+        fill: none;
+      }
+    </style>
+  </defs>
+  <g>
+    <polygon class="cls-2" points="91.03 53.42 56.9 64.8 56.9 49.62 91.03 45.83 91.03 53.42"/>
+    <polygon class="cls-2" points="91.03 49.62 91.03 45.83 110 42.04 91.03 49.62"/>
+    <path class="cls-1" d="M92.93,43.94h0c1.05,0,1.9.85,1.9,1.9h0c0,1.05-.85,1.9-1.9,1.9h0c-1.05,0-1.9-.85-1.9-1.9h0c0-1.05.85-1.9,1.9-1.9Z"/>
+    <rect class="cls-2" x="49.31" y="49.62" width="7.59" height="15.17"/>
+    <polygon class="cls-2" points="49.31 64.8 41.72 61 41.72 49.62 49.31 49.62 49.31 64.8"/>
+    <rect class="cls-2" x="34.14" y="49.62" width="7.59" height="11.38"/>
+    <polygon class="cls-2" points="34.14 61 26.55 57.21 26.55 49.62 34.14 49.62 34.14 61"/>
+    <rect class="cls-2" x="18.97" y="49.62" width="7.59" height="7.59"/>
+    <polygon class="cls-2" points="18.97 57.21 11.38 53.42 11.38 49.62 18.97 49.62 18.97 57.21"/>
+    <polygon class="cls-2" points="11.38 49.62 0 53.42 0 49.62 11.38 49.62 11.38 49.62"/>
+    <path class="cls-3" d="M85.88,51.98l-18.9,6.3c-1.23.41-2.5-.51-2.5-1.8v-3.35c0-.93.67-1.72,1.59-1.87l18.85-3.14c1.21-.2,2.32.74,2.32,1.96h0c0,.86-.55,1.62-1.37,1.89h0Z"/>
+    <polygon class="cls-2" points="18.97 68.59 15.17 53.42 18.97 57.21 18.97 68.59"/>
+    <polygon class="cls-2" points="26.58 72.41 22.76 57.21 26.55 57.21 26.58 72.41"/>
+    <polygon class="cls-2" points="34.17 76.21 30.34 57.21 34.14 61 34.17 76.21"/>
+    <polygon class="cls-2" points="41.75 76.21 37.93 61 41.72 61 41.75 76.21"/>
+    <polygon class="cls-2" points="49.34 80 45.52 61 49.31 64.8 49.34 80"/>
+    <polygon class="cls-2" points="56.93 80 53.1 64.8 56.9 64.8 56.93 80"/>
+  </g>
+  <rect class="cls-4" width="110" height="110"/>
+</svg>

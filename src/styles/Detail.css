@@ -1,10 +1,15 @@
 .detail-container {
+  --detail-content-width: 1200px;
+  --detail-inline-padding: 60px;
+  position: absolute;
+  inset: 0;
+  z-index: 200;
   width: 100%;
   height: 100%;
   background: linear-gradient(180deg, var(--theme-bg) 0%, var(--theme-bg-soft) 100%);
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  overflow: hidden;
   animation-duration: 400ms;
   animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -36,9 +41,20 @@
   }
 }
 .detail-header {
-  padding: 40px 60px;
+  flex-shrink: 0;
+  padding-block: 40px;
   border-bottom: 2px solid var(--theme-border-soft);
   position: relative;
+}
+
+.detail-header-content {
+  width: min(var(--detail-content-width), 100% - var(--detail-inline-padding) * 2);
+  margin: 0 auto;
+  padding-top: 20px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  gap: 32px;
 }
 
 .detail-back-btn {
@@ -48,12 +64,33 @@
 }
 
 .detail-title {
-  text-align: center;
-  padding-top: 20px;
+  text-align: left;
+  align-self: end;
 }
 .detail-title h1 {
   font-size: 48px;
   margin: 0 0 12px 0;
+}
+
+.detail-header-artwork {
+  order: -1;
+  --detail-artwork-size: 148px;
+  width: var(--detail-artwork-size);
+  min-width: 1px;
+  height: var(--detail-artwork-size);
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.detail-header-artwork__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  -o-object-fit: contain;
+     object-fit: contain;
+  filter: drop-shadow(0 0 2px rgba(37, 33, 27, 0.14));
 }
 
 .detail-english {
@@ -72,12 +109,18 @@
   font-family: var(--theme-title-font);
 }
 
-.rules-container {
+.rules-scroll-layer {
   flex: 1;
-  padding: 60px;
-  max-width: 1200px;
-  margin: 0 auto;
+  min-height: 0;
   width: 100%;
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
+}
+
+.rules-container {
+  width: min(var(--detail-content-width), 100% - var(--detail-inline-padding) * 2);
+  padding: 60px 0;
+  margin: 0 auto;
 }
 
 .no-rules {
@@ -171,6 +214,7 @@
 }
 
 .detail-footer {
+  flex-shrink: 0;
   padding: 40px 60px;
   text-align: center;
   border-top: 2px solid var(--theme-border-soft);
@@ -178,8 +222,23 @@
 }
 
 @media (max-width: 768px) {
+  .detail-container {
+    --detail-inline-padding: 24px;
+  }
   .detail-header {
-    padding: 24px;
+    padding: 24px 0;
+  }
+  .detail-header-content {
+    padding-top: 32px;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 20px;
+  }
+  .detail-title {
+    text-align: center;
+  }
+  .detail-header-artwork {
+    --detail-artwork-size: 116px;
   }
   .detail-title h1 {
     font-size: 32px;
@@ -188,7 +247,7 @@
     font-size: 18px;
   }
   .rules-container {
-    padding: 24px;
+    padding: 24px 0;
   }
   .rule-section {
     padding: 24px;

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_레이어_1" data-name="레이어 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 110 110">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #4f4843;
+      }
+
+      .cls-2 {
+        fill: url(#_무제_그라디언트_5-2);
+      }
+
+      .cls-3 {
+        fill: url(#_무제_그라디언트_5);
+      }
+
+      .cls-4 {
+        fill: none;
+      }
+
+      .cls-5 {
+        fill: url(#_무제_그라디언트_5-4);
+      }
+
+      .cls-6 {
+        fill: url(#_무제_그라디언트_5-3);
+      }
+    </style>
+    <linearGradient id="_무제_그라디언트_5" data-name="무제 그라디언트 5" x1="85.94" y1="338.88" x2="85.94" y2="359.5" gradientTransform="translate(0 412.11) scale(1 -1)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ab7227"/>
+      <stop offset=".03" stop-color="#b48135"/>
+      <stop offset=".1" stop-color="#c69b4e"/>
+      <stop offset=".18" stop-color="#d4b163"/>
+      <stop offset=".27" stop-color="#dfc273"/>
+      <stop offset=".39" stop-color="#e7ce7e"/>
+      <stop offset=".55" stop-color="#ebd585"/>
+      <stop offset="1" stop-color="#edd787"/>
+    </linearGradient>
+    <linearGradient id="_무제_그라디언트_5-2" data-name="무제 그라디언트 5" x1="65.31" x2="65.31" y2="356.06" xlink:href="#_무제_그라디언트_5"/>
+    <linearGradient id="_무제_그라디언트_5-3" data-name="무제 그라디언트 5" x1="24.06" x2="24.06" y2="366.38" xlink:href="#_무제_그라디언트_5"/>
+    <linearGradient id="_무제_그라디언트_5-4" data-name="무제 그라디언트 5" x1="51.56" x2="51.56" y2="352.63" xlink:href="#_무제_그라디언트_5"/>
+  </defs>
+  <g>
+    <path class="cls-3" d="M92.81,73.23h0c-9.49,0-17.19-7.7-17.19-17.19h0c0-1.9,1.54-3.44,3.44-3.44h6.88c5.69,0,10.31,4.62,10.31,10.31v6.88c0,1.9-1.54,3.44-3.44,3.44Z"/>
+    <path class="cls-2" d="M58.44,73.23h-3.44c0-9.49,7.7-17.19,17.19-17.19h3.44c0,9.49-7.7,17.19-17.19,17.19Z"/>
+    <path class="cls-6" d="M41.25,73.23H0c0-15.18,12.32-27.5,27.5-27.5h0c11.39,0,20.62,9.24,20.62,20.62h0c0,3.79-3.08,6.88-6.88,6.88Z"/>
+    <path class="cls-5" d="M55,73.23h0c-3.79,0-6.88-3.08-6.88-6.88v-3.44c0-1.9,1.54-3.44,3.44-3.44h0c1.9,0,3.44,1.54,3.44,3.44v10.31h0Z"/>
+    <circle class="cls-1" cx="82.5" cy="59.48" r="1.72"/>
+    <path class="cls-1" d="M110,90.42c-8.32,0-15.25-5.91-16.84-13.75-.23-1.11-.34-2.26-.34-3.44v-1.72c0-.95.77-1.72,1.72-1.72h0c.95,0,1.72.77,1.72,1.72v5.16c0,7.6,6.15,13.75,13.75,13.75Z"/>
+  </g>
+  <rect class="cls-4" width="110" height="110"/>
+</svg>

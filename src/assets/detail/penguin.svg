@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_레이어_1" data-name="레이어 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 110 110">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #f0f0e7;
+      }
+
+      .cls-2 {
+        fill: none;
+      }
+
+      .cls-3 {
+        fill: #e07348;
+      }
+
+      .cls-4 {
+        fill: #202020;
+      }
+
+      .cls-5 {
+        fill: url(#_무제_그라디언트_7);
+      }
+    </style>
+    <linearGradient id="_무제_그라디언트_7" data-name="무제 그라디언트 7" x1="55" y1="392.7" x2="55" y2="399.17" gradientTransform="translate(0 412.11) scale(1 -1)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f0f0e7"/>
+      <stop offset=".5" stop-color="#dad093"/>
+      <stop offset="1" stop-color="#e07348"/>
+    </linearGradient>
+  </defs>
+  <g>
+    <path class="cls-1" d="M48.53,110h0v-38.82h12.94V25.88c0-3.57-2.9-6.47-6.47-6.47h12.94c3.57,0,6.47,2.9,6.47,6.47v58.24c0,14.3-11.58,25.88-25.88,25.88Z"/>
+    <path class="cls-4" d="M61.47,103.53h0c3.57,0,6.47,2.9,6.47,6.47H29.12c3.57,0,6.47-2.9,6.47-6.47h0V19.41h19.41c3.57,0,6.47,2.9,6.47,6.47v51.76h0c-3.57,0-6.47-2.9-6.47-6.47h0v25.88c0,3.57,2.9,6.47,6.47,6.47Z"/>
+    <path class="cls-4" d="M67.94,12.94v6.47h-32.35C35.59,8.7,44.28,0,55,0h25.88c-7.14,0-12.94,5.8-12.94,12.94Z"/>
+    <path class="cls-5" d="M61.47,19.41h-9.71c-1.79,0-3.24-1.45-3.24-3.24h0c0-1.79,1.45-3.24,3.24-3.24h0c1.79,0,3.24,1.45,3.24,3.24h0c0,1.79,1.45,3.24,3.24,3.24h3.24Z"/>
+    <path class="cls-3" d="M61.47,12.94c0-6.47,6.47-12.94,19.41-12.94-6.47,0-19.41,6.47-19.41,12.94Z"/>
+  </g>
+  <rect class="cls-2" width="110" height="110"/>
+</svg>

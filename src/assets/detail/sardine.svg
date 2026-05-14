@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_레이어_1" data-name="레이어 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 110 110">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #34454f;
+      }
+
+      .cls-2 {
+        fill: #fff;
+      }
+
+      .cls-3 {
+        fill: none;
+      }
+
+      .cls-4 {
+        fill: url(#_무제_그라디언트_8);
+      }
+
+      .cls-5 {
+        fill: #e7f0f7;
+      }
+    </style>
+    <linearGradient id="_무제_그라디언트_8" data-name="무제 그라디언트 8" x1="48.2" y1="350.96" x2="48.2" y2="367.88" gradientTransform="translate(0 412.11) scale(1 -1)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e7f0f7"/>
+      <stop offset=".07" stop-color="#c1ccd3"/>
+      <stop offset=".16" stop-color="#9ca8b0"/>
+      <stop offset=".25" stop-color="#7b8992"/>
+      <stop offset=".36" stop-color="#617079"/>
+      <stop offset=".47" stop-color="#4d5d66"/>
+      <stop offset=".59" stop-color="#3e4f59"/>
+      <stop offset=".75" stop-color="#364751"/>
+      <stop offset="1" stop-color="#34454f"/>
+    </linearGradient>
+  </defs>
+  <g>
+    <path class="cls-4" d="M75.7,61.15H20.7L3.77,44.23h88.85c0,9.35-7.57,16.92-16.92,16.92Z"/>
+    <path class="cls-5" d="M109.54,61.15l-16.92,16.92H3.77l16.92-16.92h55c.29,0,.58,0,.87-.03.6-.03,1.19-.09,1.78-.19.13-.02.25-.03.36-.06.12-.02.24-.04.36-.07.2-.04.41-.08.6-.14.2-.04.4-.09.59-.15.58-.15,1.13-.34,1.68-.57.14-.05.28-.11.41-.17.28-.11.56-.24.83-.38.21-.1.42-.21.63-.33.23-.13.45-.25.66-.38.46-.27.91-.58,1.35-.91.21-.16.43-.33.64-.51.21-.17.41-.35.62-.53.19-.18.39-.36.58-.56s.38-.39.56-.58c.73-.8,1.38-1.68,1.95-2.61.14-.24.28-.47.41-.71.3-.55.57-1.11.8-1.69.16-.4.3-.8.43-1.2.02-.03.03-.08.03-.11.06-.17.11-.32.15-.49.07-.25.14-.51.19-.77.08-.35.14-.69.2-1.04.04-.25.08-.5.11-.75.03-.22.05-.44.06-.67.02-.15.03-.31.03-.47.02-.29.03-.58.03-.87,0,0,16.92,16.92,16.92,16.92Z"/>
+    <circle class="cls-2" cx="94.73" cy="61.15" r="6.35"/>
+    <circle class="cls-1" cx="94.73" cy="61.15" r="4.23"/>
+    <polygon class="cls-1" points="20.7 61.15 3.77 78.08 -.46 78.08 16.46 61.15 -.46 44.23 3.77 44.23 20.7 61.15"/>
+    <polygon class="cls-1" points="84.16 73.85 75.7 78.08 67.23 78.08 84.16 73.85"/>
+    <polygon class="cls-1" points="50.31 40 46.08 44.23 63 44.23 50.31 40"/>
+    <circle class="cls-1" cx="73.58" cy="61.15" r="2.12"/>
+    <circle class="cls-1" cx="67.23" cy="61.15" r="2.12"/>
+    <circle class="cls-1" cx="60.89" cy="61.15" r="2.12"/>
+    <circle class="cls-1" cx="54.54" cy="61.15" r="2.12"/>
+    <circle class="cls-1" cx="48.2" cy="61.15" r="2.12"/>
+    <circle class="cls-1" cx="41.85" cy="61.15" r="2.12"/>
+    <circle class="cls-1" cx="35.5" cy="61.15" r="2.12"/>
+  </g>
+  <rect class="cls-3" width="110" height="110"/>
+</svg>

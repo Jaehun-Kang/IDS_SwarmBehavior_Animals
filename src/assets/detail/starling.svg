@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_레이어_1" data-name="레이어 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 110 110">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #d0d9e5;
+      }
+
+      .cls-2 {
+        fill: url(#_무제_그라디언트_10);
+      }
+
+      .cls-3 {
+        fill: none;
+      }
+
+      .cls-4 {
+        fill: url(#Starling_2);
+      }
+
+      .cls-5 {
+        fill: #ffe100;
+      }
+
+      .cls-6 {
+        fill: #1b516c;
+      }
+    </style>
+    <linearGradient id="_무제_그라디언트_10" data-name="무제 그라디언트 10" x1="14.98" y1="341.83" x2="94.98" y2="341.83" gradientTransform="translate(0 412.11) scale(1 -1)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0dac67"/>
+      <stop offset=".5" stop-color="#5c3e64"/>
+      <stop offset="1" stop-color="#1b516c"/>
+    </linearGradient>
+    <pattern id="Starling_2" data-name="Starling 2" x="0" y="0" width="12" height="16" patternTransform="translate(-1405.02 -14674.05) scale(1 -1)" patternUnits="userSpaceOnUse" viewBox="0 0 12 16">
+      <g>
+        <rect class="cls-3" width="12" height="16"/>
+        <g>
+          <rect class="cls-3" width="12" height="16"/>
+          <path class="cls-1" d="M13.95-2c-.15.07-3.93,2-3.95,2.01-.04-.01,3.86,1.93,3.96,1.99l.03-.07L10.5-.17V.18l3.49-2.08-.05-.1h.01Z"/>
+          <path class="cls-1" d="M1.95-2C1.8-1.93-1.98,0-2,.01c-.04-.01,3.86,1.93,3.96,1.99l.03-.07L-1.5-.17V.18L1.99-1.9l-.05-.1h0Z"/>
+          <path class="cls-1" d="M7.95,6c-.15.07-3.93,2-3.95,2.01-.04-.01,3.86,1.93,3.96,1.99l.03-.07-3.49-2.1v.35l3.49-2.08-.05-.1h.01Z"/>
+          <path class="cls-1" d="M13.95,14c-.15.07-3.93,2-3.95,2-.04,0,3.86,1.93,3.96,1.99l.03-.07-3.48-2.09v.35l3.49-2.08-.05-.1h0Z"/>
+          <path class="cls-1" d="M1.95,14c-.15.07-3.93,2-3.95,2-.04,0,3.86,1.93,3.96,1.99l.03-.07-3.48-2.09v.35l3.49-2.08-.05-.1h0Z"/>
+        </g>
+      </g>
+    </pattern>
+  </defs>
+  <g>
+    <path class="cls-1" d="M29.98,50.28C13.41,50.28-.02,63.71-.02,80.28v-30h30Z"/>
+    <path class="cls-5" d="M109.98,50.28c-16.57,0-30,13.43-30,30v-30h30Z"/>
+    <path class="cls-2" d="M94.98,50.28c0,22.09-17.91,40-40,40S14.98,72.37,14.98,50.28h80Z"/>
+    <path class="cls-1" d="M64.98,50.28c-13.88,0-25.14-11.25-25.14-25.14S51.09,0,64.98,0v50.28Z"/>
+    <path class="cls-6" d="M64.98,30.28v20h-30c16.57,0,30-8.95,30-20Z"/>
+    <path class="cls-4" d="M94.98,50.28c0,22.09-17.91,40-40,40S14.98,72.37,14.98,50.28h80Z"/>
+  </g>
+  <rect class="cls-3" width="110" height="110"/>
+</svg>

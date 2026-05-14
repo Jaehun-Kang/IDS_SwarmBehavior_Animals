@@ -49,7 +49,13 @@ const generateSwarmModules = () => {
 const swarmModules = generateSwarmModules();
 
 // 캔버스 렌더링 컴포넌트
-function SwarmCanvas({ animalId, animalLabel, onBackClick, onDetailClick }) {
+function SwarmCanvas({
+  animalId,
+  animalLabel,
+  onBackClick,
+  onDetailClick,
+  isPaused,
+}) {
   const [SwarmComponent, setSwarmComponent] = React.useState(null);
   const [swarmUi, setSwarmUi] = React.useState(null);
   const [sanitizeControls, setSanitizeControls] = React.useState(() => null);
@@ -206,6 +212,7 @@ function SwarmCanvas({ animalId, animalLabel, onBackClick, onDetailClick }) {
         <SwarmComponent
           controls={resolvedControls}
           onGpuErrorChange={setGpuError}
+          isPaused={isPaused}
         />
       ) : (
         <div className="sim-state sim-state--placeholder">
@@ -298,7 +305,7 @@ function SwarmCanvas({ animalId, animalLabel, onBackClick, onDetailClick }) {
 }
 
 function Sim(props) {
-  const { selectedAnimal, onBackClick, onDetailClick } = props;
+  const { selectedAnimal, onBackClick, onDetailClick, isPaused } = props;
   const animalLabel = selectedAnimal ? animalNames[selectedAnimal] : "";
 
   return (
@@ -310,6 +317,7 @@ function Sim(props) {
           animalLabel={animalLabel}
           onBackClick={onBackClick}
           onDetailClick={onDetailClick}
+          isPaused={isPaused}
         />
       )}
     </div>

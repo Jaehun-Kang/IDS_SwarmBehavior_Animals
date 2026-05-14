@@ -4,10 +4,13 @@ import Home from "./pages/Home.jsx";
 import Sim from "./pages/Sim.jsx";
 import Detail from "./pages/Detail.jsx";
 
+const DETAIL_ENTER_DURATION = 400;
+
 function App() {
   const [selectedAnimal, setSelectedAnimal] = useState(null);
   const [currentPage, setCurrentPage] = useState("home"); // home | sim | detail
   const [savedPosition, setSavedPosition] = useState(null);
+  const [isPaused, setIsPaused] = useState(false);
 
   function onAnimalClick(e) {
     const animalId = e.currentTarget.dataset.speciesId || e.currentTarget.id;
@@ -23,6 +26,7 @@ function App() {
     setSavedPosition({ animalId, instanceId, position });
     setSelectedAnimal(animalId);
     setCurrentPage("sim");
+    setIsPaused(false);
   }
 
   function onSimBackClick() {
@@ -34,7 +38,12 @@ function App() {
   }
 
   function onDetailBackClick() {
+    setIsPaused(false);
     setCurrentPage("sim");
+  }
+
+  function onDetailEnterComplete() {
+    setIsPaused(true);
   }
 
   return (
@@ -42,15 +51,21 @@ function App() {
       {currentPage === "home" && (
         <Home onAnimalClick={onAnimalClick} savedPosition={savedPosition} />
       )}
-      {currentPage === "sim" && (
+      {(currentPage === "sim" || currentPage === "detail") && (
         <Sim
           selectedAnimal={selectedAnimal}
           onBackClick={onSimBackClick}
           onDetailClick={onSimDetailClick}
+          isPaused={isPaused}
         />
       )}
       {currentPage === "detail" && selectedAnimal && (
-        <Detail animalId={selectedAnimal} onBackClick={onDetailBackClick} />
+        <Detail
+          animalId={selectedAnimal}
+          enterDuration={DETAIL_ENTER_DURATION}
+          onBackClick={onDetailBackClick}
+          onEnterComplete={onDetailEnterComplete}
+        />
       )}
     </div>
   );

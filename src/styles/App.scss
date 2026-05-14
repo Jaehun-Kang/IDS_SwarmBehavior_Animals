@@ -20,6 +20,18 @@
   --theme-surface-tint: rgb(182 169 146 / 0.12);
   --theme-accent: rgb(255 115 115 / 0.5);
   --theme-accent-strong: rgb(255 107 107);
+
+  --starling-ratio: 1;
+  --sardine-ratio: 150 / 50;
+  --grasshopper-ratio: 115 / 110;
+  --ant-ratio: 160 / 70;
+  --bat-ratio: 95 / 215;
+  --sheep-ratio: 115 / 75;
+  --penguin-ratio: 45 / 85;
+  --bee-ratio: 100 / 150;
+  --firefly-ratio: 135 / 160;
+  --spiny-lobster-ratio: 165 / 180;
+  --krill-ratio: 145 / 75;
 }
 
 .theme-button {
@@ -73,4 +85,9 @@
   letter-spacing: -0.02em;
 }
 
-
+.app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}

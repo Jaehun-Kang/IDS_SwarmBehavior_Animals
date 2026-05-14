@@ -1,0 +1,72 @@
+import{o as e,t}from"./react-DtrESx-C.js";import{n}from"./index-CRBls7Hy.js";import{n as r}from"./theme-CFyS9bgu.js";var i=e(t(),1),a=n(),o=1e3,s=7,c=42,l=.39*c,u=4.2*c,d=7.2*c,f=.076,p=.01,m=30*c,h=4.2*c,g=.24,_=.033,v=64,y=240,b=-340,x=360,S=96,C=6,w=(e,t,n)=>Math.max(t,Math.min(n,e)),T=(e,t,n)=>e+(t-e)*n,E=e=>Math.hypot(e.x,e.y,e.z),D=(e,t={x:1,y:0,z:0})=>{let n=E(e);return n<1e-6?{...t}:{x:e.x/n,y:e.y/n,z:e.z/n}},O=(e,t)=>({x:e.x+t.x,y:e.y+t.y,z:e.z+t.z}),k=(e,t)=>({x:e.x-t.x,y:e.y-t.y,z:e.z-t.z}),A=(e,t)=>({x:e.x*t,y:e.y*t,z:e.z*t}),j=(e,t)=>e.x*t.x+e.y*t.y+e.z*t.z,M=(e,t)=>({x:e.y*t.z-e.z*t.y,y:e.z*t.x-e.x*t.z,z:e.x*t.y-e.y*t.x}),N=(e,t,n)=>{let r=D(e),i=D(t,r),a=w(j(r,i),-1,1),o=Math.acos(a);if(o<1e-5)return i;let s=Math.min(1,n/o);return D({x:T(r.x,i.x,s),y:T(r.y,i.y,s),z:T(r.z,i.z,s)})},P=(e,t)=>e+Math.random()*(t-e),F=(e,t)=>{let n=1-Math.random(),r=Math.random();return e+Math.sqrt(-2*Math.log(n))*Math.cos(2*Math.PI*r)*t},I=(e,t)=>{let n=P(0,Math.PI*2),r=Math.acos(P(-1,1)),i=.3+Math.random()**.45*.7;return{x:e.x+Math.sin(r)*Math.cos(n)*t.x*i,y:e.y+Math.cos(r)*t.y*i,z:e.z+Math.sin(r)*Math.sin(n)*t.z*i}},L=(e,t,n)=>{let r=e.position.x*.9+e.position.z*.28,i=e.position.y+e.position.z*.1,a=.92+(e.position.z+240)/1400;return{x:t*.5+r*a,y:n*.5+i*a,scale:a}},R=(e,t,n)=>{let r=L(e,t,n),i=w((v+y-r.x)/y,0,1),a=w((r.x-(t-v-y))/y,0,1),o=w((v+y-r.y)/y,0,1),s=w((r.y-(n-v-y))/y,0,1),c=w((b-e.position.z)/120,0,1),l=w((e.position.z-x)/120,0,1);return{x:(i-a)*2.15,y:(o-s)*1.7,z:c*1.1-l*1.1,bankBias:(i-a)*.6}},z=(e,t,n,r=v)=>{e.position.z=w(e.position.z,b,x);let i=.92+(e.position.z+240)/1400,a=(r-t*.5)/i,o=(t-r-t*.5)/i,s=(r-n*.5)/i,c=(n-r-n*.5)/i,l=w(e.position.x*.9+e.position.z*.28,a,o),u=w(e.position.y+e.position.z*.1,s,c);e.position.x=(l-e.position.z*.28)/.9,e.position.y=u-e.position.z*.1},B=`
+attribute vec2 aPosition;
+attribute float aSize;
+attribute float aAngle;
+attribute float aBank;
+attribute float aGlow;
+attribute vec4 aColor;
+
+uniform vec2 uResolution;
+uniform float uPixelRatio;
+
+varying vec4 vColor;
+varying float vAngle;
+varying float vBank;
+varying float vGlow;
+
+void main() {
+  vec2 clip = vec2(
+    (aPosition.x / uResolution.x) * 2.0 - 1.0,
+    1.0 - (aPosition.y / uResolution.y) * 2.0
+  );
+
+  gl_Position = vec4(clip, 0.0, 1.0);
+  gl_PointSize = aSize * uPixelRatio;
+  vColor = aColor;
+  vAngle = aAngle;
+  vBank = aBank;
+  vGlow = aGlow;
+}
+`,V=`
+precision mediump float;
+
+varying vec4 vColor;
+varying float vAngle;
+varying float vBank;
+varying float vGlow;
+
+mat2 rotate2d(float angle) {
+  float s = sin(angle);
+  float c = cos(angle);
+  return mat2(c, -s, s, c);
+}
+
+void main() {
+  vec2 uv = gl_PointCoord * 2.0 - 1.0;
+  vec2 rotated = rotate2d(vAngle) * uv;
+  float bankStretch = 1.0 + abs(vBank) * 0.32;
+  float wingShape = abs(rotated.y) + max(0.0, rotated.x + 0.12) * (1.02 + bankStretch * 0.28);
+  float bodyShape = abs(rotated.y) * 1.45 + abs(rotated.x - 0.02) * 0.72;
+  float tailShape = abs(rotated.y) * 1.18 + max(0.0, -rotated.x - 0.18) * 1.85;
+  float beakShape = abs(rotated.y) * 2.2 + abs(rotated.x - 0.48) * 1.4;
+
+  float wings = 1.0 - smoothstep(0.32, 0.42, wingShape);
+  float body = 1.0 - smoothstep(0.22, 0.3, bodyShape);
+  float tail = 1.0 - smoothstep(0.16, 0.22, tailShape);
+  float beak = 1.0 - smoothstep(0.09, 0.13, beakShape);
+  float bird = max(wings * 0.98, max(body, max(tail * 0.8, beak * 0.78)));
+  float edge = smoothstep(0.46, 0.2, abs(rotated.y) + abs(rotated.x) * 0.38);
+  float glow = (1.0 - smoothstep(0.16, 0.82, length(uv))) * vGlow;
+  float alpha = max(bird * vColor.a * edge, glow * 0.42);
+
+  if (alpha < 0.02) {
+    discard;
+  }
+
+  vec3 shadowTone = vec3(0.16, 0.19, 0.24);
+  vec3 glowColor = mix(vColor.rgb, vec3(0.88, 0.43, 0.29), 0.58);
+  vec3 color = mix(shadowTone, vColor.rgb, clamp(bird + 0.12, 0.0, 1.0));
+  color += glowColor * glow * 0.34;
+  gl_FragColor = vec4(color, alpha);
+}
+`,H=(e,t,n)=>{let r=e.createShader(t);return r?(e.shaderSource(r,n),e.compileShader(r),e.getShaderParameter(r,e.COMPILE_STATUS)?r:(e.deleteShader(r),null)):null},U=(e,t,n)=>{let r=H(e,e.VERTEX_SHADER,t),i=H(e,e.FRAGMENT_SHADER,n);if(!r||!i)return r&&e.deleteShader(r),i&&e.deleteShader(i),null;let a=e.createProgram();return a?(e.attachShader(a,r),e.attachShader(a,i),e.linkProgram(a),e.deleteShader(r),e.deleteShader(i),e.getProgramParameter(a,e.LINK_STATUS)?a:(e.deleteProgram(a),null)):(e.deleteShader(r),e.deleteShader(i),null)},W=e=>{let t=U(e,B,V);return t?{program:t,attributes:{position:e.getAttribLocation(t,`aPosition`),size:e.getAttribLocation(t,`aSize`),angle:e.getAttribLocation(t,`aAngle`),bank:e.getAttribLocation(t,`aBank`),glow:e.getAttribLocation(t,`aGlow`),color:e.getAttribLocation(t,`aColor`)},uniforms:{resolution:e.getUniformLocation(t,`uResolution`),pixelRatio:e.getUniformLocation(t,`uPixelRatio`)},buffers:{position:e.createBuffer(),size:e.createBuffer(),angle:e.createBuffer(),bank:e.createBuffer(),glow:e.createBuffer(),color:e.createBuffer()}}:null},G=(e,t,n,r,i)=>{!t||n<0||(e.bindBuffer(e.ARRAY_BUFFER,t),e.bufferData(e.ARRAY_BUFFER,i,e.STREAM_DRAW),e.enableVertexAttribArray(n),e.vertexAttribPointer(n,r,e.FLOAT,!1,0,0))},K=(e,t)=>{t&&(Object.values(t.buffers).forEach(t=>{t&&e.deleteBuffer(t)}),t.program&&e.deleteProgram(t.program))},q=(e,t,n,i,a,o)=>{let s=[...o].sort((e,t)=>e.position.z-t.position.z),c=new Float32Array(s.length*2),l=new Float32Array(s.length),u=new Float32Array(s.length),d=new Float32Array(s.length),f=new Float32Array(s.length),p=new Float32Array(s.length*4);s.forEach((e,t)=>{let r=L(e,n,i),a=e.direction.x*.9+e.direction.z*.28,o=e.direction.y+e.direction.z*.1,s=e.agitation?e.agitation.amplitude*.22:0,m=t*2,h=t*4;c[m]=r.x,c[m+1]=r.y,l[t]=11.5*r.scale+Math.abs(e.bank)*1.5,u[t]=Math.atan2(o,a),d[t]=e.bank,f[t]=s,p[h]=(56+s*208)/255,p[h+1]=(69+s*108)/255,p[h+2]=(89+s*28)/255,p[h+3]=.94}),e.viewport(0,0,Math.round(n*a),Math.round(i*a));let[m,h,g]=r();e.clearColor(m/255,h/255,g/255,1),e.clear(e.COLOR_BUFFER_BIT),e.useProgram(t.program),e.enable(e.BLEND),e.blendFunc(e.SRC_ALPHA,e.ONE_MINUS_SRC_ALPHA),e.uniform2f(t.uniforms.resolution,n,i),e.uniform1f(t.uniforms.pixelRatio,a),G(e,t.buffers.position,t.attributes.position,2,c),G(e,t.buffers.size,t.attributes.size,1,l),G(e,t.buffers.angle,t.attributes.angle,1,u),G(e,t.buffers.bank,t.attributes.bank,1,d),G(e,t.buffers.glow,t.attributes.glow,1,f),G(e,t.buffers.color,t.attributes.color,4,p),e.drawArrays(e.POINTS,0,s.length)},J=e=>({x:Math.floor(e.x/S),y:Math.floor(e.y/S),z:Math.floor(e.z/S)}),Y=(e,t,n)=>`${e}|${t}|${n}`,X=e=>{let t=new Map;return e.forEach((e,n)=>{let r=J(e.position),i=Y(r.x,r.y,r.z),a=t.get(i);if(a){a.push(n);return}t.set(i,[n])}),t},Z=(e,t,n,r)=>{for(let i=t.x-n;i<=t.x+n;i+=1)for(let a=t.y-n;a<=t.y+n;a+=1)for(let o=t.z-n;o<=t.z+n;o+=1){if(n!==0&&Math.max(Math.abs(i-t.x),Math.abs(a-t.y),Math.abs(o-t.z))!==n)continue;let s=e.get(Y(i,a,o));s&&r.push(...s)}},Q=(e,t,n)=>{let r=(t.x-n)*S,i=(t.x+n+1)*S,a=(t.y-n)*S,o=(t.y+n+1)*S,s=(t.z-n)*S,c=(t.z+n+1)*S;return Math.min(e.x-r,i-e.x,e.y-a,o-e.y,e.z-s,c-e.z)},$=(e,t,n,r)=>{let i=J(t.position),a=[];for(let o=0;o<=C;o+=1){Z(r,i,o,a);let c=a.filter(t=>t!==e).map(e=>{let r=n[e],i=k(r.position,t.position);return{boid:e,state:r,offset:i,distance:E(i)}}).sort((e,t)=>e.distance-t.distance);if(!(c.length<s)&&c[s-1].distance<=Q(t.position,i,o))return c.slice(0,s)}return n.map((n,r)=>{if(r===e)return null;let i=k(n.position,t.position);return{boid:r,state:n,offset:i,distance:E(i)}}).filter(Boolean).sort((e,t)=>e.distance-t.distance).slice(0,s)},ee=(e,t,n)=>{let r=I(t,n),i=P(-Math.PI,Math.PI);return{id:e,position:r,direction:D({x:Math.cos(i),y:P(-.08,.08),z:Math.sin(i)}),speed:P(u,d),reactionDelay:w(F(f,p),.05,.11),bank:0,history:[],turnSignal:null,agitation:null,lastWaveTime:-1/0}},te=(e,t)=>{let n=t-e.reactionDelay;for(let t=e.history.length-1;t>=0;--t){let r=e.history[t];if(r.time<=n)return r}return{position:e.position,direction:e.direction,speed:e.speed,agitation:e.agitation,turnSignal:e.turnSignal}},ne=(e,t)=>{let n=D(t);return .45+Math.sqrt(Math.max(0,1-j(n,e)**2))*.9},re=(e,t,n)=>{let r=Math.random()>.5?1:-1,i=Math.random()>.5?1:-1;[...e].sort((e,n)=>{let i=e.position.z*r-Math.abs(e.position.x-t.x)*.2;return n.position.z*r-Math.abs(n.position.x-t.x)*.2-i}).slice(0,6).forEach(e=>{e.turnSignal={sign:i,startedAt:n,strength:1}})},ie=(e,t,n,r,i)=>{[...e].map(e=>{let i=L(e,t,n),a=i.x-r.x,o=i.y-r.y;return{boid:e,score:Math.hypot(a,o)+Math.abs(e.position.z)*.12-Math.abs(e.position.x)*.1}}).sort((e,t)=>e.score-t.score).slice(0,4).forEach(({boid:e},t)=>{e.agitation={amplitude:.95-t*.12,direction:t%2==0?1:-1,startedAt:i,phase:Math.random()*Math.PI*2,hops:0},e.lastWaveTime=i})};function ae(){let e=[`nearest 7 neighbors • closest-1 avoidance • delayed reaction`,`edge-initiated turning • equal-radius steering • agitation wave`,`move the cursor near the swarm edge to trigger an avoidance wave`],t=i.useRef(null),n=i.useRef({x:0,y:0,active:!1,lastTrigger:0}),[r,s]=i.useState(``);return i.useEffect(()=>{let e=t.current;if(!e)return;let r=e.getContext(`webgl`,{alpha:!0,antialias:!0})||e.getContext(`experimental-webgl`,{alpha:!0,antialias:!0});if(!r){s(`WebGL을 사용할 수 없는 환경입니다.`);return}let i=W(r);if(!i){s(`GPU 렌더러 초기화에 실패했습니다.`);return}s(``);let a=0,c=0,u=0,d={x:0,y:0,z:0},f={x:210,y:75,z:420},p=Array.from({length:o},(e,t)=>ee(t,d,f)),v=()=>{let t=window.innerWidth,n=window.innerHeight,i=window.devicePixelRatio||1;e.width=t*i,e.height=n*i,e.style.width=`${t}px`,e.style.height=`${n}px`,r.viewport(0,0,e.width,e.height)},y=e=>{n.current={...n.current,x:e.clientX,y:e.clientY,active:!0}},b=()=>{n.current={...n.current,active:!1}};v();let x=e=>{let t=e*.001,o=w(c?t-c:.016,.008,_);c=t,u||=t+P(3.4,5.6),t>=u&&(re(p,d,t),u=t+P(4.5,7.5)),n.current.active&&t-n.current.lastTrigger>1.2&&Math.min(...p.map(e=>{let t=L(e,window.innerWidth,window.innerHeight);return Math.hypot(t.x-n.current.x,t.y-n.current.y)}))<120&&(ie(p,window.innerWidth,window.innerHeight,n.current,t),n.current={...n.current,lastTrigger:t});let s=p.reduce((e,t)=>O(e,t.position),{x:0,y:0,z:0});d.x=s.x/p.length,d.y=s.y/p.length,d.z=s.z/p.length;let v=p.map(e=>te(e,t)),y=X(v);p.forEach((e,n)=>{let r=$(n,e,v,y),i=r[0];if(i){let n=i.distance/m,r=i.state.agitation;r&&r.startedAt<=t-n&&t-e.lastWaveTime>.12&&(e.agitation={amplitude:r.amplitude*P(.99,.9975),direction:r.direction*-1,startedAt:t,phase:r.phase+Math.PI*.5,hops:r.hops+1},e.lastWaveTime=t)}let a={x:0,y:0,z:0},s={x:0,y:0,z:0},c=0;r.forEach(n=>{let r=ne(e.direction,n.offset);c+=r,a.x+=n.state.direction.x*r,a.y+=n.state.direction.y*r,a.z+=n.state.direction.z*r,s.x+=n.state.position.x*r,s.y+=n.state.position.y*r,s.z+=n.state.position.z*r,n.state.turnSignal&&!e.turnSignal&&n.state.turnSignal.startedAt<=t-n.distance/m&&(e.turnSignal={sign:n.state.turnSignal.sign,startedAt:t,strength:n.state.turnSignal.strength*.997})});let u=c?D(A(a,1/c),e.direction):e.direction,p=D(k(c?A(s,1/c):e.position,e.position),e.direction),_=D({x:e.direction.x*.52+u.x*.28+p.x*.2,y:e.direction.y*.52+u.y*.24+p.y*.16,z:e.direction.z*.52+u.z*.28+p.z*.2});if(i){let t=D(A(i.offset,-1),e.direction),n=w((l*1.3-i.distance)/(l*1.3),0,1);_=D({x:_.x+t.x*n*1.1,y:_.y+t.y*n*.9,z:_.z+t.z*n*1.1})}let b=k(d,e.position),x=E({x:(e.position.x-d.x)/f.x,y:(e.position.y-d.y)/f.y,z:(e.position.z-d.z)/f.z}),S=x<.46?-.22:x>1.04?.36:0,C=D(A(b,S>0?1:-1),e.direction);_=D({x:_.x+C.x*Math.abs(S),y:_.y+C.y*Math.abs(S)*.45,z:_.z+C.z*Math.abs(S)});let j=0;if(e.turnSignal&&t-e.turnSignal.startedAt<1.8){let t=D({x:-e.direction.z,y:0,z:e.direction.x},{x:0,y:0,z:1});j=e.turnSignal.sign*e.turnSignal.strength,_=D({x:_.x+t.x*j*.55,y:_.y,z:_.z+t.z*j*.55})}if(e.agitation&&t-e.agitation.startedAt<1.35){let n=D(M(e.direction,{x:0,y:1,z:0}),{x:1,y:0,z:0}),r=Math.sin((t-e.agitation.startedAt)*24+e.agitation.phase)*e.agitation.amplitude;_=D({x:_.x+n.x*r*.42*e.agitation.direction,y:_.y-Math.abs(r)*.12,z:_.z+n.z*r*.42*e.agitation.direction}),j+=r*.35}let F=R(e,window.innerWidth,window.innerHeight);_=D({x:_.x+F.x,y:_.y+F.y,z:_.z+F.z}),j+=F.bankBias,_.y+=w((d.y-e.position.y)/f.y,-1,1)*.08,_=D(_,e.direction);let I=e.speed/h*o;for(e.direction=N(e.direction,_,I),e.bank=T(e.bank,w(j*.9,-1.1,1.1),.1),e.position=O(e.position,A({x:e.direction.x,y:e.direction.y-Math.abs(e.bank)*.045,z:e.direction.z},e.speed*o)),z(e,window.innerWidth,window.innerHeight),e.history.push({time:t,position:{...e.position},direction:{...e.direction},speed:e.speed,agitation:e.agitation?{...e.agitation}:null,turnSignal:e.turnSignal?{...e.turnSignal}:null});e.history.length>2&&t-e.history[0].time>g;)e.history.shift();e.turnSignal&&t-e.turnSignal.startedAt>=1.8&&(e.turnSignal=null),e.agitation&&t-e.agitation.startedAt>=1.35&&(e.agitation=null)}),q(r,i,window.innerWidth,window.innerHeight,window.devicePixelRatio||1,p),a=window.requestAnimationFrame(x)};return window.addEventListener(`resize`,v),window.addEventListener(`pointermove`,y),window.addEventListener(`pointerleave`,b),a=window.requestAnimationFrame(x),()=>{window.cancelAnimationFrame(a),window.removeEventListener(`resize`,v),window.removeEventListener(`pointermove`,y),window.removeEventListener(`pointerleave`,b),K(r,i)}},[]),(0,a.jsxs)(`div`,{style:{position:`relative`,width:`100%`,height:`100%`,overflow:`hidden`,background:`var(--theme-bg-hex)`},children:[(0,a.jsx)(`canvas`,{ref:t,style:{display:`block`,width:`100%`,height:`100%`,cursor:`crosshair`}}),(0,a.jsx)(`div`,{style:{position:`absolute`,left:`50%`,top:`64%`,width:`500px`,height:`136px`,transform:`translateX(-50%)`,borderRadius:`50%`,background:`var(--theme-surface-tint)`,pointerEvents:`none`,filter:`blur(1px)`}}),(0,a.jsxs)(`div`,{style:{position:`absolute`,inset:`0 auto auto 0`,top:`24px`,left:`24px`,padding:`18px 20px`,borderRadius:`18px`,border:`1px solid var(--theme-border)`,background:`var(--theme-panel)`,boxShadow:`var(--theme-shadow)`,backdropFilter:`blur(18px)`,color:`var(--theme-text-muted)`,fontFamily:`Georgia, serif`,pointerEvents:`none`,userSelect:`none`},children:[(0,a.jsx)(`div`,{style:{fontSize:`15px`,fontWeight:600},children:`Bat swarm`}),e.map((e,t)=>(0,a.jsx)(`div`,{style:{fontSize:`13px`,marginTop:t===0?`10px`:`4px`},children:e},e)),r?(0,a.jsx)(`div`,{style:{fontSize:`13px`,marginTop:`12px`,color:`var(--theme-accent-strong)`},children:r}):null]})]})}export{ae as App};

@@ -1,0 +1,1 @@
+var e=`#faf8f5`,t=[250,248,245];function n(e){return typeof window>`u`?``:getComputedStyle(document.documentElement).getPropertyValue(e).trim()}function r(){return n(`--theme-bg-hex`)||e}function i(){let e=n(`--theme-bg-rgb`);if(!e)return t;let r=e.split(/\s+/).map(e=>Number(e)).filter(e=>Number.isFinite(e));return r.length===3?r:t}export{i as n,r as t};

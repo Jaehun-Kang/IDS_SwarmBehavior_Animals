@@ -1,5 +1,5 @@
 import { useState } from "react";
-import "./styles/App.scss";
+import "./styles/App.css";
 import Home from "./pages/Home.jsx";
 import Sim from "./pages/Sim.jsx";
 import Detail from "./pages/Detail.jsx";

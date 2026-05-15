@@ -1,6 +1,6 @@
 import React from "react";
 import { getAnimalDetails } from "../behaviors/animalDetails";
-import "../styles/Detail.scss";
+import "../styles/Detail.css";
 
 const headerArtworkModules = import.meta.glob("../assets/detail/*.svg", {
   eager: true,

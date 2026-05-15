@@ -1028,7 +1028,8 @@ const updateSpriteBranch = (boid) => {
 
   if (!boid.spriteBranchLock) {
     boid.spriteVariant = Math.random();
-    boid.spriteBranch = boid.spriteVariant > 0.5 ? "starling_fly2" : "starling_fly3";
+    boid.spriteBranch =
+      boid.spriteVariant > 0.5 ? "starling_fly2" : "starling_fly3";
     boid.spriteBranchLock = true;
   }
 };

@@ -1,6 +1,7 @@
 .detail-container {
   --detail-content-width: 1200px;
   --detail-inline-padding: 60px;
+  --detail-toc-top: 32px;
   position: absolute;
   inset: 0;
   z-index: 200;
@@ -109,7 +110,48 @@
   font-family: var(--theme-title-font);
 }
 
+.detail-toc {
+  position: absolute;
+  top: var(--detail-toc-top);
+  right: 24px;
+  z-index: 220;
+  width: min(220px, 100vw - 48px);
+  background: transparent;
+}
+
+.detail-toc__list {
+  margin: 40px 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-toc__item {
+  margin: 0;
+}
+
+.detail-toc__button {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--theme-text);
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: right;
+  font-family: var(--theme-title-font);
+  cursor: pointer;
+  transition: color 180ms ease, transform 180ms ease;
+}
+.detail-toc__button:hover {
+  color: var(--theme-text);
+  transform: translateX(-4px);
+}
+
 .rules-scroll-layer {
+  position: relative;
   flex: 1;
   min-height: 0;
   width: 100%;
@@ -131,7 +173,7 @@
 }
 
 .rule-section {
-  margin-bottom: 80px;
+  margin-bottom: 60px;
   padding: 40px;
   background: rgba(255, 255, 255, 0.5);
   border-radius: 12px;
@@ -144,8 +186,6 @@
 
 .rule-header {
   margin-bottom: 32px;
-  border-bottom: 2px solid rgba(46, 43, 38, 0.1);
-  padding-bottom: 20px;
 }
 
 .rule-category {
@@ -164,31 +204,52 @@
   letter-spacing: 0.5px;
 }
 
+.rule-summary {
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--theme-text-muted);
+}
+
 .behaviors-list {
+  display: block;
+}
+
+.behaviors-group {
   display: flex;
   flex-direction: column;
   gap: 24px;
 }
 
 .behavior-item {
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.7);
-  border-left: 4px solid rgba(46, 43, 38, 0.15);
-  border-radius: 4px;
-  transition: all 200ms ease;
+  padding: 0 0 12px;
+  border-bottom: 1px solid rgba(46, 43, 38, 0.08);
 }
-.behavior-item:hover {
-  background: rgba(255, 255, 255, 0.95);
-  border-left-color: rgba(46, 43, 38, 0.3);
-  box-shadow: 0 4px 16px rgba(37, 33, 27, 0.08);
+.behavior-item:last-of-type {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.behavior-item:last-of-type .behavior-description {
+  margin-bottom: 0;
+}
+
+.canvas-placeholder + .behavior-item {
+  margin-top: 16px;
 }
 
 .behavior-name {
   font-size: 16px;
   font-weight: 700;
   color: var(--theme-text);
-  margin: 0 0 12px 0;
+  margin: 0 0 8px 0;
   font-family: var(--theme-title-font);
+}
+
+.behavior-footnote {
+  margin-left: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--theme-text-soft);
+  vertical-align: super;
 }
 
 .behavior-description {
@@ -203,14 +264,66 @@
   width: 100%;
   height: 300px;
   background: rgba(46, 43, 38, 0.04);
-  border: 2px dashed rgba(46, 43, 38, 0.1);
-  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: rgba(46, 43, 38, 0.4);
   font-size: 14px;
   font-style: italic;
+}
+
+.detail-bibliography {
+  margin: 24px 0 0;
+  padding: 36px 40px;
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(46, 43, 38, 0.08);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.detail-bibliography__header {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(46, 43, 38, 0.1);
+}
+
+.detail-bibliography__title {
+  margin: 0 0 8px;
+  font-size: 24px;
+  color: var(--theme-text);
+  font-family: var(--theme-title-font);
+}
+
+.detail-bibliography__subtitle {
+  margin: 0;
+  max-width: 72ch;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--theme-text-muted);
+}
+
+.detail-bibliography__list {
+  counter-reset: bibliography-item;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.detail-bibliography__item {
+  counter-increment: bibliography-item;
+  position: relative;
+  padding-left: 34px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--theme-text-muted);
+}
+.detail-bibliography__item::before {
+  content: "[" counter(bibliography-item) "]";
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 .detail-footer {
@@ -224,6 +337,9 @@
 @media (max-width: 768px) {
   .detail-container {
     --detail-inline-padding: 24px;
+  }
+  .detail-toc {
+    display: none;
   }
   .detail-header {
     padding: 24px 0;

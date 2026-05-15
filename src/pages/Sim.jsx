@@ -230,7 +230,7 @@ function SwarmCanvas({
           className="info_btn sim-overlay-button theme-button"
           onClick={onDetailClick}
         >
-          📋 정보
+          자세히 보기
         </button>
       </div>
       {gpuError ? (

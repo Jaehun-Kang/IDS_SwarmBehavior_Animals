@@ -160,9 +160,9 @@ function Detail({
     >
       {/* 헤더 */}
       <div ref={headerRef} className="detail-header">
-        <button className="detail-back-btn theme-button" onClick={handleBack}>
+        {/* <button className="detail-back-btn theme-button" onClick={handleBack}>
           ← 뒤로가기
-        </button>
+        </button> */}
         <div className="detail-header-content">
           <div className="detail-title">
             <h1 className="theme-page-title">{animal.korean}</h1>

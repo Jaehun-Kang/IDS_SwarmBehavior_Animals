@@ -84,6 +84,14 @@
     align-self: flex-start;
   }
 
+  & .info_btn {
+    position: absolute;
+    left: 50%;
+    bottom: 40px;
+    z-index: 120;
+    transform: translateX(-50%);
+  }
+
   & .sim-gpu-error {
     position: absolute;
     left: 24px;

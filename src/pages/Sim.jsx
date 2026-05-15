@@ -1,5 +1,5 @@
 import React from "react";
-import "../styles/Sim.css";
+import "../styles/Sim.scss";
 
 const animalNames = {
   starling: "흰점찌르레기",
@@ -226,13 +226,13 @@ function SwarmCanvas({
         >
           ← 뒤로가기
         </button>
-        <button
-          className="info_btn sim-overlay-button theme-button"
-          onClick={onDetailClick}
-        >
-          자세히 보기
-        </button>
       </div>
+      <button
+        className="info_btn sim-overlay-button theme-button"
+        onClick={onDetailClick}
+      >
+        자세히 보기
+      </button>
       {gpuError ? (
         <div className="sim-gpu-error sim-overlay-panel">{gpuError}</div>
       ) : null}

@@ -252,13 +252,25 @@ function SwarmCanvas({
           <div className="sim-control-panel__header">
             <div className="theme-panel-title sim-control-panel__title">
               Simulation Params
+              {/* 시뮬레이션 옵션 */}
             </div>
             <button
               type="button"
               onClick={() => setIsControlPanelOpen((current) => !current)}
-              className="theme-button theme-button-compact"
+              className="theme-button theme-button-compact sim-control-toggle"
+              aria-label={isControlPanelOpen ? "패널 접기" : "패널 펼치기"}
+              aria-expanded={isControlPanelOpen}
             >
-              {isControlPanelOpen ? "Collapse" : "Expand"}
+              <svg
+                className={[
+                  "sim-control-toggle__icon",
+                  isControlPanelOpen ? "is-open" : "is-collapsed",
+                ].join(" ")}
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path d="M6 14.5L12 8.5L18 14.5" />
+              </svg>
             </button>
           </div>
           <div

@@ -121,7 +121,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 10px;
 }
 .sim-control-panel.is-collapsed .sim .sim-control-panel__header {
   margin-bottom: 0;
@@ -129,11 +128,41 @@
 .sim .sim-control-panel__title {
   font-size: 18px;
 }
+.sim .sim-control-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.sim .sim-control-toggle:hover, .sim .sim-control-toggle:active {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.sim .sim-control-toggle__icon {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 220ms ease;
+}
+.sim .sim-control-toggle__icon.is-collapsed {
+  transform: rotate(180deg);
+}
 .sim .sim-control-panel__body {
-  overflow: hidden;
   transition: max-height 280ms ease, opacity 180ms ease;
 }
 .sim .sim-control-panel__body.is-open {
+  margin-block: 4px 2px;
   max-height: 520px;
   opacity: 1;
 }

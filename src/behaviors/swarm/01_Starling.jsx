@@ -35,6 +35,7 @@ const PARAMS = {
   MAX_GRID_SEARCH_RADIUS: 6,
   EDGE_LOOKAHEAD_TIME: 0.65,
   REFERENCE_LOCK_DURATION: 3,
+  VERTICAL_BRANCH_THRESHOLD: 0.95,
   SPRITE_FRAME_COUNT: 6,
   SPRITE_FLAP_RATE_MIN: 5.4,
   SPRITE_FLAP_RATE_MAX: 8.6,
@@ -962,6 +963,9 @@ const createBoid = (id, center, dimensions) => {
     agitation: null,
     lastWaveTime: -Infinity,
     referenceLock: null,
+    spriteBranch: "starling_fly1",
+    spriteBranchLock: false,
+    spriteVariant: Math.random(),
     spriteClockOffset: Math.random(),
     spriteFlapRate: randomBetween(
       PARAMS.SPRITE_FLAP_RATE_MIN,
@@ -1004,6 +1008,54 @@ const getReferencedNeighbor = (
     : null;
 
   return nextReference;
+};
+
+const updateSpriteBranch = (boid) => {
+  const verticalRatio = Math.abs(boid.direction.y);
+  const isNearVertical = verticalRatio > PARAMS.VERTICAL_BRANCH_THRESHOLD;
+
+  if (boid.direction.y < 0) {
+    boid.spriteBranch = isNearVertical ? "starling_fly4" : "starling_fly1";
+    boid.spriteBranchLock = false;
+    return;
+  }
+
+  if (isNearVertical) {
+    boid.spriteBranch = "starling_fly5";
+    boid.spriteBranchLock = false;
+    return;
+  }
+
+  if (!boid.spriteBranchLock) {
+    boid.spriteVariant = Math.random();
+    boid.spriteBranch = boid.spriteVariant > 0.5 ? "starling_fly2" : "starling_fly3";
+    boid.spriteBranchLock = true;
+  }
+};
+
+const updateSpriteFrame = (boid, now) => {
+  const flapCycle = (now * boid.spriteFlapRate + boid.spriteClockOffset) % 1;
+
+  switch (boid.spriteBranch) {
+    case "starling_fly1":
+      boid.spriteFrame = Math.floor(flapCycle * 3);
+      break;
+    case "starling_fly2":
+      boid.spriteFrame = 2;
+      break;
+    case "starling_fly3":
+      boid.spriteFrame = 3;
+      break;
+    case "starling_fly4":
+      boid.spriteFrame = 4 + Math.floor(flapCycle * 2);
+      break;
+    case "starling_fly5":
+      boid.spriteFrame = 4;
+      break;
+    default:
+      boid.spriteFrame = Math.floor(flapCycle * PARAMS.SPRITE_FRAME_COUNT);
+      break;
+  }
 };
 
 const getDelayedState = (boid, now) => {
@@ -1468,9 +1520,8 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
           boid.agitation = null;
         }
 
-        const flapCycle =
-          (now * boid.spriteFlapRate + boid.spriteClockOffset) % 1;
-        boid.spriteFrame = Math.floor(flapCycle * PARAMS.SPRITE_FRAME_COUNT);
+        updateSpriteBranch(boid);
+        updateSpriteFrame(boid, now);
       });
 
       drawBoidsWithWebGL(

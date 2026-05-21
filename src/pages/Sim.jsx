@@ -1,5 +1,5 @@
 import React from "react";
-import "../styles/Sim.scss";
+import "../styles/Sim.css";
 
 const animalNames = {
   starling: "흰점찌르레기",

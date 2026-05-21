@@ -4,7 +4,7 @@ import { animals } from "../behaviors/animalData";
 import { getAnimalDetails } from "../behaviors/animalDetails";
 import { useParticleCanvas } from "../hooks/useParticleCanvas";
 import { useAnimals } from "../hooks/useAnimals";
-import "../styles/Home.css";
+import "../styles/Home.scss";
 
 const HOME_ANIMALS = animals.flatMap((animal) =>
   Array.from({ length: 10 }, (_, index) => ({

@@ -3,6 +3,7 @@ import starlingSpriteSheetUrl from "../../assets/starling_1.svg";
 
 const PARAMS = {
   BOID_COUNT: 1850,
+  IS_PREDATOR_ACTIVE: true,
   NEIGHBOR_COUNT: 7,
   METERS_TO_PIXELS: 42,
   DISTANCE_SCALE: 0.72,
@@ -27,6 +28,11 @@ const PARAMS = {
   },
   MAX_HISTORY_AGE: 0.24,
   MAX_DT: 0.033,
+  PREDATOR_SCREEN_DETECTION_RADIUS_PX: 180,
+  PREDATOR_SCREEN_IMPACT_RADIUS_PX: 26,
+  PREDATOR_ESCAPE_BOOST: 1.55,
+  PREDATOR_TURN_BOOST: 2.2,
+  PREDATOR_SPEED_BOOST: 1.14,
   SCREEN_MARGIN: 0,
   EDGE_AVOID_ZONE: 320,
   VISIBLE_DEPTH_MIN: -245,
@@ -56,6 +62,12 @@ const CONTROL_FIELDS = [
     max: 2600,
     step: 50,
     formatValue: (value) => `${value}`,
+  },
+  {
+    key: "IS_PREDATOR_ACTIVE",
+    label: "포식자 반응",
+    type: "toggle",
+    formatValue: (value) => (value ? "켜짐" : "꺼짐"),
   },
   {
     key: "NEIGHBOR_COUNT",
@@ -109,6 +121,7 @@ const CONTROL_FIELDS = [
 
 const DEFAULT_CONTROL_STATE = {
   BOID_COUNT: PARAMS.BOID_COUNT,
+  IS_PREDATOR_ACTIVE: PARAMS.IS_PREDATOR_ACTIVE,
   NEIGHBOR_COUNT: PARAMS.NEIGHBOR_COUNT,
   DISTANCE_SCALE: PARAMS.DISTANCE_SCALE,
   TARGET_SPEED_MIN_MULTIPLIER: PARAMS.TARGET_SPEED_MIN_MULTIPLIER,
@@ -131,6 +144,7 @@ const sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => {
     nextControls.TARGET_SPEED_MIN_MULTIPLIER,
     nextControls.TARGET_SPEED_MAX_MULTIPLIER,
   );
+  nextControls.IS_PREDATOR_ACTIVE = Boolean(nextControls.IS_PREDATOR_ACTIVE);
 
   return nextControls;
 };
@@ -223,22 +237,118 @@ const sampleShellPoint = (center, dimensions) => {
   };
 };
 
-const projectBoid = (boid, width, height) => {
+const getProjectedPoint = (position, width, height) => {
   const cameraX =
-    boid.position.x * PARAMS.PROJECT_X_FROM_X +
-    boid.position.z * PARAMS.PROJECT_X_FROM_Z;
+    position.x * PARAMS.PROJECT_X_FROM_X +
+    position.z * PARAMS.PROJECT_X_FROM_Z;
   const cameraY =
-    boid.position.y * PARAMS.PROJECT_Y_FROM_Y +
-    boid.position.z * PARAMS.PROJECT_Y_FROM_Z;
+    position.y * PARAMS.PROJECT_Y_FROM_Y +
+    position.z * PARAMS.PROJECT_Y_FROM_Z;
   const perspective =
     PARAMS.PROJECT_PERSPECTIVE_BASE +
-    (boid.position.z + PARAMS.PROJECT_PERSPECTIVE_OFFSET) /
+    (position.z + PARAMS.PROJECT_PERSPECTIVE_OFFSET) /
       PARAMS.PROJECT_PERSPECTIVE_DIVISOR;
 
   return {
     x: width * 0.5 + cameraX * perspective,
     y: height * 0.5 + cameraY * perspective,
     scale: perspective,
+  };
+};
+
+const projectBoid = (boid, width, height) => {
+  return getProjectedPoint(boid.position, width, height);
+};
+
+const getWorldPointOnPointerRay = (screenX, screenY, depth, width, height) => {
+  const perspective =
+    PARAMS.PROJECT_PERSPECTIVE_BASE +
+    (depth + PARAMS.PROJECT_PERSPECTIVE_OFFSET) /
+      PARAMS.PROJECT_PERSPECTIVE_DIVISOR;
+  const cameraX = (screenX - width * 0.5) / Math.max(perspective, 1e-6);
+  const cameraY = (screenY - height * 0.5) / Math.max(perspective, 1e-6);
+
+  return {
+    x: (cameraX - depth * PARAMS.PROJECT_X_FROM_Z) / PARAMS.PROJECT_X_FROM_X,
+    y: (cameraY - depth * PARAMS.PROJECT_Y_FROM_Z) / PARAMS.PROJECT_Y_FROM_Y,
+    z: depth,
+  };
+};
+
+const getClosestPointOnSegment3D = (point, start, end) => {
+  const segment = subtract3D(end, start);
+  const segmentLengthSquared = dot3D(segment, segment);
+
+  if (segmentLengthSquared < 1e-6) {
+    return { ...start };
+  }
+
+  const t = clamp(
+    dot3D(subtract3D(point, start), segment) / segmentLengthSquared,
+    0,
+    1,
+  );
+
+  return add3D(start, scale3D(segment, t));
+};
+
+const getPredatorInfluence = (boid, width, height, pointer) => {
+  if (!PARAMS.IS_PREDATOR_ACTIVE || !pointer?.active) {
+    return {
+      evasionIntensity: 0,
+      escape: { x: 0, y: 0, z: 0 },
+    };
+  }
+
+  const rayStart = getWorldPointOnPointerRay(
+    pointer.x,
+    pointer.y,
+    PARAMS.VISIBLE_DEPTH_MIN,
+    width,
+    height,
+  );
+  const rayEnd = getWorldPointOnPointerRay(
+    pointer.x,
+    pointer.y,
+    PARAMS.VISIBLE_DEPTH_MAX,
+    width,
+    height,
+  );
+  const closestPoint = getClosestPointOnSegment3D(
+    boid.position,
+    rayStart,
+    rayEnd,
+  );
+  const rayOffset = subtract3D(boid.position, closestPoint);
+  const distance = length3D(rayOffset);
+  const projected = getProjectedPoint(boid.position, width, height);
+  const worldDetectionRadius =
+    PARAMS.PREDATOR_SCREEN_DETECTION_RADIUS_PX /
+    Math.max(projected.scale, 1e-6);
+  const worldImpactRadius =
+    PARAMS.PREDATOR_SCREEN_IMPACT_RADIUS_PX / Math.max(projected.scale, 1e-6);
+
+  if (distance >= worldDetectionRadius) {
+    return {
+      evasionIntensity: 0,
+      escape: { x: 0, y: 0, z: 0 },
+    };
+  }
+
+  const evasionIntensity =
+    1 - clamp((distance - worldImpactRadius) / Math.max(worldDetectionRadius - worldImpactRadius, 1e-6), 0, 1);
+  const away = normalize3D(rayOffset, boid.direction);
+
+  return {
+    evasionIntensity,
+    escape: normalize3D(
+      {
+        x: away.x,
+        y: away.y * 0.82,
+        z: away.z,
+      },
+      boid.direction,
+    ),
   };
 };
 
@@ -1109,43 +1219,12 @@ const spawnTurnSignal = (boids, center, now) => {
   });
 };
 
-const triggerAgitation = (boids, width, height, pointer, now) => {
-  const initiators = [...boids]
-    .map((boid) => {
-      const screen = projectBoid(boid, width, height);
-      const dx = screen.x - pointer.x;
-      const dy = screen.y - pointer.y;
-
-      return {
-        boid,
-        score:
-          Math.hypot(dx, dy) +
-          Math.abs(boid.position.z) * 0.12 -
-          Math.abs(boid.position.x) * 0.1,
-      };
-    })
-    .sort((left, right) => left.score - right.score)
-    .slice(0, 4);
-
-  initiators.forEach(({ boid }, index) => {
-    boid.agitation = {
-      amplitude: 0.95 - index * 0.12,
-      direction: index % 2 === 0 ? 1 : -1,
-      startedAt: now,
-      phase: Math.random() * Math.PI * 2,
-      hops: 0,
-    };
-    boid.lastWaveTime = now;
-  });
-};
-
 export function App({ controls, onGpuErrorChange, isPaused } = {}) {
   const canvasRef = React.useRef(null);
   const pointerRef = React.useRef({
     x: 0,
     y: 0,
     active: false,
-    lastTrigger: 0,
   });
   const resolvedControls = React.useMemo(
     () => sanitizeControlState(controls),
@@ -1231,39 +1310,6 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
       if (now >= nextTurnTime) {
         spawnTurnSignal(boids, flockCenter, now);
         nextTurnTime = now + randomBetween(4.5, 7.5);
-      }
-
-      if (
-        pointerRef.current.active &&
-        now - pointerRef.current.lastTrigger > 1.2
-      ) {
-        const closestEdge = Math.min(
-          ...boids.map((boid) => {
-            const screen = projectBoid(
-              boid,
-              window.innerWidth,
-              window.innerHeight,
-            );
-            return Math.hypot(
-              screen.x - pointerRef.current.x,
-              screen.y - pointerRef.current.y,
-            );
-          }),
-        );
-
-        if (closestEdge < 120) {
-          triggerAgitation(
-            boids,
-            window.innerWidth,
-            window.innerHeight,
-            pointerRef.current,
-            now,
-          );
-          pointerRef.current = {
-            ...pointerRef.current,
-            lastTrigger: now,
-          };
-        }
       }
 
       const centerOfMass = boids.reduce(
@@ -1364,6 +1410,17 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
           subtract3D(cohesionTarget, boid.position),
           boid.direction,
         );
+        const predatorInfluence = getPredatorInfluence(
+          boid,
+          window.innerWidth,
+          window.innerHeight,
+          pointerRef.current,
+        );
+        boid.speed *= lerp(
+          1,
+          PARAMS.PREDATOR_SPEED_BOOST,
+          predatorInfluence.evasionIntensity,
+        );
 
         let desiredDirection = normalize3D({
           x:
@@ -1379,6 +1436,30 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
             alignmentDirection.z * 0.28 +
             cohesionDirection.z * 0.2,
         });
+
+        if (predatorInfluence.evasionIntensity > 0) {
+          desiredDirection = normalize3D(
+            {
+              x:
+                desiredDirection.x +
+                predatorInfluence.escape.x *
+                  predatorInfluence.evasionIntensity *
+                  PARAMS.PREDATOR_ESCAPE_BOOST,
+              y:
+                desiredDirection.y +
+                predatorInfluence.escape.y *
+                  predatorInfluence.evasionIntensity *
+                  PARAMS.PREDATOR_ESCAPE_BOOST *
+                  0.82,
+              z:
+                desiredDirection.z +
+                predatorInfluence.escape.z *
+                  predatorInfluence.evasionIntensity *
+                  PARAMS.PREDATOR_ESCAPE_BOOST,
+            },
+            boid.direction,
+          );
+        }
 
         if (referencedNeighbor) {
           const awayFromNearest = normalize3D(
@@ -1477,7 +1558,11 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
 
         const edgeTurnBoost = 1 + visibleAvoidance.pressure * 2.6;
         const maxTurnAngle =
-          (boid.speed / PARAMS.TURN_RADIUS) * dt * edgeTurnBoost;
+          (boid.speed / PARAMS.TURN_RADIUS) *
+          dt *
+          edgeTurnBoost *
+          (1 +
+            predatorInfluence.evasionIntensity * PARAMS.PREDATOR_TURN_BOOST);
         boid.direction = rotateTowards(
           boid.direction,
           desiredDirection,

@@ -35,7 +35,7 @@
     position: absolute;
     z-index: 10;
     left: 50%;
-    translate: -50% 0%;
+    transform: translateX(-50%);
     pointer-events: none;
     color: var(--theme-text-strong);
     font-family: var(--theme-title-font);
@@ -51,7 +51,6 @@
     left: 50%;
     z-index: 1000001;
     pointer-events: none;
-    translate: -50% 0;
     color: color-mix(in srgb, var(--theme-text-strong) 84%, white 16%);
     font-family: var(--theme-ui-font);
     font-size: clamp(0.95rem, 1.4vw, 1.15rem);
@@ -59,7 +58,7 @@
     letter-spacing: 0.16em;
     text-transform: uppercase;
     opacity: 0;
-    transform: translate3d(0, 10px, 0);
+    transform: translate3d(-50%, 10px, 0);
     transition:
       opacity 360ms ease,
       transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -67,7 +66,7 @@
 
   & .home-particle-subtitle.is-visible {
     opacity: 1;
-    transform: translate3d(0, 0, 0);
+    transform: translate3d(-50%, 0, 0);
   }
 
   & .creature {

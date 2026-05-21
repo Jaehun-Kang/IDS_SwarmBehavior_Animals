@@ -182,7 +182,8 @@ function SwarmCanvas({
     : null;
 
   const handleControlChange = (key, rawValue) => {
-    const nextValue = Number(rawValue);
+    const nextValue =
+      typeof rawValue === "boolean" ? rawValue : Number(rawValue);
 
     setControls((current) => {
       if (!current) {
@@ -280,33 +281,63 @@ function SwarmCanvas({
             ].join(" ")}
           >
             {swarmUi.controlFields.map((field) => (
-              <label key={field.key} className="sim-control-field">
+              <label
+                key={field.key}
+                className={[
+                  "sim-control-field",
+                  field.type === "toggle" ? "sim-control-field--toggle" : "",
+                ].join(" ")}
+              >
                 <div className="sim-control-field__row">
                   <span>{field.label}</span>
                   <div className="sim-control-field__value-group">
                     <span className="sim-control-field__value">
                       {field.formatValue(resolvedControls[field.key])}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => handleControlReset(field.key)}
-                      className="theme-button theme-button-compact sim-control-reset"
-                    >
-                      Reset
-                    </button>
+                    {field.type === "toggle" ? (
+                      <button
+                        type="button"
+                        className={[
+                          "sim-control-toggle-switch",
+                          "sim-control-toggle-switch--inline",
+                          resolvedControls[field.key] ? "is-on" : "is-off",
+                        ].join(" ")}
+                        onClick={() =>
+                          handleControlChange(
+                            field.key,
+                            !resolvedControls[field.key],
+                          )
+                        }
+                        aria-pressed={resolvedControls[field.key]}
+                      >
+                        <span className="sim-control-toggle-switch__track">
+                          <span className="sim-control-toggle-switch__thumb" />
+                        </span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleControlReset(field.key)}
+                        className="theme-button theme-button-compact sim-control-reset"
+                      >
+                        Reset
+                      </button>
+                    )}
                   </div>
                 </div>
-                <input
-                  className="sim-control-slider"
-                  type="range"
-                  min={field.min}
-                  max={field.max}
-                  step={field.step}
-                  value={resolvedControls[field.key]}
-                  onChange={(event) =>
-                    handleControlChange(field.key, event.target.value)
-                  }
-                />
+                {field.type === "toggle" ? null : (
+                  <input
+                    className="sim-control-slider"
+                    type="range"
+                    min={field.min}
+                    max={field.max}
+                    step={field.step}
+                    value={resolvedControls[field.key]}
+                    onChange={(event) =>
+                      handleControlChange(field.key, event.target.value)
+                    }
+                  />
+                )}
               </label>
             ))}
           </div>

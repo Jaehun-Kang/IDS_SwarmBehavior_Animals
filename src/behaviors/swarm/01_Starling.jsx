@@ -239,11 +239,9 @@ const sampleShellPoint = (center, dimensions) => {
 
 const getProjectedPoint = (position, width, height) => {
   const cameraX =
-    position.x * PARAMS.PROJECT_X_FROM_X +
-    position.z * PARAMS.PROJECT_X_FROM_Z;
+    position.x * PARAMS.PROJECT_X_FROM_X + position.z * PARAMS.PROJECT_X_FROM_Z;
   const cameraY =
-    position.y * PARAMS.PROJECT_Y_FROM_Y +
-    position.z * PARAMS.PROJECT_Y_FROM_Z;
+    position.y * PARAMS.PROJECT_Y_FROM_Y + position.z * PARAMS.PROJECT_Y_FROM_Z;
   const perspective =
     PARAMS.PROJECT_PERSPECTIVE_BASE +
     (position.z + PARAMS.PROJECT_PERSPECTIVE_OFFSET) /
@@ -336,7 +334,13 @@ const getPredatorInfluence = (boid, width, height, pointer) => {
   }
 
   const evasionIntensity =
-    1 - clamp((distance - worldImpactRadius) / Math.max(worldDetectionRadius - worldImpactRadius, 1e-6), 0, 1);
+    1 -
+    clamp(
+      (distance - worldImpactRadius) /
+        Math.max(worldDetectionRadius - worldImpactRadius, 1e-6),
+      0,
+      1,
+    );
   const away = normalize3D(rayOffset, boid.direction);
 
   return {
@@ -1561,8 +1565,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
           (boid.speed / PARAMS.TURN_RADIUS) *
           dt *
           edgeTurnBoost *
-          (1 +
-            predatorInfluence.evasionIntensity * PARAMS.PREDATOR_TURN_BOOST);
+          (1 + predatorInfluence.evasionIntensity * PARAMS.PREDATOR_TURN_BOOST);
         boid.direction = rotateTowards(
           boid.direction,
           desiredDirection,

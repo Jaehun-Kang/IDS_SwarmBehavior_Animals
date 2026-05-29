@@ -1,3 +1,6 @@
+import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
+import { resolveDomAtlasSprite } from "../../utils/spritePose";
+
 // 메뚜기
 const PARAMS = {
   // 기본 속도
@@ -141,39 +144,19 @@ export function updateGrasshopper(animal, rect) {
   const isJumping = phaseInCycle < jumpAnimationTime;
   const jumpProgress = isJumping ? phaseInCycle / jumpAnimationTime : 0;
 
-  if (isJumping) {
-    animal.spriteType =
-      jumpProgress < 0.3 ? "grasshopper_jump" : "grasshopper_fly";
-  } else {
-    const jumpDirLength = Math.hypot(animal.jumpDirX, animal.jumpDirY) || 1;
-    const verticalRatio = Math.abs(animal.jumpDirY) / jumpDirLength;
-    animal.spriteType =
-      verticalRatio >= PARAMS.IDLE_FRONT_THRESHOLD
-        ? "grasshopper_idle_front"
-        : "grasshopper_idle";
-  }
+  const sprite = resolveDomAtlasSprite(HOME_SPRITE_ATLASES.grasshopper, {
+    velocity: { x: animal.jumpDirX, y: animal.jumpDirY },
+    state: {
+      isJumping,
+      jumpProgress,
+      directionX: animal.jumpDirX,
+      directionY: animal.jumpDirY,
+    },
+  });
 
-  // 회전 계산
-  if (animal.spriteType === "grasshopper_idle_front") {
-    animal.rotation = 0;
-    animal.scaleX = 1;
-  } else if (animal.spriteType === "grasshopper_idle") {
-    animal.rotation = 0;
-    animal.scaleX = animal.jumpDirX < 0 ? -1 : 1;
-  } else if (animal.jumpDirX !== 0 || animal.jumpDirY !== 0) {
-    let rotation =
-      (Math.atan2(animal.jumpDirY, animal.jumpDirX) * 180) / Math.PI;
-    let scaleX = 1;
-    if (Math.abs(rotation) > 90) {
-      scaleX = -1;
-      rotation = rotation > 0 ? rotation - 180 : rotation + 180;
-    }
-    animal.rotation = rotation;
-    animal.scaleX = scaleX;
-  } else {
-    animal.rotation = 0;
-    animal.scaleX = 1;
-  }
+  animal.spriteType = sprite.stage;
+  animal.rotation = sprite.rotationDeg;
+  animal.scaleX = sprite.scaleX;
 }
 
 export function applySpriteGrasshopper(el, animal) {

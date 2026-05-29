@@ -1,61 +1,258 @@
-// 반딧불이 firefly
-import * as React from "react";
-import { P5Canvas } from "@p5-wrapper/react";
-import { getThemeBackgroundHex } from "../../utils/theme";
+import React from "react";
+import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
+import { resolveAtlasFrameSize } from "../../utils/spriteAtlas";
+import { resolveCanvasAtlasSprite } from "../../utils/spritePose";
+import { getThemeBackgroundRgb } from "../../utils/theme";
 
-export function App() {
-  const p5InstanceRef = React.useRef(null);
-  const key = 0;
+// 기본 상태
+const PARAMS = {
+  SLIDER: 50,
+};
 
-  const sketch = React.useCallback((p5) => {
-    p5InstanceRef.current = p5;
+const CONTROL_FIELDS = [
+  {
+    key: "SLIDER",
+    label: "슬라이더 예시",
+    min: 0,
+    max: 100,
+    step: 1,
+    formatValue: (value) => `${value}`,
+  },
+  {
+    key: "TOGGLE",
+    label: "토글 예시",
+    type: "toggle",
+    formatValue: (value) => (value ? "TRUE" : "FALSE"),
+  },
+];
 
-    p5.setup = () => {
-      p5.createCanvas(p5.windowWidth, p5.windowHeight, p5.WEBGL);
-    };
+const DEFAULT_CONTROL_STATE = {
+  SLIDER: PARAMS.SLIDER,
+  TOGGLE: true,
+};
 
-    p5.draw = () => {
-      p5.background(getThemeBackgroundHex());
-      p5.normalMaterial();
-      p5.push();
-      p5.rotateZ(p5.frameCount * 0.02);
-      p5.rotateX(p5.frameCount * 0.013);
-      p5.rotateY(p5.frameCount * 0.017);
-      p5.box(45, 70, 55);
-      p5.pop();
-      p5.circle(p5.mouseX - p5.width * 0.5, p5.mouseY - p5.height * 0.5, 100);
-    };
+// 아틀라스 참조
+const ATLAS = HOME_SPRITE_ATLASES.firefly;
+const AGENT_COUNT = 24;
 
-    p5.windowResized = () => {
-      if (p5InstanceRef.current) {
-        p5.resizeCanvas(p5.windowWidth, p5.windowHeight);
-      }
-    };
-  }, []);
+// 공통 계산
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const randomBetween = (min, max) => min + Math.random() * (max - min);
+
+// 에이전트 생성
+const createAgent = (width, height) => {
+  return {
+    x: randomBetween(0, width),
+    y: randomBetween(0, height),
+    vx: Math.random() > 0.5 ? 24 : -24,
+    vy: randomBetween(-8, 8),
+    stageOffset: randomBetween(0, 1000),
+    previousScreenPosition: null,
+    spriteProfile: "simulation",
+    spriteSpace: "2d",
+    spriteState: undefined,
+  };
+};
+
+const createAgents = (count, width, height) =>
+  Array.from({ length: count }, () => createAgent(width, height));
+
+// 캔버스 동기화
+const syncCanvasSize = (canvas, ctx) => {
+  const width = canvas.clientWidth || window.innerWidth;
+  const height = canvas.clientHeight || window.innerHeight;
+  const pixelRatio = window.devicePixelRatio || 1;
+  const nextWidth = Math.max(1, Math.round(width * pixelRatio));
+  const nextHeight = Math.max(1, Math.round(height * pixelRatio));
+
+  if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+    canvas.width = nextWidth;
+    canvas.height = nextHeight;
+  }
+
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  return { width, height };
+};
+
+// 플레이스홀더 앱
+export function App({ controls, onGpuErrorChange, isPaused = false }) {
+  const canvasRef = React.useRef(null);
+  const imageRef = React.useRef(null);
+  const animationFrameRef = React.useRef(0);
+  const agentsRef = React.useRef([]);
+  const frameSizeRef = React.useRef(
+    resolveAtlasFrameSize(ATLAS, { width: 64, height: 64 }),
+  );
+  const lastTimeRef = React.useRef(0);
 
   React.useEffect(() => {
-    return () => {
-      if (p5InstanceRef.current) {
-        try {
-          p5InstanceRef.current.remove();
-        } catch {
-          // 무시
-        }
-      }
-      const canvases = document.querySelectorAll("canvas");
-      canvases.forEach((canvas) => {
-        try {
-          const gl = canvas.getContext("webgl") || canvas.getContext("webgl2");
-          if (gl) {
-            const ext = gl.getExtension("WEBGL_lose_context");
-            if (ext) ext.loseContext();
-          }
-        } catch {
-          // 무시
-        }
+    onGpuErrorChange?.("");
+  }, [onGpuErrorChange]);
+
+  // 이미지 로드
+  React.useEffect(() => {
+    const image = new Image();
+    image.decoding = "async";
+    image.src = ATLAS.src;
+
+    const handleLoad = () => {
+      imageRef.current = image;
+      frameSizeRef.current = resolveAtlasFrameSize(ATLAS, {
+        width: image.naturalWidth || 64,
+        height: image.naturalHeight || 64,
       });
+    };
+
+    image.addEventListener("load", handleLoad);
+    if (image.complete) {
+      handleLoad();
+    }
+
+    return () => {
+      image.removeEventListener("load", handleLoad);
     };
   }, []);
 
-  return <P5Canvas key={key} sketch={sketch} />;
+  // 프레임 루프
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return undefined;
+    }
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return undefined;
+    }
+
+    const ensureAgents = (width, height) => {
+      if (agentsRef.current.length === 0) {
+        agentsRef.current = createAgents(AGENT_COUNT, width, height);
+        return;
+      }
+
+      agentsRef.current.forEach((agent) => {
+        agent.x = clamp(agent.x, 0, width);
+        agent.y = clamp(agent.y, 0, height);
+      });
+    };
+
+    const render = (timestamp) => {
+      const now = timestamp * 0.001;
+      const dt = lastTimeRef.current
+        ? Math.min(now - lastTimeRef.current, 0.05)
+        : 0.016;
+      lastTimeRef.current = now;
+
+      const size = syncCanvasSize(canvas, ctx);
+      ensureAgents(size.width, size.height);
+
+      const backgroundRgb = getThemeBackgroundRgb();
+      ctx.clearRect(0, 0, size.width, size.height);
+      ctx.fillStyle = `rgb(${backgroundRgb.join(", ")})`;
+      ctx.fillRect(0, 0, size.width, size.height);
+
+      const image = imageRef.current;
+      const frameSize = frameSizeRef.current;
+
+      agentsRef.current.forEach((agent, index) => {
+        if (!isPaused) {
+          let didWrap = false;
+
+          agent.x += agent.vx * dt;
+          agent.y += agent.vy * dt;
+
+          if (agent.x < -frameSize.width) {
+            agent.x = size.width + frameSize.width;
+            didWrap = true;
+          } else if (agent.x > size.width + frameSize.width) {
+            agent.x = -frameSize.width;
+            didWrap = true;
+          }
+
+          if (agent.y < -frameSize.height * 0.5) {
+            agent.y = size.height + frameSize.height * 0.35;
+            didWrap = true;
+          } else if (agent.y > size.height + frameSize.height * 0.5) {
+            agent.y = -frameSize.height * 0.35;
+            didWrap = true;
+          }
+
+          if (didWrap) {
+            agent.previousScreenPosition = null;
+          }
+        }
+
+        if (!image) {
+          return;
+        }
+
+        const sprite = resolveCanvasAtlasSprite(ATLAS, {
+          space: agent.spriteSpace || "2d",
+          position: agent.spritePosition || { x: agent.x, y: agent.y },
+          velocity: agent.spriteVelocity || { x: agent.vx, y: agent.vy },
+          previousScreenPosition: agent.previousScreenPosition,
+          maxDt: dt,
+          width: size.width,
+          height: size.height,
+          projectPoint: agent.projectPoint,
+          state: agent.spriteState || {
+            glow: Math.sin(now * 4 + index * 0.7) > 0,
+          },
+          profile: agent.spriteProfile || "simulation",
+          timestampMs: now * 1000,
+          animationOffsetMs: agent.stageOffset,
+        });
+        const bobOffset = Math.sin(now * 2 + index * 0.7) * 4;
+        agent.previousScreenPosition = sprite.pose.screenPosition;
+
+        ctx.save();
+        ctx.translate(agent.x, agent.y + bobOffset);
+        ctx.rotate(sprite.rotation);
+        ctx.scale(sprite.flipX, 1);
+        ctx.drawImage(
+          image,
+          sprite.frame.x * frameSize.width,
+          sprite.frame.y * frameSize.height,
+          frameSize.width,
+          frameSize.height,
+          -frameSize.width * 0.5,
+          -frameSize.height * 0.5,
+          frameSize.width,
+          frameSize.height,
+        );
+        ctx.restore();
+      });
+
+      animationFrameRef.current = window.requestAnimationFrame(render);
+    };
+
+    animationFrameRef.current = window.requestAnimationFrame(render);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrameRef.current);
+    };
+  }, [isPaused]);
+
+  void controls;
+  void PARAMS;
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{ width: "100%", height: "100%", display: "block" }}
+    />
+  );
 }
+
+// UI 메타
+App.ui = {
+  controlFields: CONTROL_FIELDS,
+  defaultControlState: DEFAULT_CONTROL_STATE,
+};
+
+// 상태 정리
+App.sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => ({
+  ...DEFAULT_CONTROL_STATE,
+  ...(rawControls ?? {}),
+});

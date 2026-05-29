@@ -4,6 +4,8 @@ import { animals } from "../behaviors/animalData";
 import { getAnimalDetails } from "../behaviors/animalDetails";
 import { useParticleCanvas } from "../hooks/useParticleCanvas";
 import { useAnimals } from "../hooks/useAnimals";
+import SpriteAtlas from "../components/SpriteAtlas.jsx";
+import { HOME_SPRITE_ATLASES } from "../data/spriteAtlases";
 import "../styles/Home.css";
 
 const HOME_ANIMALS = animals.flatMap((animal) =>
@@ -18,21 +20,17 @@ const HOME_ANIMALS = animals.flatMap((animal) =>
 const DEFAULT_SUBTITLE_KEY = "__default__";
 
 function renderSprite(speciesId) {
-  if (speciesId === "starling") return <div className="sprite_starling" />;
-  if (speciesId === "sardine") return <div className="sprite_sardine" />;
-  if (speciesId === "grasshopper") {
-    return <div className="sprite_grasshopper" />;
+  const atlas = HOME_SPRITE_ATLASES[speciesId];
+  if (atlas) {
+    return (
+      <SpriteAtlas
+        atlas={atlas}
+        baseClassName={atlas.baseClassName}
+        observeClassNameStages
+      />
+    );
   }
-  if (speciesId === "ant") return <div className="sprite_ant" />;
-  if (speciesId === "bat") return <div className="sprite_bat" />;
-  if (speciesId === "sheep") return <div className="sprite_sheep" />;
-  if (speciesId === "penguin") return <div className="sprite_penguin" />;
-  if (speciesId === "bee") return <div className="sprite_bee" />;
-  if (speciesId === "firefly") return <div className="sprite_firefly" />;
-  if (speciesId === "spiny_lobster") {
-    return <div className="sprite_spiny_lobster" />;
-  }
-  if (speciesId === "krill") return <div className="sprite_krill" />;
+
   return null;
 }
 

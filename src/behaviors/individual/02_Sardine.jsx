@@ -1,3 +1,6 @@
+import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
+import { resolveDomAtlasSprite } from "../../utils/spritePose";
+
 // 정어리
 const PARAMS = {
   // 기본 유영
@@ -173,32 +176,13 @@ export function updateSardine(animal, rect) {
   animal.vx = Math.cos(animal.heading) * currentSpeed;
   animal.vy = Math.sin(animal.heading) * currentSpeed;
 
-  const rawAngle = Math.atan2(animal.vy, animal.vx);
-  const absCos = Math.abs(Math.cos(rawAngle)); // 수평 성분
-  const absSin = Math.abs(Math.sin(rawAngle)); // 수직 성분
+  const sprite = resolveDomAtlasSprite(HOME_SPRITE_ATLASES.sardine, {
+    velocity: { x: animal.vx, y: animal.vy },
+  });
 
-  if (absCos >= absSin) {
-    // 수평 움직임 우세 → 측면 (1 프레임)
-    let rotation = (rawAngle * 180) / Math.PI;
-    let scaleX = 1;
-    if (Math.abs(rotation) > 90) {
-      scaleX = -1;
-      rotation = rotation > 0 ? rotation - 180 : rotation + 180;
-    }
-    animal.rotation = rotation;
-    animal.scaleX = scaleX;
-    animal.swimType = "sardine_swim1";
-  } else if (animal.vy > 0) {
-    // 아래 방향 → 정면 (2 프레임)
-    animal.rotation = 0;
-    animal.scaleX = 1;
-    animal.swimType = "sardine_swim2";
-  } else {
-    // 위 방향 → 후면 (3 프레임)
-    animal.rotation = 0;
-    animal.scaleX = 1;
-    animal.swimType = "sardine_swim3";
-  }
+  animal.rotation = sprite.rotationDeg;
+  animal.scaleX = sprite.scaleX;
+  animal.swimType = sprite.stage;
 
   // 위치 업데이트
   animal.x += animal.vx;

@@ -1,3 +1,6 @@
+import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
+import { resolveDomAtlasSprite } from "../../utils/spritePose";
+
 // 반딧불이
 const PARAMS = {
   BASE_SPEED_MIN: 2.5, // 최소 기본 속도
@@ -57,25 +60,14 @@ export function updateFirefly(animal, rect) {
   // 불빛: 일정 주기로 켜짐/꺼짐
   const glow = Math.floor(animal.time / PARAMS.BLINK_FRAMES) % 2 === 0;
 
-  let rotation = (Math.atan2(animal.vy, animal.vx) * 180) / Math.PI;
-  let scaleX = 1;
+  const sprite = resolveDomAtlasSprite(HOME_SPRITE_ATLASES.firefly, {
+    velocity: { x: animal.vx, y: animal.vy },
+    state: { glow },
+  });
 
-  if (Math.abs(rotation) > 90) {
-    scaleX = -1;
-    rotation = rotation > 0 ? rotation - 180 : rotation + 180;
-  }
-
-  const speed = Math.hypot(animal.vx, animal.vy) || 1;
-  const normVyAbs = Math.abs(animal.vy) / speed;
-  const isNearVertical = normVyAbs > PARAMS.VERTICAL_THRESHOLD;
-
-  animal.rotation = rotation;
-  animal.scaleX = scaleX;
-  if (isNearVertical) {
-    animal.fireflyType = glow ? "firefly_lit_top_fly" : "firefly_dark_top_fly";
-  } else {
-    animal.fireflyType = glow ? "firefly_glow" : "firefly_dark";
-  }
+  animal.rotation = sprite.rotationDeg;
+  animal.scaleX = sprite.scaleX;
+  animal.fireflyType = sprite.stage;
 
   animal.x += animal.vx;
   animal.y += animal.vy;

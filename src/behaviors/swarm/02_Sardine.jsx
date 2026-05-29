@@ -1,5 +1,27 @@
 import React from "react";
 import sardineSpriteSheetUrl from "../../assets/sardine_1.svg";
+import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
+import {
+  getAtlasFrameIndex,
+  resolveAtlasGrid,
+  resolveStageFrameSequence,
+} from "../../utils/spriteAtlas";
+import {
+  resolveAtlasSpritePose,
+  resolveSpriteRenderState,
+  SPRITE_RENDERERS,
+} from "../../utils/spritePose";
+
+const SARDINE_SPRITE_ATLAS = {
+  ...HOME_SPRITE_ATLASES.sardine,
+  stages: {
+    ...HOME_SPRITE_ATLASES.sardine.stages,
+    sardine_side: { frame: { x: 0, y: 0 } },
+    sardine_down: { frame: { x: 1, y: 0 } },
+    sardine_up: { frame: { x: 2, y: 0 } },
+  },
+};
+const SARDINE_SPRITE_GRID = resolveAtlasGrid(SARDINE_SPRITE_ATLAS);
 
 const SARDINE_BODY_LENGTH_M = 0.4;
 const SARDINE_BODY_LENGTH_PX = 19;
@@ -191,20 +213,7 @@ const smoothstep = (min, max, value) => {
   const t = clamp((value - min) / (max - min), 0, 1);
   return t * t * (3 - 2 * t);
 };
-const length2D = (vector) => Math.hypot(vector.x, vector.y);
 const length3D = (vector) => Math.hypot(vector.x, vector.y, vector.z);
-
-const normalize2D = (vector, fallback = { x: 1, y: 0 }) => {
-  const magnitude = length2D(vector);
-  if (magnitude < 1e-6) {
-    return { ...fallback };
-  }
-
-  return {
-    x: vector.x / magnitude,
-    y: vector.y / magnitude,
-  };
-};
 
 const normalize3D = (vector, fallback = { x: 1, y: 0, z: 0 }) => {
   const magnitude = length3D(vector);
@@ -358,6 +367,7 @@ varying float vFrame;
 varying float vFlipX;
 
 uniform sampler2D uSpriteSheet;
+uniform vec2 uAtlasGrid;
 
 mat2 rotate2d(float angle) {
   float s = sin(angle);
@@ -387,7 +397,14 @@ void main() {
   }
 
   float frameIndex = floor(vFrame + 0.5);
-  vec2 atlasUv = vec2((spriteUv.x + frameIndex) / 3.0, spriteUv.y);
+  float atlasColumns = max(uAtlasGrid.x, 1.0);
+  float atlasRows = max(uAtlasGrid.y, 1.0);
+  float frameColumn = mod(frameIndex, atlasColumns);
+  float frameRow = floor(frameIndex / atlasColumns);
+  vec2 atlasUv = vec2(
+    (spriteUv.x + frameColumn) / atlasColumns,
+    (spriteUv.y + frameRow) / atlasRows
+  );
   vec4 sprite = texture2D(uSpriteSheet, atlasUv);
   float alpha = sprite.a * vColor.a;
 
@@ -541,6 +558,7 @@ const createRenderer = (gl, maxBoids) => {
       resolution: gl.getUniformLocation(program, "uResolution"),
       pixelRatio: gl.getUniformLocation(program, "uPixelRatio"),
       spriteSheet: gl.getUniformLocation(program, "uSpriteSheet"),
+      atlasGrid: gl.getUniformLocation(program, "uAtlasGrid"),
     },
     buffers: {
       position: gl.createBuffer(),
@@ -999,6 +1017,11 @@ const drawBoids = (gl, renderer, width, height, pixelRatio, boids) => {
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, renderer.texture);
   gl.uniform1i(renderer.uniforms.spriteSheet, 0);
+  gl.uniform2f(
+    renderer.uniforms.atlasGrid,
+    SARDINE_SPRITE_GRID.columns,
+    SARDINE_SPRITE_GRID.rows,
+  );
 
   bindFloatAttribute(
     gl,
@@ -1053,59 +1076,6 @@ const getDayNightPhase = (daylight) => {
   };
 };
 
-const getSardinePose = (boid, width, height) => {
-  const projectedCurrent = getProjectedPoint(boid.position, width, height);
-  const projectedFallbackNext = getProjectedPoint(
-    add3D(boid.position, scale3D(boid.velocity, PARAMS.MAX_DT)),
-    width,
-    height,
-  );
-  const screenDelta = boid.previousScreenPosition
-    ? {
-        x: projectedCurrent.x - boid.previousScreenPosition.x,
-        y: projectedCurrent.y - boid.previousScreenPosition.y,
-      }
-    : {
-        x: projectedFallbackNext.x - projectedCurrent.x,
-        y: projectedFallbackNext.y - projectedCurrent.y,
-      };
-  const resolvedScreenDelta =
-    length2D(screenDelta) > 1e-3
-      ? screenDelta
-      : {
-          x: projectedFallbackNext.x - projectedCurrent.x,
-          y: projectedFallbackNext.y - projectedCurrent.y,
-        };
-  const screenVelocity = normalize2D(resolvedScreenDelta, { x: 1, y: 0 });
-  const rawAngle = Math.atan2(screenVelocity.y, screenVelocity.x);
-  const absCos = Math.abs(Math.cos(rawAngle));
-  const absSin = Math.abs(Math.sin(rawAngle));
-
-  if (absCos >= absSin) {
-    let angle = rawAngle;
-    let flipX = 1;
-
-    if (Math.abs(angle) > Math.PI * 0.5) {
-      flipX = -1;
-      angle = angle > 0 ? angle - Math.PI : angle + Math.PI;
-    }
-
-    return {
-      frame: 0,
-      angle,
-      flipX,
-      screenPosition: projectedCurrent,
-    };
-  }
-
-  return {
-    frame: screenVelocity.y > 0 ? 1 : 2,
-    angle: 0,
-    flipX: 1,
-    screenPosition: projectedCurrent,
-  };
-};
-
 const scheduleNextEvent = (now, interval, rateScale) =>
   now +
   (interval / rateScale) *
@@ -1142,7 +1112,7 @@ const createBoid = (id, world, leaderCutoff) => {
     reactionOffset: randomBetween(0.85, 1.15),
     spriteClockOffset: Math.random(),
     spriteRate: randomBetween(PARAMS.SPRITE_RATE_MIN, PARAMS.SPRITE_RATE_MAX),
-    spriteFrame: Math.floor(Math.random() * PARAMS.SPRITE_FRAME_COUNT),
+    spriteFrame: 0,
     renderAngle: 0,
     renderFlipX: 1,
     previousScreenPosition: null,
@@ -1530,12 +1500,25 @@ const maybeTriggerNeighborCascade = (boid, neighbors, now) => {
 };
 
 const updateSpriteFrame = (boid, width, height) => {
-  const pose = getSardinePose(boid, width, height);
+  const pose = resolveAtlasSpritePose(SARDINE_SPRITE_ATLAS, {
+    position: boid.position,
+    velocity: boid.velocity,
+    previousScreenPosition: boid.previousScreenPosition,
+    maxDt: PARAMS.MAX_DT,
+    width,
+    height,
+    projectPoint: getProjectedPoint,
+  });
+  const renderState = resolveSpriteRenderState(pose, {
+    renderer: SPRITE_RENDERERS.WEBGL_POINT_SPRITE,
+  });
+  const sequence = resolveStageFrameSequence(SARDINE_SPRITE_ATLAS, pose.stage);
+  const frame = sequence.frames[0] || { x: 0, y: 0 };
 
-  boid.renderAngle = pose.angle;
-  boid.renderFlipX = pose.flipX;
+  boid.renderAngle = renderState.angle;
+  boid.renderFlipX = renderState.flipX;
 
-  boid.spriteFrame = pose.frame;
+  boid.spriteFrame = getAtlasFrameIndex(frame, SARDINE_SPRITE_GRID.columns);
   boid.previousScreenPosition = pose.screenPosition;
 };
 

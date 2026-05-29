@@ -1,3 +1,6 @@
+import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
+import { resolveDomAtlasSprite } from "../../utils/spritePose";
+
 // 꿀벌
 const PARAMS = {
   BASE_SPEED_MIN: 3, // 최소 기본 속도
@@ -153,23 +156,16 @@ export function updateBee(animal, rect) {
     animal.hoverMix > 0.001
       ? animal.hoverLockedAngle
       : Math.atan2(animal.vy, animal.vx);
-  let rotation = (displayAngle * 180) / Math.PI;
-  let scaleX = 1;
+  const sprite = resolveDomAtlasSprite(HOME_SPRITE_ATLASES.bee, {
+    velocity: {
+      x: Math.cos(displayAngle),
+      y: Math.sin(displayAngle),
+    },
+  });
 
-  if (Math.abs(rotation) > 90) {
-    scaleX = -1;
-    rotation = rotation > 0 ? rotation - 180 : rotation + 180;
-  }
-
-  const displayVx = Math.cos(displayAngle);
-  const displayVy = Math.sin(displayAngle);
-  const speed = Math.hypot(displayVx, displayVy) || 1;
-  const normVyAbs = Math.abs(displayVy) / speed;
-  const isNearVertical = normVyAbs > PARAMS.VERTICAL_THRESHOLD;
-
-  animal.rotation = rotation;
-  animal.scaleX = scaleX;
-  animal.beeType = isNearVertical ? "bee_top_fly" : "bee_fly";
+  animal.rotation = sprite.rotationDeg;
+  animal.scaleX = sprite.scaleX;
+  animal.beeType = sprite.stage;
 
   animal.x += animal.vx;
   animal.y += animal.vy;

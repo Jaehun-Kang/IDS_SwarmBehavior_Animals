@@ -1,3 +1,6 @@
+import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
+import { resolveDomAtlasSprite } from "../../utils/spritePose";
+
 // 펭귄
 const PARAMS = {
   BASE_SPEED_MIN: 1, // 최소 기본 속도
@@ -64,27 +67,13 @@ function getPenguinWaddleRotation(animal) {
   return Math.sin(swayPhase + (animal.waddlePhaseOffset || 0)) * swayDeg;
 }
 
-function getPenguinMoveType(animal) {
-  const absVx = Math.abs(animal.vx);
-  const absVy = Math.abs(animal.vy);
-
-  if (absVy > absVx) {
-    return {
-      scaleX: 1,
-      penguinType: animal.vy < 0 ? "penguin_back" : "penguin_front",
-    };
-  }
-
-  return {
-    scaleX: absVx > 0.01 ? (animal.vx < 0 ? -1 : 1) : animal.scaleX,
-    penguinType: "penguin_walk",
-  };
-}
-
 export function updatePenguin(animal, rect) {
-  const { scaleX, penguinType } = getPenguinMoveType(animal);
-  animal.scaleX = scaleX;
-  animal.penguinType = penguinType;
+  const sprite = resolveDomAtlasSprite(HOME_SPRITE_ATLASES.penguin, {
+    velocity: { x: animal.vx, y: animal.vy },
+  });
+
+  animal.scaleX = sprite.scaleX;
+  animal.penguinType = sprite.stage;
   animal.rotation = getPenguinWaddleRotation(animal);
 
   animal.x += animal.vx;
@@ -151,10 +140,8 @@ export function initHomePenguin({
     animal.instanceIndex;
   animal.x = anchor.x + Math.cos(angle) * distance;
   animal.y = anchor.y + Math.sin(angle) * distance;
-  animal.vx =
-    anchor.vx + (Math.random() - 0.5) * PARAMS.START_VELOCITY_JITTER;
-  animal.vy =
-    anchor.vy + (Math.random() - 0.5) * PARAMS.START_VELOCITY_JITTER;
+  animal.vx = anchor.vx + (Math.random() - 0.5) * PARAMS.START_VELOCITY_JITTER;
+  animal.vy = anchor.vy + (Math.random() - 0.5) * PARAMS.START_VELOCITY_JITTER;
 }
 
 export function applyHomeGroupPenguin(groupIds, animalsRef, rect) {
@@ -256,8 +243,7 @@ export function applyHomeGroupPenguin(groupIds, animalsRef, rect) {
 
         if (fwdX < PARAMS.WALL_MARGIN) {
           steerX +=
-            PARAMS.WALL_STEER *
-            (1 - Math.max(0, fwdX) / PARAMS.WALL_MARGIN);
+            PARAMS.WALL_STEER * (1 - Math.max(0, fwdX) / PARAMS.WALL_MARGIN);
         } else if (fwdX > rect.width - PARAMS.WALL_MARGIN - animal.width) {
           steerX -=
             PARAMS.WALL_STEER *
@@ -269,12 +255,8 @@ export function applyHomeGroupPenguin(groupIds, animalsRef, rect) {
         }
         if (fwdY < PARAMS.WALL_MARGIN) {
           steerY +=
-            PARAMS.WALL_STEER *
-            (1 - Math.max(0, fwdY) / PARAMS.WALL_MARGIN);
-        } else if (
-          fwdY >
-          rect.height - PARAMS.WALL_MARGIN - animal.height
-        ) {
+            PARAMS.WALL_STEER * (1 - Math.max(0, fwdY) / PARAMS.WALL_MARGIN);
+        } else if (fwdY > rect.height - PARAMS.WALL_MARGIN - animal.height) {
           steerY -=
             PARAMS.WALL_STEER *
             Math.min(
@@ -347,8 +329,7 @@ export function applyHomeGroupPenguin(groupIds, animalsRef, rect) {
 
       if (fwdX < PARAMS.WALL_MARGIN) {
         steerX +=
-          PARAMS.WALL_STEER *
-          (1 - Math.max(0, fwdX) / PARAMS.WALL_MARGIN);
+          PARAMS.WALL_STEER * (1 - Math.max(0, fwdX) / PARAMS.WALL_MARGIN);
       } else if (fwdX > rect.width - PARAMS.WALL_MARGIN - animal.width) {
         steerX -=
           PARAMS.WALL_STEER *
@@ -360,8 +341,7 @@ export function applyHomeGroupPenguin(groupIds, animalsRef, rect) {
       }
       if (fwdY < PARAMS.WALL_MARGIN) {
         steerY +=
-          PARAMS.WALL_STEER *
-          (1 - Math.max(0, fwdY) / PARAMS.WALL_MARGIN);
+          PARAMS.WALL_STEER * (1 - Math.max(0, fwdY) / PARAMS.WALL_MARGIN);
       } else if (fwdY > rect.height - PARAMS.WALL_MARGIN - animal.height) {
         steerY -=
           PARAMS.WALL_STEER *

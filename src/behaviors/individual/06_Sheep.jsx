@@ -1,3 +1,6 @@
+import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
+import { resolveDomAtlasSprite } from "../../utils/spritePose";
+
 // 양
 const PARAMS = {
   BASE_SPEED_MIN: 1, // 최소 기본 속도
@@ -53,17 +56,14 @@ function getSheepBobOffset(animal) {
 }
 
 export function updateSheep(animal, rect) {
-  animal.rotation = 0;
   animal.bobOffsetY = getSheepBobOffset(animal);
-  const absVx = Math.abs(animal.vx);
-  const absVy = Math.abs(animal.vy);
-  if (absVy > absVx) {
-    animal.scaleX = 1;
-    animal.sheepType = animal.vy < 0 ? "sheep_back" : "sheep_front";
-  } else {
-    if (absVx > 0.01) animal.scaleX = animal.vx < 0 ? -1 : 1;
-    animal.sheepType = "sheep_walk";
-  }
+  const sprite = resolveDomAtlasSprite(HOME_SPRITE_ATLASES.sheep, {
+    velocity: { x: animal.vx, y: animal.vy },
+  });
+
+  animal.rotation = sprite.rotationDeg;
+  animal.scaleX = sprite.scaleX;
+  animal.sheepType = sprite.stage;
 
   animal.x += animal.vx;
   animal.y += animal.vy;
@@ -126,10 +126,8 @@ export function initHomeSheep({
     animal.instanceIndex;
   animal.x = anchor.x + Math.cos(angle) * distance;
   animal.y = anchor.y + Math.sin(angle) * distance;
-  animal.vx =
-    anchor.vx + (Math.random() - 0.5) * PARAMS.START_VELOCITY_JITTER;
-  animal.vy =
-    anchor.vy + (Math.random() - 0.5) * PARAMS.START_VELOCITY_JITTER;
+  animal.vx = anchor.vx + (Math.random() - 0.5) * PARAMS.START_VELOCITY_JITTER;
+  animal.vy = anchor.vy + (Math.random() - 0.5) * PARAMS.START_VELOCITY_JITTER;
 }
 
 export function applyHomeGroupSheep(groupIds, animalsRef, rect) {
@@ -231,8 +229,7 @@ export function applyHomeGroupSheep(groupIds, animalsRef, rect) {
 
         if (fwdX < PARAMS.WALL_MARGIN) {
           steerX +=
-            PARAMS.WALL_STEER *
-            (1 - Math.max(0, fwdX) / PARAMS.WALL_MARGIN);
+            PARAMS.WALL_STEER * (1 - Math.max(0, fwdX) / PARAMS.WALL_MARGIN);
         } else if (fwdX > rect.width - PARAMS.WALL_MARGIN - animal.width) {
           steerX -=
             PARAMS.WALL_STEER *
@@ -244,12 +241,8 @@ export function applyHomeGroupSheep(groupIds, animalsRef, rect) {
         }
         if (fwdY < PARAMS.WALL_MARGIN) {
           steerY +=
-            PARAMS.WALL_STEER *
-            (1 - Math.max(0, fwdY) / PARAMS.WALL_MARGIN);
-        } else if (
-          fwdY >
-          rect.height - PARAMS.WALL_MARGIN - animal.height
-        ) {
+            PARAMS.WALL_STEER * (1 - Math.max(0, fwdY) / PARAMS.WALL_MARGIN);
+        } else if (fwdY > rect.height - PARAMS.WALL_MARGIN - animal.height) {
           steerY -=
             PARAMS.WALL_STEER *
             Math.min(
@@ -322,8 +315,7 @@ export function applyHomeGroupSheep(groupIds, animalsRef, rect) {
 
       if (fwdX < PARAMS.WALL_MARGIN) {
         steerX +=
-          PARAMS.WALL_STEER *
-          (1 - Math.max(0, fwdX) / PARAMS.WALL_MARGIN);
+          PARAMS.WALL_STEER * (1 - Math.max(0, fwdX) / PARAMS.WALL_MARGIN);
       } else if (fwdX > rect.width - PARAMS.WALL_MARGIN - animal.width) {
         steerX -=
           PARAMS.WALL_STEER *
@@ -335,8 +327,7 @@ export function applyHomeGroupSheep(groupIds, animalsRef, rect) {
       }
       if (fwdY < PARAMS.WALL_MARGIN) {
         steerY +=
-          PARAMS.WALL_STEER *
-          (1 - Math.max(0, fwdY) / PARAMS.WALL_MARGIN);
+          PARAMS.WALL_STEER * (1 - Math.max(0, fwdY) / PARAMS.WALL_MARGIN);
       } else if (fwdY > rect.height - PARAMS.WALL_MARGIN - animal.height) {
         steerY -=
           PARAMS.WALL_STEER *

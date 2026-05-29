@@ -1,3 +1,6 @@
+import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
+import { resolveDomAtlasSprite } from "../../utils/spritePose";
+
 // 찌르레기
 const PARAMS = {
   // 기본 속도
@@ -44,39 +47,19 @@ export function initStarling(rect, width, height) {
 }
 
 export function updateStarling(animal, rect) {
-  // 진행 방향
-  let rotation = (Math.atan2(animal.vy, animal.vx) * 180) / Math.PI;
-  let scaleX = 1;
+  const sprite = resolveDomAtlasSprite(HOME_SPRITE_ATLASES.starling, {
+    velocity: { x: animal.vx, y: animal.vy },
+    state: {
+      spriteVariant: animal.randomType,
+      spriteBranchLock: animal.flyTypeLock,
+    },
+  });
 
-  // 스프라이트 방향 보정
-  if (Math.abs(rotation) > 90) {
-    scaleX = -1;
-    rotation = rotation > 0 ? rotation - 180 : rotation + 180;
-  }
-
-  const speed = Math.hypot(animal.vx, animal.vy) || 1;
-  const normVyAbs = Math.abs(animal.vy) / speed; // 수직 비율
-  const isNearVertical = normVyAbs > PARAMS.VERTICAL_THRESHOLD;
-
-  if (animal.vy < 0) {
-    // 상승
-    animal.flyType = isNearVertical ? "starling_fly4" : "starling_fly1";
-    if (animal.flyTypeLock) animal.flyTypeLock = false;
-  } else {
-    // 하강
-    if (isNearVertical) {
-      animal.flyType = "starling_fly5";
-      animal.flyTypeLock = false;
-    } else if (!animal.flyTypeLock) {
-      animal.randomType = Math.random();
-      animal.flyType =
-        animal.randomType > 0.5 ? "starling_fly2" : "starling_fly3";
-      animal.flyTypeLock = true;
-    }
-  }
-
-  animal.rotation = rotation;
-  animal.scaleX = scaleX;
+  animal.rotation = sprite.rotationDeg;
+  animal.scaleX = sprite.scaleX;
+  animal.flyType = sprite.stage;
+  animal.randomType = sprite.state.spriteVariant;
+  animal.flyTypeLock = sprite.state.spriteBranchLock;
 
   // 위치 업데이트
   animal.x += animal.vx;

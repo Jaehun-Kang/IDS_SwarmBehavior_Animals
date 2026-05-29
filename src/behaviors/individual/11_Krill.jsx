@@ -1,3 +1,6 @@
+import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
+import { resolveDomAtlasSprite } from "../../utils/spritePose";
+
 // 크릴
 const PARAMS = {
   // 기본 유영
@@ -56,10 +59,8 @@ function lerpAngle(current, target, amount) {
 }
 
 function applyHomeWallAvoidance(animal, rect) {
-  const forwardX =
-    animal.x + Math.cos(animal.heading) * PARAMS.WALL_LOOK_AHEAD;
-  const forwardY =
-    animal.y + Math.sin(animal.heading) * PARAMS.WALL_LOOK_AHEAD;
+  const forwardX = animal.x + Math.cos(animal.heading) * PARAMS.WALL_LOOK_AHEAD;
+  const forwardY = animal.y + Math.sin(animal.heading) * PARAMS.WALL_LOOK_AHEAD;
 
   let steerX = 0;
   let steerY = 0;
@@ -176,19 +177,13 @@ export function updateKrill(animal, rect) {
   animal.vx = Math.cos(animal.heading) * currentSpeed;
   animal.vy = Math.sin(animal.heading) * currentSpeed;
 
-  const rawAngle = Math.atan2(animal.vy, animal.vx);
-  const absCos = Math.abs(Math.cos(rawAngle));
-  const absSin = Math.abs(Math.sin(rawAngle));
+  const sprite = resolveDomAtlasSprite(HOME_SPRITE_ATLASES.krill, {
+    velocity: { x: animal.vx, y: animal.vy },
+  });
 
-  if (absCos >= absSin) {
-    animal.rotation = 0;
-    if (Math.abs(animal.vx) > 0.01) animal.scaleX = animal.vx < 0 ? -1 : 1;
-    animal.krillType = "krill_swim";
-  } else {
-    animal.rotation = 0;
-    animal.scaleX = 1;
-    animal.krillType = "krill_front";
-  }
+  animal.rotation = sprite.rotationDeg;
+  animal.scaleX = sprite.scaleX;
+  animal.krillType = sprite.stage;
 
   animal.x += animal.vx;
   animal.y += animal.vy;

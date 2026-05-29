@@ -1,3 +1,6 @@
+import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
+import { resolveDomAtlasSprite } from "../../utils/spritePose";
+
 // 닭새우
 const PARAMS = {
   BASE_SPEED_MIN: 1.5, // 최소 기본 속도
@@ -428,15 +431,20 @@ export function initSpinyLobster(rect, width, height) {
 }
 
 export function updateSpinyLobster(animal, rect) {
+  const sprite = resolveDomAtlasSprite(HOME_SPRITE_ATLASES.spiny_lobster, {
+    velocity: { x: animal.vx, y: animal.vy },
+    state: {
+      forceTop: animal.isHome,
+    },
+  });
+
   if (animal.isHome) {
-    animal.lobsterType = "lobster_top";
-    animal.scaleX = 1;
+    animal.lobsterType = sprite.stage;
+    animal.scaleX = sprite.scaleX;
   } else {
     animal.rotation = 0;
-    if (Math.abs(animal.vx) > 0.01) {
-      animal.scaleX = animal.vx < 0 ? -1 : 1;
-    }
-    animal.lobsterType = "lobster_swim";
+    animal.scaleX = sprite.scaleX;
+    animal.lobsterType = sprite.stage;
     applyWallAvoidance(animal, rect);
   }
 

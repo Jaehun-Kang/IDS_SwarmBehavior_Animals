@@ -1,5 +1,19 @@
 import React from "react";
 import starlingSpriteSheetUrl from "../../assets/starling_1.svg";
+import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
+import {
+  getAtlasFrameIndex,
+  resolveAtlasGrid,
+  resolveStageFrameSequence,
+} from "../../utils/spriteAtlas";
+import {
+  resolveAtlasSpritePose,
+  resolveSpriteRenderState,
+  SPRITE_RENDERERS,
+} from "../../utils/spritePose";
+
+const STARLING_SPRITE_ATLAS = HOME_SPRITE_ATLASES.starling;
+const STARLING_SPRITE_GRID = resolveAtlasGrid(STARLING_SPRITE_ATLAS);
 
 const PARAMS = {
   BOID_COUNT: 1850,
@@ -526,6 +540,7 @@ const STARLING_VERTEX_SHADER = `
 attribute vec2 aPosition;
 attribute float aSize;
 attribute float aAngle;
+attribute float aFlipX;
 attribute float aBank;
 attribute float aGlow;
 attribute float aFrame;
@@ -536,6 +551,7 @@ uniform float uPixelRatio;
 
 varying vec4 vColor;
 varying float vAngle;
+varying float vFlipX;
 varying float vBank;
 varying float vGlow;
 varying float vFrame;
@@ -550,6 +566,7 @@ void main() {
   gl_PointSize = aSize * uPixelRatio;
   vColor = aColor;
   vAngle = aAngle;
+  vFlipX = aFlipX;
   vBank = aBank;
   vGlow = aGlow;
   vFrame = aFrame;
@@ -561,11 +578,13 @@ precision mediump float;
 
 varying vec4 vColor;
 varying float vAngle;
+varying float vFlipX;
 varying float vBank;
 varying float vGlow;
 varying float vFrame;
 
 uniform sampler2D uSpriteSheet;
+uniform vec2 uAtlasGrid;
 
 mat2 rotate2d(float angle) {
   float s = sin(angle);
@@ -576,7 +595,8 @@ mat2 rotate2d(float angle) {
 void main() {
   vec2 uv = gl_PointCoord * 2.0 - 1.0;
   vec2 rotated = rotate2d(vAngle) * uv;
-  vec2 spriteUv = vec2((rotated.x + 1.0) * 0.5, 1.0 - (rotated.y + 1.0) * 0.5);
+  rotated.x *= vFlipX;
+  vec2 spriteUv = vec2((rotated.x + 1.0) * 0.5, (rotated.y + 1.0) * 0.5);
 
   if (
     spriteUv.x < 0.0 ||
@@ -588,7 +608,14 @@ void main() {
   }
 
   float frameIndex = floor(vFrame + 0.5);
-  vec2 atlasUv = vec2((spriteUv.x + frameIndex) / 6.0, spriteUv.y);
+  float atlasColumns = max(uAtlasGrid.x, 1.0);
+  float atlasRows = max(uAtlasGrid.y, 1.0);
+  float frameColumn = mod(frameIndex, atlasColumns);
+  float frameRow = floor(frameIndex / atlasColumns);
+  vec2 atlasUv = vec2(
+    (spriteUv.x + frameColumn) / atlasColumns,
+    (spriteUv.y + frameRow) / atlasRows
+  );
   vec4 sprite = texture2D(uSpriteSheet, atlasUv);
   float glow = (1.0 - smoothstep(0.16, 0.82, length(uv))) * vGlow;
   float alpha = max(sprite.a * vColor.a, glow * 0.28);
@@ -725,6 +752,7 @@ const initializeRenderer = (gl) => {
       position: gl.getAttribLocation(program, "aPosition"),
       size: gl.getAttribLocation(program, "aSize"),
       angle: gl.getAttribLocation(program, "aAngle"),
+      flipX: gl.getAttribLocation(program, "aFlipX"),
       bank: gl.getAttribLocation(program, "aBank"),
       glow: gl.getAttribLocation(program, "aGlow"),
       frame: gl.getAttribLocation(program, "aFrame"),
@@ -734,11 +762,13 @@ const initializeRenderer = (gl) => {
       resolution: gl.getUniformLocation(program, "uResolution"),
       pixelRatio: gl.getUniformLocation(program, "uPixelRatio"),
       spriteSheet: gl.getUniformLocation(program, "uSpriteSheet"),
+      atlasGrid: gl.getUniformLocation(program, "uAtlasGrid"),
     },
     buffers: {
       position: gl.createBuffer(),
       size: gl.createBuffer(),
       angle: gl.createBuffer(),
+      flipX: gl.createBuffer(),
       bank: gl.createBuffer(),
       glow: gl.createBuffer(),
       frame: gl.createBuffer(),
@@ -752,6 +782,7 @@ const initializeRenderer = (gl) => {
       positions: new Float32Array(PARAMS.BOID_COUNT * 2),
       sizes: new Float32Array(PARAMS.BOID_COUNT),
       angles: new Float32Array(PARAMS.BOID_COUNT),
+      flipsX: new Float32Array(PARAMS.BOID_COUNT),
       banks: new Float32Array(PARAMS.BOID_COUNT),
       glows: new Float32Array(PARAMS.BOID_COUNT),
       frames: new Float32Array(PARAMS.BOID_COUNT),
@@ -797,7 +828,8 @@ const destroyRenderer = (gl, renderer) => {
 
 const drawBoidsWithWebGL = (gl, renderer, width, height, pixelRatio, boids) => {
   const { renderOrder, arrays } = renderer;
-  const { positions, sizes, angles, banks, glows, frames, colors } = arrays;
+  const { positions, sizes, angles, flipsX, banks, glows, frames, colors } =
+    arrays;
 
   if (!renderer.textures.spriteSheet) {
     return;
@@ -810,12 +842,6 @@ const drawBoidsWithWebGL = (gl, renderer, width, height, pixelRatio, boids) => {
   renderOrder.forEach((boidIndex, index) => {
     const boid = boids[boidIndex];
     const projected = projectBoid(boid, width, height);
-    const headingX =
-      boid.direction.x * PARAMS.PROJECT_X_FROM_X +
-      boid.direction.z * PARAMS.PROJECT_X_FROM_Z;
-    const headingY =
-      boid.direction.y * PARAMS.PROJECT_Y_FROM_Y +
-      boid.direction.z * PARAMS.PROJECT_Y_FROM_Z;
     const agitationGlow = boid.agitation ? boid.agitation.amplitude * 0.22 : 0;
     const base = index * 2;
     const colorBase = index * 4;
@@ -823,7 +849,8 @@ const drawBoidsWithWebGL = (gl, renderer, width, height, pixelRatio, boids) => {
     positions[base] = projected.x;
     positions[base + 1] = projected.y;
     sizes[index] = 8.6 * projected.scale + Math.abs(boid.bank) * 1.05;
-    angles[index] = Math.atan2(headingY, headingX);
+    angles[index] = boid.renderAngle;
+    flipsX[index] = boid.renderFlipX;
     banks[index] = boid.bank;
     glows[index] = agitationGlow;
     frames[index] = boid.spriteFrame;
@@ -850,6 +877,11 @@ const drawBoidsWithWebGL = (gl, renderer, width, height, pixelRatio, boids) => {
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, renderer.textures.spriteSheet);
   gl.uniform1i(renderer.uniforms.spriteSheet, 0);
+  gl.uniform2f(
+    renderer.uniforms.atlasGrid,
+    STARLING_SPRITE_GRID.columns,
+    STARLING_SPRITE_GRID.rows,
+  );
 
   bindFloatAttribute(
     gl,
@@ -871,6 +903,13 @@ const drawBoidsWithWebGL = (gl, renderer, width, height, pixelRatio, boids) => {
     renderer.attributes.angle,
     1,
     angles,
+  );
+  bindFloatAttribute(
+    gl,
+    renderer.buffers.flipX,
+    renderer.attributes.flipX,
+    1,
+    flipsX,
   );
   bindFloatAttribute(
     gl,
@@ -1085,7 +1124,10 @@ const createBoid = (id, center, dimensions) => {
       PARAMS.SPRITE_FLAP_RATE_MIN,
       PARAMS.SPRITE_FLAP_RATE_MAX,
     ),
-    spriteFrame: Math.floor(Math.random() * PARAMS.SPRITE_FRAME_COUNT),
+    spriteFrame: 0,
+    renderAngle: 0,
+    renderFlipX: 1,
+    previousScreenPosition: null,
   };
 };
 
@@ -1124,53 +1166,47 @@ const getReferencedNeighbor = (
   return nextReference;
 };
 
-const updateSpriteBranch = (boid) => {
-  const verticalRatio = Math.abs(boid.direction.y);
-  const isNearVertical = verticalRatio > PARAMS.VERTICAL_BRANCH_THRESHOLD;
+const updateSpriteBranch = (boid, width, height) => {
+  const pose = resolveAtlasSpritePose(STARLING_SPRITE_ATLAS, {
+    position: boid.position,
+    velocity: boid.direction,
+    previousScreenPosition: boid.previousScreenPosition,
+    maxDt: PARAMS.MAX_DT,
+    width,
+    height,
+    projectPoint: getProjectedPoint,
+    state: {
+      spriteVariant: boid.spriteVariant,
+      spriteBranchLock: boid.spriteBranchLock,
+    },
+  });
+  const renderState = resolveSpriteRenderState(pose);
 
-  if (boid.direction.y < 0) {
-    boid.spriteBranch = isNearVertical ? "starling_fly4" : "starling_fly1";
-    boid.spriteBranchLock = false;
-    return;
-  }
-
-  if (isNearVertical) {
-    boid.spriteBranch = "starling_fly5";
-    boid.spriteBranchLock = false;
-    return;
-  }
-
-  if (!boid.spriteBranchLock) {
-    boid.spriteVariant = Math.random();
-    boid.spriteBranch =
-      boid.spriteVariant > 0.5 ? "starling_fly2" : "starling_fly3";
-    boid.spriteBranchLock = true;
-  }
+  boid.spriteVariant = pose.state.spriteVariant;
+  boid.spriteBranchLock = pose.state.spriteBranchLock;
+  boid.spriteBranch = pose.stage || STARLING_SPRITE_ATLAS.defaultStage;
+  boid.renderAngle = renderState.angle;
+  boid.renderFlipX = renderState.flipX;
+  boid.previousScreenPosition = pose.screenPosition;
 };
 
 const updateSpriteFrame = (boid, now) => {
   const flapCycle = (now * boid.spriteFlapRate + boid.spriteClockOffset) % 1;
+  const sequence = resolveStageFrameSequence(
+    STARLING_SPRITE_ATLAS,
+    boid.spriteBranch,
+  );
+  const frames =
+    sequence.frames.length > 0 ? sequence.frames : [{ x: 0, y: 0 }];
+  const frameIndex = Math.min(
+    frames.length - 1,
+    Math.floor(flapCycle * frames.length),
+  );
 
-  switch (boid.spriteBranch) {
-    case "starling_fly1":
-      boid.spriteFrame = Math.floor(flapCycle * 3);
-      break;
-    case "starling_fly2":
-      boid.spriteFrame = 2;
-      break;
-    case "starling_fly3":
-      boid.spriteFrame = 3;
-      break;
-    case "starling_fly4":
-      boid.spriteFrame = 4 + Math.floor(flapCycle * 2);
-      break;
-    case "starling_fly5":
-      boid.spriteFrame = 4;
-      break;
-    default:
-      boid.spriteFrame = Math.floor(flapCycle * PARAMS.SPRITE_FRAME_COUNT);
-      break;
-  }
+  boid.spriteFrame = getAtlasFrameIndex(
+    frames[frameIndex],
+    STARLING_SPRITE_GRID.columns,
+  );
 };
 
 const getDelayedState = (boid, now) => {
@@ -1609,7 +1645,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
           boid.agitation = null;
         }
 
-        updateSpriteBranch(boid);
+        updateSpriteBranch(boid, window.innerWidth, window.innerHeight);
         updateSpriteFrame(boid, now);
       });
 

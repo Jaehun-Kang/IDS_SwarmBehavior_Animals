@@ -1,3 +1,6 @@
+import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
+import { resolveDomAtlasSprite } from "../../utils/spritePose";
+
 // 박쥐
 const PARAMS = {
   // 기본 속도
@@ -44,26 +47,13 @@ export function initBat(rect, width, height) {
 }
 
 export function updateBat(animal, rect) {
-  let rotation = (Math.atan2(animal.vy, animal.vx) * 180) / Math.PI;
-  let scaleX = 1;
+  const sprite = resolveDomAtlasSprite(HOME_SPRITE_ATLASES.bat, {
+    velocity: { x: animal.vx, y: animal.vy },
+  });
 
-  if (Math.abs(rotation) > 90) {
-    scaleX = -1;
-    rotation = rotation > 0 ? rotation - 180 : rotation + 180;
-  }
-
-  const speed = Math.hypot(animal.vx, animal.vy) || 1;
-  const normVyAbs = Math.abs(animal.vy) / speed;
-  const isNearVertical = normVyAbs > PARAMS.VERTICAL_THRESHOLD;
-
-  if (animal.vy < 0) {
-    animal.batType = isNearVertical ? "bat_fly2" : "bat_fly1";
-  } else {
-    animal.batType = isNearVertical ? "bat_fly3" : "bat_fly1";
-  }
-
-  animal.rotation = rotation;
-  animal.scaleX = scaleX;
+  animal.rotation = sprite.rotationDeg;
+  animal.scaleX = sprite.scaleX;
+  animal.batType = sprite.stage;
 
   animal.x += animal.vx;
   animal.y += animal.vy;

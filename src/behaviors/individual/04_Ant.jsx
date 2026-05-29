@@ -1,3 +1,6 @@
+import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
+import { resolveDomAtlasSprite } from "../../utils/spritePose";
+
 // 개미
 const PARAMS = {
   BASE_SPEED_MIN: 1, // 최소 기본 속도
@@ -32,8 +35,11 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-function getTopViewRotation(vx, vy) {
-  return (Math.atan2(vy, vx) * 180) / Math.PI + PARAMS.TOP_VIEW_ROTATION_OFFSET;
+function resolveAntSprite(animal, velocity = { x: animal.vx, y: animal.vy }) {
+  return resolveDomAtlasSprite(HOME_SPRITE_ATLASES.ant, {
+    velocity,
+    profile: animal.isHome ? "home" : "simulation",
+  });
 }
 
 function lerpAngleDeg(current, target, amount) {
@@ -266,9 +272,13 @@ function updateAntRotation(animal) {
     targetHeading,
     PARAMS.ROTATION_BLEND,
   );
+  const sprite = resolveAntSprite(animal, {
+    x: Math.cos(animal.heading),
+    y: Math.sin(animal.heading),
+  });
   animal.rotation = lerpAngleDeg(
     animal.rotation,
-    (animal.heading * 180) / Math.PI + PARAMS.TOP_VIEW_ROTATION_OFFSET,
+    sprite.rotationDeg,
     PARAMS.ROTATION_BLEND,
   );
 }
@@ -414,15 +424,15 @@ export function initAnt(rect, width, height) {
 }
 
 export function updateAnt(animal, rect) {
+  const sprite = resolveAntSprite(animal);
+
   if (animal.isHome) {
-    animal.antType = "ant_top";
-    animal.scaleX = 1;
+    animal.antType = sprite.stage;
+    animal.scaleX = sprite.scaleX;
   } else {
-    animal.rotation = 0;
-    if (Math.abs(animal.vx) > 0.01) {
-      animal.scaleX = animal.vx < 0 ? -1 : 1;
-    }
-    animal.antType = "ant_walk";
+    animal.rotation = sprite.rotationDeg;
+    animal.scaleX = sprite.scaleX;
+    animal.antType = sprite.stage;
     applyWallAvoidance(animal, rect);
   }
 
@@ -492,7 +502,7 @@ export function initHomeAnt({
   animal.vx = anchor.dirX * sharedSpeed;
   animal.vy = anchor.dirY * sharedSpeed;
   animal.heading = Math.atan2(animal.vy, animal.vx);
-  animal.rotation = getTopViewRotation(animal.vx, animal.vy);
+  animal.rotation = resolveAntSprite(animal).rotationDeg;
 
   if (index === 0) {
     animal.isLeadAnt = true;

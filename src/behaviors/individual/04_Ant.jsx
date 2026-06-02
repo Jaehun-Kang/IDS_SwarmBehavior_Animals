@@ -6,7 +6,7 @@ const PARAMS = {
   BASE_SPEED_MIN: 1, // 최소 기본 속도
   BASE_SPEED_RANGE: 0.25, // 추가 속도 범위
   TOP_VIEW_ROTATION_OFFSET: 0, // 윗면 회전 보정
-  WALL_LOOK_AHEAD: 200, // 전방 벽 감지 거리
+  WALL_LOOK_AHEAD: 220, // 전방 벽 감지 거리
   WALL_MARGIN: 85, // 벽 여유 거리
   WALL_TURN_BLEND: 0.05, // 일반 벽 회피 조향 비율
   START_GAP_RATIO: 1.75, // 초기 배치 간격 배수

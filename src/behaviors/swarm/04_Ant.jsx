@@ -6,24 +6,24 @@ import { resolveCanvasAtlasSprite } from "../../utils/spritePose";
 import { getThemeBackgroundRgb } from "../../utils/theme";
 
 const ATLAS = HOME_SPRITE_ATLASES.ant;
-const SOLDIER_ANT_BODY_LENGTH_MM = 10;
+const SOLDIER_ANT_BODY_LENGTH_MM = 8;
 const ANT_BODY_LENGTH_CM = SOLDIER_ANT_BODY_LENGTH_MM / 10;
 const ANT_BODY_LENGTHS_ON_SHORT_EDGE = 116;
 const ANT_MIN_BODY_LENGTH_PX = 5.2;
 const ANT_MAX_BODY_LENGTH_PX = 7.2;
 const FIELD_CELL_BODY_LENGTHS = 0.6;
 const ANT_SPRITE_BODY_LENGTHS = 1.8;
-const PHEROMONE_SATURATION_CONCENTRATION = 4.8;
+const PHEROMONE_SATURATION_CONCENTRATION = 2.5;
 const SOURCE_FIELD_STRENGTH = 0.06;
 const GOAL_PULL_WEIGHT = 0.62;
-const SOURCE_REPULSION_WEIGHT = 1.08;
-const MEMORY_WEIGHT = 0.92;
-const GRADIENT_WEIGHT = 0.58;
+const SOURCE_REPULSION_WEIGHT = 0.45;
+const MEMORY_WEIGHT = 0.95;
+const GRADIENT_WEIGHT = 1.25;
 const TROPOTAXIS_WEIGHT = 0.92;
 const MIN_CRUISE_SPEED_CM_S = 2.0;
 const EXPLORATION_MEMORY_BOOST = 0.42;
 const VIRGIN_TERRITORY_GRADIENT_DAMP = 0.55;
-const EXPLORATION_WANDER_WEIGHT = 0.72;
+const EXPLORATION_WANDER_WEIGHT = 0.35;
 const LOW_PHEROMONE_WANDER_BOOST = 0.5;
 const OUTBOUND_MEMORY_BLEND = 0.12;
 const INBOUND_MEMORY_BLEND = 0.38;
@@ -43,7 +43,7 @@ const SOURCE_RADIUS_BODY_LENGTHS = 4.5;
 const OUTBOUND_LOOKAHEAD_BODY_LENGTHS = 6.5;
 const OUTBOUND_RETURN_DISTANCE_BODY_LENGTHS = 10;
 const OUTBOUND_WEAK_TRAIL_RATIO = 0.12;
-const EXPLORATORY_DEPOSIT_BASE = 0.18;
+const EXPLORATORY_DEPOSIT_BASE = 0.35;
 const RECRUITMENT_DEPOSIT_BASE = 0.3;
 const MILL_DEPOSIT_BASE = 0.34;
 const DENSITY_DEPOSIT_SCALE = 0.12;
@@ -56,6 +56,7 @@ const MILL_EYE_BODY_LENGTHS = 3.2;
 const EYE_REPULSION_WEIGHT = 1.9;
 const PHEROMONE_DIFFUSION_CM2_S = 0.01;
 const HARD_COLLISION_TURN_DEG_S = 1000;
+const INITIAL_FIELD_GUIDANCE_RAMP_S = 2.0;
 const SIMULATION_STEP_S = 0.02;
 const MAX_SIMULATION_STEPS_PER_FRAME = 24;
 
@@ -72,9 +73,9 @@ const PARAMS = {
   U_A_INBOUND_DEG_S: 1000,
   U_A_OUTBOUND_DEG_S: 1400,
   RC_N_THRESHOLD: -2.0,
-  GRADIENT_COUPLING_B: 10.0,
+  GRADIENT_COUPLING_B: 15.0,
   PHEROMONE_HALF_LIFE_MIN: 132,
-  TIME_ACCELERATION: 24,
+  TIME_ACCELERATION: 1,
   SENSORY_NOISE_RAD: 0.5,
   SIGMOID_K: 100,
   ENABLE_MILL: true,
@@ -127,38 +128,22 @@ const CONTROL_FIELDS = [
     step: 10,
     formatValue: (value) => String(Math.round(value)) + " deg/s",
   },
-  // {
-  //   key: "U_A_INBOUND_DEG_S",
-  //   label: "회피 회전 In",
-  //   min: 800,
-  //   max: 1600,
-  //   step: 20,
-  //   formatValue: (value) => String(Math.round(value)) + " deg/s",
-  // },
-  // {
-  //   key: "U_A_OUTBOUND_DEG_S",
-  //   label: "회피 회전 Out",
-  //   min: 800,
-  //   max: 1600,
-  //   step: 20,
-  //   formatValue: (value) => String(Math.round(value)) + " deg/s",
-  // },
-  // {
-  //   key: "RC_N_THRESHOLD",
-  //   label: "앤트밀 임계치",
-  //   min: -3,
-  //   max: 0,
-  //   step: 0.1,
-  //   formatValue: (value) => value.toFixed(1),
-  // },
-  // {
-  //   key: "GRADIENT_COUPLING_B",
-  //   label: "구배 결합 b",
-  //   min: 2,
-  //   max: 20,
-  //   step: 0.5,
-  //   formatValue: (value) => value.toFixed(1),
-  // },
+  {
+    key: "RC_N_THRESHOLD",
+    label: "앤트밀 임계치",
+    min: -3,
+    max: 0,
+    step: 0.1,
+    formatValue: (value) => value.toFixed(1),
+  },
+  {
+    key: "GRADIENT_COUPLING_B",
+    label: "구배 결합 b",
+    min: 2,
+    max: 20,
+    step: 0.5,
+    formatValue: (value) => value.toFixed(1),
+  },
   {
     key: "PHEROMONE_HALF_LIFE_MIN",
     label: "페로몬 반감기",
@@ -404,7 +389,8 @@ const createTrail = (width, height, metrics) => {
 const createAnt = (world, controls, role) => {
   const spawnPoint = world.trail.colony;
   const spawnAngle = Math.random() * Math.PI * 2;
-  const spawnRadius = Math.random() * world.trail.sourceRadiusPx * 0.7;
+  const spawnRadius =
+    Math.sqrt(Math.random()) * world.trail.sourceRadiusPx * 0.7;
   const position = add(spawnPoint, {
     x: Math.cos(spawnAngle) * spawnRadius,
     y: Math.sin(spawnAngle) * spawnRadius,
@@ -922,11 +908,20 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
     0,
     1,
   );
+  const fieldGuidanceRamp = clamp(
+    world.time / Math.max(INITIAL_FIELD_GUIDANCE_RAMP_S, 1e-6),
+    0,
+    1,
+  );
   const virginRatio = 1 - localConcentrationRatio;
-  const sourceDistanceCm = sourceDistance / Math.max(world.metrics.pxPerCm, 1e-6);
+  const sourceDistanceCm =
+    sourceDistance / Math.max(world.metrics.pxPerCm, 1e-6);
   const memoryWeight = MEMORY_WEIGHT + virginRatio * EXPLORATION_MEMORY_BOOST;
   const gradientWeight =
-    GRADIENT_WEIGHT * (1 - virginRatio * VIRGIN_TERRITORY_GRADIENT_DAMP);
+    GRADIENT_WEIGHT *
+    (1 - virginRatio * VIRGIN_TERRITORY_GRADIENT_DAMP) *
+    fieldGuidanceRamp;
+  const tropotaxisWeight = TROPOTAXIS_WEIGHT * fieldGuidanceRamp;
   ant.arousalTime = Math.max(0, ant.arousalTime - dt);
   ant.loopbackCooldownS = Math.max(0, ant.loopbackCooldownS - dt);
   if (tactileSignal.cue > 0.08) {
@@ -959,7 +954,9 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
     Math.random() < LOOPBACK_CHANCE_PER_S * dt;
   if (shouldLoopBack) {
     const loopbackHeading = wrapAngle(
-      ant.heading + Math.PI + sampleGaussian() * controls.SENSORY_NOISE_RAD * 0.35,
+      ant.heading +
+        Math.PI +
+        sampleGaussian() * controls.SENSORY_NOISE_RAD * 0.35,
     );
     ant.heading = loopbackHeading;
     ant.memoryHeading = loopbackHeading;
@@ -995,7 +992,7 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
           add(
             add(
               scale(sensors.gradientDir, gradientWeight),
-              scale(sensors.tropotaxisDir, TROPOTAXIS_WEIGHT),
+              scale(sensors.tropotaxisDir, tropotaxisWeight),
             ),
             scale(
               wanderDir,

@@ -175,8 +175,8 @@ export const HOME_SPRITE_ATLASES = {
   ant: {
     space: "2d",
     src: antSpriteSheetUrl,
-    imageSize: { width: 480, height: 70 },
-    aspectRatio: "160 / 70",
+    imageSize: { width: 300, height: 44 },
+    aspectRatio: "100 / 44",
     grid: { columns: 3, rows: 1 },
     baseClassName: "sprite_ant",
     defaultStage: "ant_top",
@@ -185,6 +185,7 @@ export const HOME_SPRITE_ATLASES = {
         const forceTop =
           profile === "home" ||
           profile === "simulation" ||
+          profile === "swarm" ||
           Boolean(state?.bridgeLock);
 
         if (forceTop) {

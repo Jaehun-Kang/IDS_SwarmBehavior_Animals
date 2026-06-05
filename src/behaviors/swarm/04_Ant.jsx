@@ -3113,7 +3113,7 @@ const drawAnt = (p5, ant, world, spriteSheet, frameSize, nowMs) => {
     width: world.width,
     height: world.height,
     state: { bridgeLock: ant.bridgeLock },
-    profile: "simulation",
+    profile: "swarm",
     timestampMs: nowMs,
     animationOffsetMs: ant.stageOffset,
   });
@@ -3154,6 +3154,8 @@ const drawAnt = (p5, ant, world, spriteSheet, frameSize, nowMs) => {
     p5.tint(228, 112, 62, 235);
   } else if (ant.trailMode === "recruitment") {
     p5.tint(255, 232, 205, 235);
+  } else {
+    p5.noTint();
   }
   p5.drawingContext.drawImage(
     spriteSheet,

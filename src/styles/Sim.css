@@ -1,6 +1,6 @@
 .sim {
   --sim-left-overlay-width: 20rem;
-  --sim-overlay-gap: .875rem;
+  --sim-overlay-gap: 0.875rem;
   width: 100vw;
   height: 100vh;
   background-color: var(--theme-bg);

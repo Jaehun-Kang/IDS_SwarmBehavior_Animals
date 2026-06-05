@@ -14,6 +14,7 @@ export const HOME_SPRITE_ATLASES = {
   starling: {
     space: "3d",
     src: starlingSpriteSheetUrl,
+    imageSize: { width: 660, height: 110 },
     aspectRatio: "1",
     grid: { columns: 6, rows: 1 },
     baseClassName: "sprite_starling",
@@ -84,6 +85,7 @@ export const HOME_SPRITE_ATLASES = {
   sardine: {
     space: "3d",
     src: sardineSpriteSheetUrl,
+    imageSize: { width: 450, height: 50 },
     aspectRatio: "150 / 50",
     grid: { columns: 3, rows: 1 },
     baseClassName: "sprite_sardine",
@@ -109,6 +111,7 @@ export const HOME_SPRITE_ATLASES = {
   grasshopper: {
     space: "3d",
     src: grasshopperSpriteSheetUrl,
+    imageSize: { width: 575, height: 110 },
     aspectRatio: "115 / 110",
     grid: { columns: 5, rows: 1 },
     baseClassName: "sprite_grasshopper",
@@ -172,6 +175,7 @@ export const HOME_SPRITE_ATLASES = {
   ant: {
     space: "2d",
     src: antSpriteSheetUrl,
+    imageSize: { width: 480, height: 70 },
     aspectRatio: "160 / 70",
     grid: { columns: 3, rows: 1 },
     baseClassName: "sprite_ant",
@@ -220,6 +224,7 @@ export const HOME_SPRITE_ATLASES = {
   bat: {
     space: "3d",
     src: batSpriteSheetUrl,
+    imageSize: { width: 380, height: 215 },
     aspectRatio: "95 / 215",
     grid: { columns: 4, rows: 1 },
     baseClassName: "sprite_bat",
@@ -260,6 +265,7 @@ export const HOME_SPRITE_ATLASES = {
   sheep: {
     space: "2d",
     src: sheepSpriteSheetUrl,
+    imageSize: { width: 345, height: 75 },
     aspectRatio: "115 / 75",
     grid: { columns: 3, rows: 1 },
     baseClassName: "sprite_sheep",
@@ -285,6 +291,7 @@ export const HOME_SPRITE_ATLASES = {
   penguin: {
     space: "2d",
     src: penguinSpriteSheetUrl,
+    imageSize: { width: 135, height: 85 },
     aspectRatio: "45 / 85",
     grid: { columns: 3, rows: 1 },
     baseClassName: "sprite_penguin",
@@ -310,6 +317,7 @@ export const HOME_SPRITE_ATLASES = {
   bee: {
     space: "3d",
     src: beeSpriteSheetUrl,
+    imageSize: { width: 600, height: 150 },
     aspectRatio: "100 / 150",
     grid: { columns: 6, rows: 1 },
     baseClassName: "sprite_bee",
@@ -348,6 +356,7 @@ export const HOME_SPRITE_ATLASES = {
   firefly: {
     space: "3d",
     src: fireflySpriteSheetUrl,
+    imageSize: { width: 810, height: 320 },
     aspectRatio: "135 / 160",
     grid: { columns: 6, rows: 2 },
     baseClassName: "sprite_firefly",
@@ -403,6 +412,7 @@ export const HOME_SPRITE_ATLASES = {
   spiny_lobster: {
     space: "2d",
     src: spinyLobsterSpriteSheetUrl,
+    imageSize: { width: 660, height: 180 },
     aspectRatio: "165 / 180",
     grid: { columns: 4, rows: 1 },
     baseClassName: "sprite_spiny_lobster",
@@ -447,6 +457,7 @@ export const HOME_SPRITE_ATLASES = {
   krill: {
     space: "2d",
     src: krillSpriteSheetUrl,
+    imageSize: { width: 290, height: 75 },
     aspectRatio: "145 / 75",
     grid: { columns: 2, rows: 1 },
     baseClassName: "sprite_krill",

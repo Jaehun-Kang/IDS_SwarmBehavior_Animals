@@ -15,8 +15,8 @@
   --theme-panel: rgb(255 255 255 / 0.34);
   --theme-panel-strong: rgb(255 255 255 / 0.74);
   --theme-panel-hover: rgb(255 255 255 / 0.9);
-  --theme-shadow: 0 .625rem 1.875rem rgb(37 33 27 / 0.08);
-  --theme-shadow-soft: 0 .25rem .75rem rgb(37 33 27 / 0.12);
+  --theme-shadow: 0 0.625rem 1.875rem rgb(37 33 27 / 0.08);
+  --theme-shadow-soft: 0 0.25rem 0.75rem rgb(37 33 27 / 0.12);
   --theme-surface-tint: rgb(182 169 146 / 0.12);
   --theme-accent: rgb(255 115 115 / 0.5);
   --theme-accent-strong: rgb(255 107 107);
@@ -35,13 +35,13 @@
 }
 
 .theme-button {
-  border: .0625rem solid var(--theme-border);
+  border: 0.0625rem solid var(--theme-border);
   background: var(--theme-panel-strong);
   border-radius: 62.4375rem;
-  padding: .5625rem 1rem;
+  padding: 0.5625rem 1rem;
   color: var(--theme-text);
   font-family: var(--theme-ui-font);
-  font-size: .8125rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.2;
   letter-spacing: 0.01em;
@@ -64,8 +64,8 @@
 }
 
 .theme-button-compact {
-  padding: .25rem .625rem;
-  font-size: .75rem;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
 }
 
 .theme-page-title {

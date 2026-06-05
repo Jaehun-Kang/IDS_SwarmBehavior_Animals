@@ -78,6 +78,7 @@ const syncCanvasSize = (canvas, ctx) => {
 export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const canvasRef = React.useRef(null);
   const imageRef = React.useRef(null);
+  const rasterCanvasRef = React.useRef(null);
   const animationFrameRef = React.useRef(0);
   const agentsRef = React.useRef([]);
   const frameSizeRef = React.useRef(
@@ -97,10 +98,29 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 
     const handleLoad = () => {
       imageRef.current = image;
-      frameSizeRef.current = resolveAtlasFrameSize(ATLAS, {
-        width: image.naturalWidth || 64,
-        height: image.naturalHeight || 64,
-      });
+      const imageSize = {
+        width: ATLAS.imageSize?.width || image.naturalWidth || 64,
+        height: ATLAS.imageSize?.height || image.naturalHeight || 64,
+      };
+      frameSizeRef.current = resolveAtlasFrameSize(ATLAS, imageSize);
+
+      const rasterCanvas = document.createElement("canvas");
+      rasterCanvas.width = imageSize.width;
+      rasterCanvas.height = imageSize.height;
+      const rasterContext = rasterCanvas.getContext("2d");
+      if (rasterContext) {
+        rasterContext.clearRect(0, 0, rasterCanvas.width, rasterCanvas.height);
+        rasterContext.drawImage(
+          image,
+          0,
+          0,
+          rasterCanvas.width,
+          rasterCanvas.height,
+        );
+        rasterCanvasRef.current = rasterCanvas;
+      } else {
+        rasterCanvasRef.current = null;
+      }
     };
 
     image.addEventListener("load", handleLoad);
@@ -110,6 +130,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 
     return () => {
       image.removeEventListener("load", handleLoad);
+      rasterCanvasRef.current = null;
     };
   }, []);
 
@@ -152,7 +173,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       ctx.fillStyle = `rgb(${backgroundRgb.join(", ")})`;
       ctx.fillRect(0, 0, size.width, size.height);
 
-      const image = imageRef.current;
+      const image = rasterCanvasRef.current || imageRef.current;
       const frameSize = frameSizeRef.current;
 
       agentsRef.current.forEach((agent, index) => {

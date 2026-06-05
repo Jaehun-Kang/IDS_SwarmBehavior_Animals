@@ -53,7 +53,7 @@
     pointer-events: none;
     color: color-mix(in srgb, var(--theme-text-strong) 84%, white 16%);
     font-family: var(--theme-ui-font);
-    font-size: clamp(.95rem, 1.4vw, 1.15rem);
+    font-size: clamp(0.95rem, 1.4vw, 1.15rem);
     font-weight: 600;
     letter-spacing: 0.16em;
     text-transform: uppercase;

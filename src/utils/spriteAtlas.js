@@ -1,5 +1,23 @@
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
+const resolveConfiguredImageSize = (atlas, imageSize) => {
+  if (atlas?.imageSize?.width && atlas?.imageSize?.height) {
+    return {
+      width: atlas.imageSize.width,
+      height: atlas.imageSize.height,
+    };
+  }
+
+  if (imageSize?.width && imageSize?.height) {
+    return {
+      width: imageSize.width,
+      height: imageSize.height,
+    };
+  }
+
+  return null;
+};
+
 export const toFrameCoordinate = (frame) => {
   if (!frame) {
     return null;
@@ -21,6 +39,7 @@ export const toFrameCoordinate = (frame) => {
 };
 
 export const resolveAtlasGrid = (atlas, imageSize) => {
+  const resolvedImageSize = resolveConfiguredImageSize(atlas, imageSize);
   const configuredGrid = atlas?.grid || {};
   const configuredColumns =
     atlas?.columns ?? configuredGrid.columns ?? configuredGrid.x;
@@ -37,12 +56,18 @@ export const resolveAtlasGrid = (atlas, imageSize) => {
   if (
     frameSize?.width &&
     frameSize?.height &&
-    imageSize?.width &&
-    imageSize?.height
+    resolvedImageSize?.width &&
+    resolvedImageSize?.height
   ) {
     return {
-      columns: Math.max(1, Math.round(imageSize.width / frameSize.width)),
-      rows: Math.max(1, Math.round(imageSize.height / frameSize.height)),
+      columns: Math.max(
+        1,
+        Math.round(resolvedImageSize.width / frameSize.width),
+      ),
+      rows: Math.max(
+        1,
+        Math.round(resolvedImageSize.height / frameSize.height),
+      ),
     };
   }
 
@@ -50,18 +75,20 @@ export const resolveAtlasGrid = (atlas, imageSize) => {
 };
 
 export const resolveAtlasAspectRatio = (atlas, imageSize) => {
+  const resolvedImageSize = resolveConfiguredImageSize(atlas, imageSize);
   if (atlas?.aspectRatio) {
     return atlas.aspectRatio;
   }
 
-  if (imageSize?.width && imageSize?.height) {
-    return `${imageSize.width} / ${imageSize.height}`;
+  if (resolvedImageSize?.width && resolvedImageSize?.height) {
+    return `${resolvedImageSize.width} / ${resolvedImageSize.height}`;
   }
 
   return undefined;
 };
 
 export const resolveAtlasFrameSize = (atlas, imageSize) => {
+  const resolvedImageSize = resolveConfiguredImageSize(atlas, imageSize);
   if (atlas?.frameSize?.width && atlas?.frameSize?.height) {
     return {
       width: atlas.frameSize.width,
@@ -69,11 +96,11 @@ export const resolveAtlasFrameSize = (atlas, imageSize) => {
     };
   }
 
-  const grid = resolveAtlasGrid(atlas, imageSize);
-  if (imageSize?.width && imageSize?.height) {
+  const grid = resolveAtlasGrid(atlas, resolvedImageSize);
+  if (resolvedImageSize?.width && resolvedImageSize?.height) {
     return {
-      width: imageSize.width / Math.max(grid.columns, 1),
-      height: imageSize.height / Math.max(grid.rows, 1),
+      width: resolvedImageSize.width / Math.max(grid.columns, 1),
+      height: resolvedImageSize.height / Math.max(grid.rows, 1),
     };
   }
 

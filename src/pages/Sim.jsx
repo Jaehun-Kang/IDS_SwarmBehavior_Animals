@@ -148,6 +148,33 @@ function SwarmCanvas({
     };
   }, [animalId, loadSwarmModule]);
 
+  React.useEffect(() => {
+    if (!SwarmComponent?.ui) {
+      return;
+    }
+
+    setSwarmUi(SwarmComponent.ui);
+    setSanitizeControls(() => SwarmComponent.sanitizeControlState ?? null);
+    setControls((current) => {
+      const defaults = SwarmComponent.ui?.defaultControlState;
+      if (!defaults) {
+        return current;
+      }
+
+      if (!current) {
+        return { ...defaults };
+      }
+
+      const merged = {
+        ...defaults,
+        ...current,
+      };
+      return SwarmComponent.sanitizeControlState
+        ? SwarmComponent.sanitizeControlState(merged)
+        : merged;
+    });
+  }, [SwarmComponent]);
+
   if (isLoading) {
     return (
       <div className="sim-state sim-state--loading">

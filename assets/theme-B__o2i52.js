@@ -1,0 +1,1 @@
+var e=[250,248,245];function t(e){return typeof window>`u`?``:getComputedStyle(document.documentElement).getPropertyValue(e).trim()}function n(){let n=t(`--theme-bg-rgb`);if(!n)return e;let r=n.split(/\s+/).map(e=>Number(e)).filter(e=>Number.isFinite(e));return r.length===3?r:e}export{n as t};

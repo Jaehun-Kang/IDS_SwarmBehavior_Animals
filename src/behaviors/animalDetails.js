@@ -213,13 +213,13 @@ export const ANIMAL_DETAILS = {
               "자발적인 방향 전환은 군집의 중심보다 가장 가늘게 늘어난 가장자리 부근의 소수 개체에서 먼저 시작되는 경우가 많은 것으로 설명됩니다. 가장자리 개체는 이웃의 피드백이 상대적으로 적어 기존 진행 방향에서 더 자유롭게 벗어날 수 있고, 이러한 편차가 주변 이웃을 따라 전체 군집의 새로운 진행 방향으로 확산됩니다.",
             citationIds: ["attanasi2015_direction_change"],
             source:
-              "Attanasi, A. et al. (2015). Emergence of collective changes in travel direction of starling flocks from individual birds fluctuations. (Source 9 PDF).",
+              "Attanasi, A. et al. (2015). Emergence of collective changes in travel direction of starling flocks from individual birds fluctuations.",
           },
         ],
         references: [
           "Ballerini, M. et al. (2008). An empirical study of large, naturally occurring starling flocks: a benchmark in collective animal behaviour.",
           "Storms, R. F. et al. (2019). Complex patterns of collective escape in starling flocks under predation. Behavioral Ecology and Sociobiology, 73, 10.",
-          "Attanasi, A. et al. (2015). Emergence of collective changes in travel direction of starling flocks from individual birds fluctuations. (Source 9 PDF).",
+          "Attanasi, A. et al. (2015). Emergence of collective changes in travel direction of starling flocks from individual birds fluctuations.",
         ],
       },
     ],

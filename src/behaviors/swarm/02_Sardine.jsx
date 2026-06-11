@@ -11,6 +11,10 @@ import {
   resolveSpriteRenderState,
   SPRITE_RENDERERS,
 } from "../../utils/spritePose";
+import {
+  applyTransparentCanvasStyle,
+  clearTransparentWebgl,
+} from "../../utils/transparentCanvas";
 
 const SARDINE_SPRITE_ATLAS = {
   ...HOME_SPRITE_ATLASES.sardine,
@@ -1006,8 +1010,7 @@ const drawBoids = (gl, renderer, width, height, pixelRatio, boids) => {
     Math.round(width * pixelRatio),
     Math.round(height * pixelRatio),
   );
-  gl.clearColor(0, 0, 0, 0);
-  gl.clear(gl.COLOR_BUFFER_BIT);
+  clearTransparentWebgl(gl);
   gl.useProgram(renderer.program);
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -1556,6 +1559,8 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
     if (!canvas) {
       return undefined;
     }
+
+    applyTransparentCanvasStyle(canvas);
 
     const gl =
       canvas.getContext("webgl", { alpha: true, antialias: true }) ||

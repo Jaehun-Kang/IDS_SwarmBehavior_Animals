@@ -2,7 +2,10 @@ import React from "react";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import { resolveAtlasFrameSize } from "../../utils/spriteAtlas";
 import { resolveCanvasAtlasSprite } from "../../utils/spritePose";
-import { getThemeBackgroundRgb } from "../../utils/theme";
+import {
+  applyTransparentCanvasStyle,
+  clearTransparentCanvas2d,
+} from "../../utils/transparentCanvas";
 
 const PARAMS = {
   DEFAULT_COUNT: 96,
@@ -459,6 +462,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       return undefined;
     }
 
+    applyTransparentCanvasStyle(canvas);
+
     const ctx = canvas.getContext("2d");
     if (!ctx) {
       return undefined;
@@ -538,10 +543,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       const regroupDistancePx = PARAMS.REGROUP_DISTANCE_M * PARAMS.PIXELS_PER_METER;
       const dogRangePx = PARAMS.DOG_REPULSION_RANGE_M * PARAMS.PIXELS_PER_METER;
 
-      const backgroundRgb = getThemeBackgroundRgb();
-      ctx.clearRect(0, 0, size.width, size.height);
-      ctx.fillStyle = `rgb(${backgroundRgb.join(", ")})`;
-      ctx.fillRect(0, 0, size.width, size.height);
+      clearTransparentCanvas2d(ctx, size.width, size.height);
 
       const image = rasterCanvasRef.current || imageRef.current;
       const frameSize = frameSizeRef.current;

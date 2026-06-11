@@ -3,7 +3,10 @@ import { P5Canvas } from "@p5-wrapper/react";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import { resolveAtlasFrameSize } from "../../utils/spriteAtlas";
 import { resolveCanvasAtlasSprite } from "../../utils/spritePose";
-import { getThemeBackgroundRgb } from "../../utils/theme";
+import {
+  applyTransparentCanvasStyle,
+  clearTransparentP5,
+} from "../../utils/transparentCanvas";
 
 const ATLAS = HOME_SPRITE_ATLASES.ant;
 const SOLDIER_ANT_BODY_LENGTH_MM = 8;
@@ -3023,8 +3026,7 @@ const stepWorld = (world, controls, dt) => {
 };
 
 const drawPheromoneField = (p5, world) => {
-  const background = getThemeBackgroundRgb();
-  p5.background(background[0], background[1], background[2]);
+  clearTransparentP5(p5);
   p5.noStroke();
   const drawFieldLayer = (
     field,
@@ -3327,6 +3329,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false } = {}) {
 
       const canvasElement = renderer?.canvas;
       if (canvasElement) {
+        applyTransparentCanvasStyle(canvasElement);
+
         const handlePointerDown = (event) => {
           if (!world || event.button !== 0) {
             return;

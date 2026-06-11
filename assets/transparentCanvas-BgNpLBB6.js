@@ -1,0 +1,1 @@
+var e=e=>{e&&(e.style.background=`transparent`)},t=(e,t,n)=>{e.clearRect(0,0,t,n)},n=e=>{e.clearColor(0,0,0,0),e.clear(e.COLOR_BUFFER_BIT)},r=e=>{e.clear()};export{n as i,t as n,r,e as t};

@@ -681,10 +681,7 @@ const resolveOutboundSectorPressure = (ant, world, minRadiusPx) => {
   let countedOutbound = 0;
 
   world.ants.forEach((otherAnt) => {
-    if (
-      otherAnt.state === "reserve" ||
-      otherAnt.role !== "outbound"
-    ) {
+    if (otherAnt.state === "reserve" || otherAnt.role !== "outbound") {
       return;
     }
 
@@ -712,7 +709,9 @@ const resolveOutboundSectorPressure = (ant, world, minRadiusPx) => {
 };
 
 const addFoodPatch = (world, position) => {
-  const radiusPx = world.metrics.bodyLengthsToPx(FOOD_PATCH_RADIUS_BODY_LENGTHS);
+  const radiusPx = world.metrics.bodyLengthsToPx(
+    FOOD_PATCH_RADIUS_BODY_LENGTHS,
+  );
   const minColonyDistancePx = Math.max(
     world.metrics.bodyLengthsToPx(FOOD_PATCH_MIN_COLONY_DISTANCE_BODY_LENGTHS),
     world.trail.bivouacRadiusPx + radiusPx * 1.4,
@@ -748,7 +747,10 @@ const addFoodPatch = (world, position) => {
 
   const radialOffsetX = patchPosition.x - world.trail.colony.x;
   const radialOffsetY = patchPosition.y - world.trail.colony.y;
-  const radialDistance = Math.max(Math.hypot(radialOffsetX, radialOffsetY), 1e-6);
+  const radialDistance = Math.max(
+    Math.hypot(radialOffsetX, radialOffsetY),
+    1e-6,
+  );
   const radialDirX = radialOffsetX / radialDistance;
   const radialDirY = radialOffsetY / radialDistance;
 
@@ -762,7 +764,8 @@ const addFoodPatch = (world, position) => {
 
     const targetDistance = Math.max(
       minColonyDistancePx,
-      distance(existingPatch.position, world.trail.colony) + minPatchSeparationPx * 0.9,
+      distance(existingPatch.position, world.trail.colony) +
+        minPatchSeparationPx * 0.9,
     );
     patchPosition = {
       x: clamp(
@@ -870,7 +873,14 @@ const resolveFoodPatchOverlap = (world, position) => {
   };
 };
 
-const logFoodRecognition = (world, ant, patchContact, source, recognized, reason) => {
+const logFoodRecognition = (
+  world,
+  ant,
+  patchContact,
+  source,
+  recognized,
+  reason,
+) => {
   if (!patchContact.patch) {
     return;
   }
@@ -917,7 +927,10 @@ const logRecruitmentResponse = (
   detail,
 ) => {
   const now = world.time;
-  if (now - ant.lastRecruitmentDebugLogTime < RECRUITMENT_DEBUG_LOG_COOLDOWN_S) {
+  if (
+    now - ant.lastRecruitmentDebugLogTime <
+    RECRUITMENT_DEBUG_LOG_COOLDOWN_S
+  ) {
     return;
   }
 
@@ -973,11 +986,7 @@ const logTurnaroundEvent = (world, ant, event, detail = null) => {
   );
 };
 
-const logBivouacSteering = (
-  world,
-  ant,
-  metrics,
-) => {
+const logBivouacSteering = (world, ant, metrics) => {
   const now = world.time;
   if (now - ant.lastBivouacDebugLogTime < BIVOUAC_DEBUG_LOG_COOLDOWN_S) {
     return;
@@ -1024,10 +1033,7 @@ const resolveFoodLoopAnchor = (ant, patchContact, world) => {
     world.metrics.bodyLengthPx * 1.45,
   );
 
-  return add(
-    patchContact.patch.position,
-    scale(outwardDir, anchorRadius),
-  );
+  return add(patchContact.patch.position, scale(outwardDir, anchorRadius));
 };
 
 const performFoodCollectionTurnaround = (ant, patchContact, world) => {
@@ -1061,7 +1067,9 @@ const performFoodCollectionTurnaround = (ant, patchContact, world) => {
 
   ant.speedPxS = Math.max(
     ant.speedPxS,
-    DEFAULT_TRAIL_SPEED_CM_S * world.metrics.pxPerCm * FOOD_DISCOVERY_SPEED_BOOST,
+    DEFAULT_TRAIL_SPEED_CM_S *
+      world.metrics.pxPerCm *
+      FOOD_DISCOVERY_SPEED_BOOST,
   );
 };
 
@@ -1099,11 +1107,7 @@ const applyFoodDiscovery = (ant, patchContact, debugContext = null) => {
       }
       return false;
     }
-    if (
-      world &&
-      ant.role === "outbound" &&
-      ant.foodLinkedRecruitment
-    ) {
+    if (world && ant.role === "outbound" && ant.foodLinkedRecruitment) {
       performFoodCollectionTurnaround(ant, patchContact, world);
       logFoodRecognition(
         world,
@@ -1196,7 +1200,9 @@ const resolveTrackedFoodPatch = (ant, world) => {
 
 const resolveRaidDrive = (world) => {
   const rawDrive =
-    world.colonyDemand * 0.92 - world.foodBuffer * 0.55 + world.foodIncome * 0.08;
+    world.colonyDemand * 0.92 -
+    world.foodBuffer * 0.55 +
+    world.foodIncome * 0.08;
   const demandFloor = world.colonyDemand * RAID_DRIVE_DEMAND_FLOOR;
   return clamp(Math.max(rawDrive, demandFloor), 0, 1);
 };
@@ -1208,11 +1214,15 @@ const updateColonyState = (world, dt) => {
   );
   const unmetDemandScale = 0.55 + 0.45 * clamp(1 - world.foodBuffer, 0, 1);
   world.colonyDemand = clamp(
-    world.colonyDemand + COLONY_DEMAND_ACCUMULATION_PER_S * dt * unmetDemandScale,
+    world.colonyDemand +
+      COLONY_DEMAND_ACCUMULATION_PER_S * dt * unmetDemandScale,
     0,
     1.5,
   );
-  world.foodIncome = Math.max(0, world.foodIncome - FOOD_INCOME_DECAY_PER_S * dt);
+  world.foodIncome = Math.max(
+    0,
+    world.foodIncome - FOOD_INCOME_DECAY_PER_S * dt,
+  );
   const targetRaidDrive = resolveRaidDrive(world);
   world.raidDrive = lerp(
     world.raidDrive,
@@ -1225,8 +1235,9 @@ const updateFrontCongestion = (world) => {
   let farOutbound = 0;
   let loopingOutbound = 0;
   let recruitmentOutbound = 0;
-  const influenceRadiusPx =
-    world.metrics.bodyLengthsToPx(FRONT_LOOPING_INFLUENCE_RADIUS);
+  const influenceRadiusPx = world.metrics.bodyLengthsToPx(
+    FRONT_LOOPING_INFLUENCE_RADIUS,
+  );
 
   world.ants.forEach((ant) => {
     if (ant.role !== "outbound") {
@@ -1248,7 +1259,8 @@ const updateFrontCongestion = (world) => {
   });
 
   const loopingRatio = farOutbound > 0 ? loopingOutbound / farOutbound : 0;
-  const recruitmentRatio = farOutbound > 0 ? recruitmentOutbound / farOutbound : 0;
+  const recruitmentRatio =
+    farOutbound > 0 ? recruitmentOutbound / farOutbound : 0;
   world.frontCongestion = clamp(
     loopingRatio * FRONT_CONGESTION_LOOP_WEIGHT +
       recruitmentRatio * FRONT_CONGESTION_RECRUITMENT_WEIGHT,
@@ -1418,7 +1430,10 @@ const updateField = (world, controls, dt) => {
 
       maxConcentration = Math.max(maxConcentration, field.values[index]);
       if (field.values[index] >= activeCutoff) {
-        activeConcentration = Math.max(activeConcentration, field.values[index]);
+        activeConcentration = Math.max(
+          activeConcentration,
+          field.values[index],
+        );
       }
     }
 
@@ -1566,11 +1581,7 @@ const computeAvoidance = (ant, ants, world) => {
 
     active = true;
     const oppositeRole = other.role !== ant.role;
-    const weight = oppositeRole
-      ? ant.role === "outbound"
-        ? 2.35
-        : 1.15
-      : 0.8;
+    const weight = oppositeRole ? (ant.role === "outbound" ? 2.35 : 1.15) : 0.8;
     avoidanceVector = add(
       avoidanceVector,
       scale(normalize(scale(offset, -1)), weight / Math.max(dist, 1)),
@@ -1728,10 +1739,7 @@ const resolveRoleTarget = (ant, world) => {
             ),
             headingFallback,
           )
-      : normalize(
-          recruitmentFrontDir,
-          headingFallback,
-        );
+        : normalize(recruitmentFrontDir, headingFallback);
 
   return add(
     ant.position,
@@ -1751,7 +1759,9 @@ const startRecruitmentLoop = (ant, options = {}) => {
     LOOPING_DURATION_S *
     (options.durationScale ?? 1) *
     (0.85 + Math.random() * 0.3);
-  ant.loopingAnchor = options.anchor ? { ...options.anchor } : { ...ant.position };
+  ant.loopingAnchor = options.anchor
+    ? { ...options.anchor }
+    : { ...ant.position };
   ant.loopExitRole = options.exitRole ?? "inbound";
   ant.trailMode = options.trailMode ?? "recruitment";
   ant.foodLinkedRecruitment = Boolean(options.foodLinked);
@@ -1810,7 +1820,9 @@ const updateRoleSwap = (ant, world, controls) => {
     isInsideBivouac(ant, world, 1.3);
 
   if (informedRecruiterNearBivouac) {
-    const bivouacAngle = vectorToAngle(subtract(ant.position, world.trail.colony));
+    const bivouacAngle = vectorToAngle(
+      subtract(ant.position, world.trail.colony),
+    );
     if (ant.informedBivouacOrbitAngle != null) {
       ant.informedBivouacOrbitAccum += Math.abs(
         wrapAngle(bivouacAngle - ant.informedBivouacOrbitAngle),
@@ -1842,7 +1854,8 @@ const updateRoleSwap = (ant, world, controls) => {
       ant.trailMode === "recruitment" ||
       ant.arousalTime > 0 ||
       localRecruitment >
-        world.recruitmentField.maxConcentration * RECRUITMENT_RETENTION_SIGNAL_THRESHOLD;
+        world.recruitmentField.maxConcentration *
+          RECRUITMENT_RETENTION_SIGNAL_THRESHOLD;
     if (recruitmentActive) {
       return;
     }
@@ -1863,14 +1876,19 @@ const updateRoleSwap = (ant, world, controls) => {
       return;
     }
 
-    const homeHeading = vectorToAngle(subtract(world.trail.colony, ant.position));
+    const homeHeading = vectorToAngle(
+      subtract(world.trail.colony, ant.position),
+    );
     ant.role = "inbound";
     ant.trailMode = "exploratory";
     ant.heading = homeHeading;
     ant.memoryHeading = homeHeading;
     ant.wanderHeading = homeHeading;
     return;
-  } else if (!informedRecruiterTouchingBivouac && !isInsideBivouac(ant, world, 0.92)) {
+  } else if (
+    !informedRecruiterTouchingBivouac &&
+    !isInsideBivouac(ant, world, 0.92)
+  ) {
     return;
   }
 
@@ -1999,7 +2017,8 @@ const shouldEnterMill = (
   }
 
   const outsideBivouac =
-    distance(ant.position, world.trail.colony) > world.trail.bivouacRadiusPx * 1.4;
+    distance(ant.position, world.trail.colony) >
+    world.trail.bivouacRadiusPx * 1.4;
   if (
     !outsideBivouac ||
     localCrowding < MILL_CONFUSION_DENSITY ||
@@ -2024,11 +2043,13 @@ const shouldExitMill = (ant, ants, world, controls, localCrowding) => {
   }
 
   const sourceDistanceCm =
-    resolveAnySourceDistance(ant, world) / Math.max(world.metrics.pxPerCm, 1e-6);
+    resolveAnySourceDistance(ant, world) /
+    Math.max(world.metrics.pxPerCm, 1e-6);
   ant.lastRcN = computePathReinforcementIndex(ant, ants, world);
   return (
     !controls.ENABLE_MILL ||
-    sourceDistanceCm < controls.BODY_LENGTH_CM * MILL_EXIT_MARGIN_BODY_LENGTHS ||
+    sourceDistanceCm <
+      controls.BODY_LENGTH_CM * MILL_EXIT_MARGIN_BODY_LENGTHS ||
     localCrowding < MILL_EXIT_DENSITY ||
     ant.lastRcN < controls.RC_N_THRESHOLD - MILL_EXIT_RC_MARGIN
   );
@@ -2159,7 +2180,8 @@ const updateMillAnt = (ant, ants, world, controls, dt) => {
   ant.heading = turnToward(
     ant.heading,
     vectorToAngle(desired),
-    ((Math.max(controls.U_P_DEG_S, HARD_COLLISION_TURN_DEG_S) * Math.PI) / 180) *
+    ((Math.max(controls.U_P_DEG_S, HARD_COLLISION_TURN_DEG_S) * Math.PI) /
+      180) *
       dt,
   );
   ant.memoryHeading = turnToward(ant.memoryHeading, ant.heading, dt * 2.2);
@@ -2334,8 +2356,7 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
       : 1;
   const exploratoryLateralSpread =
     ant.role === "outbound" && ant.trailMode === "exploratory"
-      ? FRONT_EXPLORATORY_LATERAL_SPREAD *
-          (0.6 + world.frontCongestion * 0.8) +
+      ? FRONT_EXPLORATORY_LATERAL_SPREAD * (0.6 + world.frontCongestion * 0.8) +
         exploratoryTrailLockRatio * EXPLORATORY_TRAIL_ESCAPE_SPREAD_BOOST
       : 0;
   const memoryWeightBase =
@@ -2389,7 +2410,9 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
       angleToVector(ant.heading),
     );
     const oscillation = Math.sin(
-      (world.time * LOOPING_FREQUENCY_HZ + ant.stageOffset * 0.01) * Math.PI * 2,
+      (world.time * LOOPING_FREQUENCY_HZ + ant.stageOffset * 0.01) *
+        Math.PI *
+        2,
     );
     const loopTarget = add(loopAnchor, {
       x: loopAxis.x * world.metrics.pxPerCm * LOOPING_RADIUS_CM * oscillation,
@@ -2414,15 +2437,16 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
       loopDir,
     );
     const loopTurn =
-      ((Math.max(controls.U_A_OUTBOUND_DEG_S, HARD_COLLISION_TURN_DEG_S) * Math.PI) /
+      ((Math.max(controls.U_A_OUTBOUND_DEG_S, HARD_COLLISION_TURN_DEG_S) *
+        Math.PI) /
         180) *
       dt;
-    ant.heading = turnToward(
+    ant.heading = turnToward(ant.heading, vectorToAngle(loopDesired), loopTurn);
+    ant.memoryHeading = turnToward(
+      ant.memoryHeading,
       ant.heading,
-      vectorToAngle(loopDesired),
-      loopTurn,
+      loopTurn * 0.5,
     );
-    ant.memoryHeading = turnToward(ant.memoryHeading, ant.heading, loopTurn * 0.5);
     ant.speedPxS = lerp(
       ant.speedPxS,
       controls.V_SEARCH_CM_S *
@@ -2542,7 +2566,8 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
           SECONDARY_RECRUITMENT_LOOP_DURATION_SCALE *
           (0.92 + recruitmentSignalStrength * 0.3),
         arousalTime:
-          RECRUITMENT_CONTACT_AROUSAL_S * (0.8 + recruitmentSignalStrength * 0.6),
+          RECRUITMENT_CONTACT_AROUSAL_S *
+          (0.8 + recruitmentSignalStrength * 0.6),
         trailMode: "recruitment",
         foodLinked: false,
         exitRole: "outbound",
@@ -2639,7 +2664,9 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
         sectorPressure.overrepresented &&
         Math.random() <
           clamp(
-            (sectorPressure.sectorPressure - SECTOR_LOOP_PRESSURE_THRESHOLD + 1) *
+            (sectorPressure.sectorPressure -
+              SECTOR_LOOP_PRESSURE_THRESHOLD +
+              1) *
               SECTOR_LOOPBACK_PRESSURE_CHANCE_PER_S *
               dt,
             0,
@@ -2715,7 +2742,10 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
       laneBiasMag: length(laneBias),
       avoidanceMag: avoidance.active ? length(avoidance.vector) : 0,
       opposingTraffic: avoidance.opposingTraffic,
-      radialGoalAlignment: dot(goalDir, normalize(subtract(world.trail.colony, ant.position), goalDir)),
+      radialGoalAlignment: dot(
+        goalDir,
+        normalize(subtract(world.trail.colony, ant.position), goalDir),
+      ),
       tangentialGoalAlignment: dot(goalDir, trailLateralDir),
     });
   }
@@ -2736,9 +2766,9 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
   );
   const wanderDir = angleToVector(ant.wanderHeading);
   const wanderWeight =
-    ((EXPLORATION_WANDER_WEIGHT +
+    (EXPLORATION_WANDER_WEIGHT +
       virginRatio * LOW_PHEROMONE_WANDER_BOOST +
-      (1 - localConcentrationRatio) * 0.18) +
+      (1 - localConcentrationRatio) * 0.18 +
       (ant.role === "outbound"
         ? (1 - outboundReleaseBlend) * OUTBOUND_RELEASE_WANDER_BOOST
         : 0) +
@@ -2760,7 +2790,8 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
               scale(
                 foodCue.direction || goalDir,
                 ant.role === "outbound"
-                  ? foodCue.signal * (localCrowding >= FOOD_OVERRUN_CROWDING ? 0.4 : 1)
+                  ? foodCue.signal *
+                      (localCrowding >= FOOD_OVERRUN_CROWDING ? 0.4 : 1)
                   : 0,
               ),
               scale(
@@ -2783,7 +2814,7 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
                   radialOutDir,
                   ant.role === "outbound" && !directedRecruitment
                     ? exploratoryTrailLockRatio *
-                      EXPLORATORY_TRAIL_ESCAPE_RADIAL_BOOST
+                        EXPLORATORY_TRAIL_ESCAPE_RADIAL_BOOST
                     : 0,
                 ),
                 scale(
@@ -2791,7 +2822,7 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
                   ant.role === "outbound" && !directedRecruitment
                     ? (1 - outboundReleaseBlend) *
                         OUTBOUND_TANGENTIAL_SPREAD_WEIGHT +
-                      exploratoryLateralSpread
+                        exploratoryLateralSpread
                     : 0,
                 ),
                 scale(
@@ -2808,10 +2839,7 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
         ),
         add(
           scale(angleToVector(ant.memoryHeading), memoryWeight),
-          add(
-            laneBias,
-            boundary ? scale(boundary, 1.1) : { x: 0, y: 0 },
-          ),
+          add(laneBias, boundary ? scale(boundary, 1.1) : { x: 0, y: 0 }),
         ),
       ),
       scale(avoidance.vector, informedInboundAvoidanceWeight),
@@ -2825,8 +2853,7 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
       : directedRecruitment
         ? RECRUITMENT_FINAL_NOISE_SCALE
         : 1;
-  const noise =
-    sampleGaussian() * controls.SENSORY_NOISE_RAD * finalNoiseScale;
+  const noise = sampleGaussian() * controls.SENSORY_NOISE_RAD * finalNoiseScale;
   const targetHeading = vectorToAngle(rotate(desired, noise));
   const maxTurn =
     ((avoidance.hardCollision
@@ -2879,7 +2906,13 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
     return;
   }
 
-  const trailDeposit = computeTrailDeposit(ant, localCrowding, world, controls, dt);
+  const trailDeposit = computeTrailDeposit(
+    ant,
+    localCrowding,
+    world,
+    controls,
+    dt,
+  );
   const recruitmentDepositor =
     ant.trailMode === "recruitment" && ant.knowsFoodLocation;
   const recruitmentDepositScale = directedRecruitment
@@ -2912,10 +2945,7 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
     ant.role === "outbound" && ant.trailMode === "exploratory"
       ? clamp(
           EXPLORATORY_VIRGIN_DEPOSIT_FLOOR +
-            Math.pow(
-              virginRatio,
-              EXPLORATORY_TRAIL_FEEDBACK_EXPONENT,
-            ) *
+            Math.pow(virginRatio, EXPLORATORY_TRAIL_FEEDBACK_EXPONENT) *
               EXPLORATORY_TRAIL_DEPOSIT_BOOST,
           EXPLORATORY_VIRGIN_DEPOSIT_FLOOR,
           1,
@@ -2938,9 +2968,7 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
       : 1;
 
   depositField(
-    recruitmentDepositor
-      ? world.recruitmentField
-      : world.field,
+    recruitmentDepositor ? world.recruitmentField : world.field,
     ant.position.x,
     ant.position.y,
     trailDeposit.amount *
@@ -3039,10 +3067,8 @@ const drawPheromoneField = (p5, world) => {
     noiseCutoffRatio = PHEROMONE_NOISE_CUTOFF_RATIO,
     activeCutoffRatio = PHEROMONE_ACTIVE_CUTOFF_RATIO,
   ) => {
-    const noiseCutoff =
-      field.saturationConcentration * noiseCutoffRatio;
-    const activeCutoff =
-      field.saturationConcentration * activeCutoffRatio;
+    const noiseCutoff = field.saturationConcentration * noiseCutoffRatio;
+    const activeCutoff = field.saturationConcentration * activeCutoffRatio;
 
     for (let row = 0; row < field.rows; row += 1) {
       for (let column = 0; column < field.cols; column += 1) {
@@ -3082,7 +3108,17 @@ const drawPheromoneField = (p5, world) => {
   } else {
     drawFieldLayer(world.field, 111, 196, 122, 28, 2, 6, 0.016, 0.095);
   }
-  drawFieldLayer(world.recruitmentField, 239, 129, 65, 220, 10, 32, 0.003, 0.012);
+  drawFieldLayer(
+    world.recruitmentField,
+    239,
+    129,
+    65,
+    220,
+    10,
+    32,
+    0.003,
+    0.012,
+  );
 };
 
 const drawBivouac = (p5, world) => {

@@ -481,7 +481,11 @@ const resolveBehaviorConfig = (controls = DEFAULT_CONTROL_STATE) => {
       PARAMS.APPARENT_TEMP_TRANSITION_WIDTH_C,
   );
   const huddleDrive = clamp(huddleProbability, 0, 1);
-  const jamStrength = clamp(huddleProbability * 0.78 + densityRatio * 0.22, 0, 1);
+  const jamStrength = clamp(
+    huddleProbability * 0.78 + densityRatio * 0.22,
+    0,
+    1,
+  );
   const phase =
     huddleDrive < PARAMS.GAS_STATE_THRESHOLD
       ? "free_move"
@@ -494,7 +498,11 @@ const resolveBehaviorConfig = (controls = DEFAULT_CONTROL_STATE) => {
     0,
     1,
   );
-  const freeMoveStrength = clamp((1 - jamStrength) * lerp(1, 0.72, windStress), 0.04, 1);
+  const freeMoveStrength = clamp(
+    (1 - jamStrength) * lerp(1, 0.72, windStress),
+    0.04,
+    1,
+  );
   const liquidBlend =
     phase === "liquid"
       ? 1 -
@@ -543,8 +551,11 @@ const resolveBehaviorConfig = (controls = DEFAULT_CONTROL_STATE) => {
       lerp(1.04, 0.8, densityRatio) *
       lerp(1.02, 0.88, windStress),
     targetPull:
-      lerp(PARAMS.FREE_MOVE_TARGET_PULL, PARAMS.TARGET_PULL * 1.42, jamStrength) *
-      lerp(0.96, 1.18, coldStress),
+      lerp(
+        PARAMS.FREE_MOVE_TARGET_PULL,
+        PARAMS.TARGET_PULL * 1.42,
+        jamStrength,
+      ) * lerp(0.96, 1.18, coldStress),
     separationRatio:
       PARAMS.SEPARATION_RATIO *
       lerp(1.55, 0.82, huddleStrength) *
@@ -577,11 +588,7 @@ const resolveBehaviorConfig = (controls = DEFAULT_CONTROL_STATE) => {
     freeMoveOutwardForce: PARAMS.FREE_MOVE_OUTWARD_FORCE * freeMoveStrength,
     windDriftForce: windStress * lerp(6, 22, huddleStrength),
     vortexCount:
-      count >= 100 && huddleStrength > 0.54
-        ? windSpeedMps > 0.5
-          ? 2
-          : 4
-        : 0,
+      count >= 100 && huddleStrength > 0.54 ? (windSpeedMps > 0.5 ? 2 : 4) : 0,
     pulseTriggerRatio: clamp(
       lerp(PARAMS.PULSE_TRIGGER_MIN_RATIO, 0.95, thermalBreakupThreshold),
       PARAMS.PULSE_TRIGGER_MIN_RATIO,
@@ -847,7 +854,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 
       const metrics = resolvePenguinMetrics(width, height, behavior);
       agentsRef.current.forEach((agent) => {
-        const margin = metrics.spriteHeight * PARAMS.SCREEN_REENTRY_MARGIN_RATIO;
+        const margin =
+          metrics.spriteHeight * PARAMS.SCREEN_REENTRY_MARGIN_RATIO;
         agent.x = clamp(agent.x, -margin, width + margin);
         agent.y = clamp(agent.y, -margin, height + margin);
         agent.renderHeight = metrics.spriteHeight * agent.sizeJitter;
@@ -901,7 +909,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           lerp(1, PARAMS.SETTLE_EDGE_BOOST, settleBlend);
         const stepSpeed = PARAMS.INDIVIDUAL_SPEED_CMPS * pxPerCm;
         const freeStepSpeed = PARAMS.INDIVIDUAL_SPEED_CMPS * pxPerCm;
-        const freeWalkCruiseSpeed = PARAMS.FREE_WALK_CRUISE_SPEED_CMPS * pxPerCm;
+        const freeWalkCruiseSpeed =
+          PARAMS.FREE_WALK_CRUISE_SPEED_CMPS * pxPerCm;
         const waveStepSpeed = PARAMS.WAVE_SPEED_CMPS * pxPerCm;
         const coolingExitSpeed = PARAMS.COOLING_EXIT_SPEED_CMPS * pxPerCm;
         const behaviorDt = dt * PARAMS.SIMULATION_TIME_SCALE;
@@ -990,12 +999,12 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             const isCoolingExit = agent.mode === AGENT_MODES.COOLING_EXIT;
             let steerX =
               freeWalkRandomDir.x *
-                PARAMS.FREE_MOVE_TARGET_PULL *
-                behavior.freeMoveStrength;
+              PARAMS.FREE_MOVE_TARGET_PULL *
+              behavior.freeMoveStrength;
             let steerY =
               freeWalkRandomDir.y *
-                PARAMS.FREE_MOVE_TARGET_PULL *
-                behavior.freeMoveStrength;
+              PARAMS.FREE_MOVE_TARGET_PULL *
+              behavior.freeMoveStrength;
             let alignmentX = 0;
             let alignmentY = 0;
             let alignmentCount = 0;
@@ -1060,8 +1069,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
                 closeNeighborCenterY += otherAgent.y;
                 const longitudinalOffset =
                   bodyDx * inward.x + bodyDy * inward.y;
-                const lateralOffset =
-                  bodyDx * tangent.x + bodyDy * tangent.y;
+                const lateralOffset = bodyDx * tangent.x + bodyDy * tangent.y;
                 const surroundProjectionThreshold =
                   collisionDistance * PARAMS.HUDDLE_SURROUND_PROJECTION_RATIO;
                 const surroundLateralThreshold =
@@ -1230,8 +1238,10 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
                     : 0.42) *
                   latticeScale;
 
-                steerX += (neighbor.bodyDx / neighbor.bodyDistance) * latticeForce;
-                steerY += (neighbor.bodyDy / neighbor.bodyDistance) * latticeForce;
+                steerX +=
+                  (neighbor.bodyDx / neighbor.bodyDistance) * latticeForce;
+                steerY +=
+                  (neighbor.bodyDy / neighbor.bodyDistance) * latticeForce;
               });
 
               sortedLatticeNeighbors
@@ -1317,12 +1327,12 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
               const reentryDistanceRatio = clamp(
                 Math.max(
                   agent.x < 0
-                    ? (-agent.x) / Math.max(screenMargin, 1)
+                    ? -agent.x / Math.max(screenMargin, 1)
                     : agent.x > size.width
                       ? (agent.x - size.width) / Math.max(screenMargin, 1)
                       : 0,
                   agent.y < 0
-                    ? (-agent.y) / Math.max(screenMargin, 1)
+                    ? -agent.y / Math.max(screenMargin, 1)
                     : agent.y > size.height
                       ? (agent.y - size.height) / Math.max(screenMargin, 1)
                       : 0,
@@ -1332,9 +1342,13 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
               );
 
               steerX +=
-                reentryDir.x * PARAMS.SCREEN_REENTRY_FORCE * reentryDistanceRatio;
+                reentryDir.x *
+                PARAMS.SCREEN_REENTRY_FORCE *
+                reentryDistanceRatio;
               steerY +=
-                reentryDir.y * PARAMS.SCREEN_REENTRY_FORCE * reentryDistanceRatio;
+                reentryDir.y *
+                PARAMS.SCREEN_REENTRY_FORCE *
+                reentryDistanceRatio;
               steerX +=
                 reentryTangent.x *
                 PARAMS.SCREEN_REENTRY_TANGENTIAL_FORCE *
@@ -1467,7 +1481,11 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             const retainedHeat = Math.max(agent.heatHistory, 0);
             const latentCooling = Math.max(-agent.heatHistory, 0);
             const radialCoreRatio = clamp(
-              1 - Math.pow(Math.min(boundaryRatio, 1.08), PARAMS.THERMAL_CORE_CURVE_POWER),
+              1 -
+                Math.pow(
+                  Math.min(boundaryRatio, 1.08),
+                  PARAMS.THERMAL_CORE_CURVE_POWER,
+                ),
               0,
               1,
             );
@@ -1509,7 +1527,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
                 PARAMS.THERMAL_EXPOSED_BASELINE_LOSS_C,
                 PARAMS.THERMAL_BASELINE_LOSS_C,
                 lateralInsulationRatio,
-              ) + latentCooling * 0.24;
+              ) +
+              latentCooling * 0.24;
             const windCoolingC =
               windwardExposure * PARAMS.THERMAL_WIND_COOLING_C +
               edgeExposure *
@@ -1529,11 +1548,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
                   (0.92 +
                     contactWarmth * 0.32 +
                     localDensityRatio * 0.16 +
-                    clamp(
-                      (targetSkinTempC - agent.skinTempC) / 6,
-                      0,
-                      2.8,
-                    ))
+                    clamp((targetSkinTempC - agent.skinTempC) / 6, 0, 2.8))
                 : PARAMS.THERMAL_COOL_TAU_SEC /
                   (1 + exposureCooling * 0.72 + edgeExposure * 0.28);
             const thermalRelaxationRate = clamp(
@@ -1615,7 +1630,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             agent.isFullySurrounded = isFullySurrounded;
             const hasStableHuddleContact =
               touchingNeighborCount >= PARAMS.HUDDLE_MEMBER_MIN_TOUCHES &&
-              touchingNeighborRatio > PARAMS.HUDDLE_JAM_TOUCH_THRESHOLD * 1.45 &&
+              touchingNeighborRatio >
+                PARAMS.HUDDLE_JAM_TOUCH_THRESHOLD * 1.45 &&
               contactTightnessRatio > PARAMS.HUDDLE_MEMBER_MIN_TIGHTNESS &&
               localDensityRatio > PARAMS.HUDDLE_MEMBER_MIN_DENSITY;
             const huddleModeScore = clamp(
@@ -1633,7 +1649,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             const huddleModeStayReady =
               huddleModeScore >= PARAMS.HUDDLE_MODE_EXIT_SCORE &&
               touchingNeighborCount >= PARAMS.HUDDLE_MEMBER_MIN_TOUCHES &&
-              touchingNeighborRatio > PARAMS.HUDDLE_JAM_TOUCH_THRESHOLD * 1.15 &&
+              touchingNeighborRatio >
+                PARAMS.HUDDLE_JAM_TOUCH_THRESHOLD * 1.15 &&
               contactTightnessRatio > PARAMS.HUDDLE_MEMBER_MIN_TIGHTNESS &&
               localDensityRatio > PARAMS.HUDDLE_MEMBER_MIN_DENSITY;
             const compactHuddle =
@@ -1763,7 +1780,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
               }
 
               if (
-                (behavior.phase === "free_move" || updatedHuddleIntent < 0.54) &&
+                (behavior.phase === "free_move" ||
+                  updatedHuddleIntent < 0.54) &&
                 agent.stepRemaining <
                   freeStepDistancePx * PARAMS.FREE_WALK_MIN_CRUISE_STEP_RATIO &&
                 Math.hypot(agent.vx, agent.vy) < PARAMS.FREE_WALK_STALL_SPEED_PX
@@ -1798,8 +1816,10 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
                   freeStepDistancePx * (0.82 + thermalRelocationRatio * 0.46),
                 );
                 agent.stepCooldown = PARAMS.STEP_COOLDOWN_SEC * 0.32;
-                steerX += tangent.x * wanderSign * PARAMS.LIQUID_TANGENTIAL_FORCE * 0.9;
-                steerY += tangent.y * wanderSign * PARAMS.LIQUID_TANGENTIAL_FORCE * 0.9;
+                steerX +=
+                  tangent.x * wanderSign * PARAMS.LIQUID_TANGENTIAL_FORCE * 0.9;
+                steerY +=
+                  tangent.y * wanderSign * PARAMS.LIQUID_TANGENTIAL_FORCE * 0.9;
               }
             }
             if (behavior.vortexCount > 0 && updatedHuddleIntent > 0.54) {
@@ -1816,62 +1836,75 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
               const ringRadius = Math.hypot(ringX, ringY);
               const vortexPhase = Math.sin(ellipseAngle * behavior.vortexCount);
               const vortexStrength =
-                clamp(localDensityRatio * 0.5 + updatedWarmDrive * 0.65, 0, 1.35) *
-                clamp(1.25 - Math.abs(ringRadius - 1), 0, 1);
+                clamp(
+                  localDensityRatio * 0.5 + updatedWarmDrive * 0.65,
+                  0,
+                  1.35,
+                ) * clamp(1.25 - Math.abs(ringRadius - 1), 0, 1);
 
-              steerX += tangent.x * vortexPhase * PARAMS.VORTEX_SWIRL_FORCE * vortexStrength;
-              steerY += tangent.y * vortexPhase * PARAMS.VORTEX_SWIRL_FORCE * vortexStrength;
+              steerX +=
+                tangent.x *
+                vortexPhase *
+                PARAMS.VORTEX_SWIRL_FORCE *
+                vortexStrength;
+              steerY +=
+                tangent.y *
+                vortexPhase *
+                PARAMS.VORTEX_SWIRL_FORCE *
+                vortexStrength;
             }
-              let nextMode = agent.mode;
+            let nextMode = agent.mode;
 
-              if (
-                agent.mode === AGENT_MODES.WAVE_STEP &&
-                agent.stepRemaining > stepDistancePx * 0.08
-              ) {
-                nextMode = AGENT_MODES.WAVE_STEP;
-              } else if (criticalOverheat) {
+            if (
+              agent.mode === AGENT_MODES.WAVE_STEP &&
+              agent.stepRemaining > stepDistancePx * 0.08
+            ) {
+              nextMode = AGENT_MODES.WAVE_STEP;
+            } else if (criticalOverheat) {
+              nextMode = AGENT_MODES.COOLING_EXIT;
+            } else if (isInteriorHuddle) {
+              nextMode = AGENT_MODES.REST_HUDDLE;
+            } else if (isEdgeHuddle) {
+              if (wantsCooling && (!protectedHuddleCore || criticalOverheat)) {
                 nextMode = AGENT_MODES.COOLING_EXIT;
-              } else if (isInteriorHuddle) {
-                nextMode = AGENT_MODES.REST_HUDDLE;
-              } else if (isEdgeHuddle) {
-                if (wantsCooling && (!protectedHuddleCore || criticalOverheat)) {
-                  nextMode = AGENT_MODES.COOLING_EXIT;
-                } else if (wantsWarmth || agent.shelterSeeking) {
-                  nextMode = AGENT_MODES.BOUNDARY_WALK;
-                } else {
-                  nextMode = AGENT_MODES.REST_HUDDLE;
-                }
               } else if (wantsWarmth || agent.shelterSeeking) {
                 nextMode = AGENT_MODES.BOUNDARY_WALK;
               } else {
-                nextMode = AGENT_MODES.FREE_WALK;
+                nextMode = AGENT_MODES.REST_HUDDLE;
               }
+            } else if (wantsWarmth || agent.shelterSeeking) {
+              nextMode = AGENT_MODES.BOUNDARY_WALK;
+            } else {
+              nextMode = AGENT_MODES.FREE_WALK;
+            }
 
-              if (!huddleMember && nextMode === AGENT_MODES.REST_HUDDLE) {
-                nextMode = wantsWarmth
-                  ? AGENT_MODES.BOUNDARY_WALK
-                  : AGENT_MODES.FREE_WALK;
-              }
+            if (!huddleMember && nextMode === AGENT_MODES.REST_HUDDLE) {
+              nextMode = wantsWarmth
+                ? AGENT_MODES.BOUNDARY_WALK
+                : AGENT_MODES.FREE_WALK;
+            }
 
-              if (looseRestHuddle && nextMode === AGENT_MODES.REST_HUDDLE) {
-                nextMode = wantsWarmth
-                  ? AGENT_MODES.BOUNDARY_WALK
-                  : AGENT_MODES.FREE_WALK;
-              }
+            if (looseRestHuddle && nextMode === AGENT_MODES.REST_HUDDLE) {
+              nextMode = wantsWarmth
+                ? AGENT_MODES.BOUNDARY_WALK
+                : AGENT_MODES.FREE_WALK;
+            }
 
-              if (nextMode !== agent.mode) {
-                if (nextMode === AGENT_MODES.BOUNDARY_WALK) {
-                  agent.boundarySide = Math.sign(agent.y - metrics.centerY || agent.slotY || 1);
-                  agent.shelterWait = randomBetween(
-                    PARAMS.SHELTER_WAIT_MIN_SEC,
-                    PARAMS.SHELTER_WAIT_MAX_SEC,
-                  );
-                }
-                agent.mode = nextMode;
-                agent.modeTimer = 0;
-              } else {
-                agent.modeTimer += dt;
+            if (nextMode !== agent.mode) {
+              if (nextMode === AGENT_MODES.BOUNDARY_WALK) {
+                agent.boundarySide = Math.sign(
+                  agent.y - metrics.centerY || agent.slotY || 1,
+                );
+                agent.shelterWait = randomBetween(
+                  PARAMS.SHELTER_WAIT_MIN_SEC,
+                  PARAMS.SHELTER_WAIT_MAX_SEC,
+                );
               }
+              agent.mode = nextMode;
+              agent.modeTimer = 0;
+            } else {
+              agent.modeTimer += dt;
+            }
 
             const motionDirection = normalize2D(
               steerX,
@@ -1928,15 +1961,30 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             }
 
             if (agent.mode === AGENT_MODES.BOUNDARY_WALK) {
-              const sideSign = agent.boundarySide || Math.sign(agent.y - metrics.centerY || 1);
+              const sideSign =
+                agent.boundarySide || Math.sign(agent.y - metrics.centerY || 1);
               const ringTargetX = metrics.centerX + metrics.radiusX * 0.92;
               const ringTargetY =
-                metrics.centerY + sideSign * metrics.radiusY * PARAMS.BOUNDARY_WALK_RING_RATIO;
-              const ringDir = normalize2D(ringTargetX - agent.x, ringTargetY - agent.y, tangent);
-              const flankDirection = normalize2D(-inward.y * sideSign, inward.x * sideSign, tangent);
+                metrics.centerY +
+                sideSign * metrics.radiusY * PARAMS.BOUNDARY_WALK_RING_RATIO;
+              const ringDir = normalize2D(
+                ringTargetX - agent.x,
+                ringTargetY - agent.y,
+                tangent,
+              );
+              const flankDirection = normalize2D(
+                -inward.y * sideSign,
+                inward.x * sideSign,
+                tangent,
+              );
               const leewardTargetX = metrics.centerX - metrics.radiusX * 0.74;
               const leewardDx = leewardTargetX - agent.x;
-              const leewardBias = clamp((-leewardDx + metrics.radiusX * 0.24) / Math.max(metrics.radiusX, 1), 0, 1);
+              const leewardBias = clamp(
+                (-leewardDx + metrics.radiusX * 0.24) /
+                  Math.max(metrics.radiusX, 1),
+                0,
+                1,
+              );
 
               steerX += ringDir.x * PARAMS.SHELTER_SIDE_PULL * 0.44;
               steerY += ringDir.y * PARAMS.SHELTER_SIDE_PULL * 0.44;
@@ -1951,21 +1999,21 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
                 updatedHuddleIntent > 0.64 ||
                 (leewardBias > 0.58 && edgeExposure < 0.16)
               ) {
-                  if (huddleMember) {
-                    if (isInteriorHuddle) {
-                      agent.mode = AGENT_MODES.REST_HUDDLE;
-                    } else if (wantsCooling && coolingExitEligible) {
-                      agent.mode = AGENT_MODES.COOLING_EXIT;
-                    } else if (wantsWarmth) {
-                      agent.mode = AGENT_MODES.BOUNDARY_WALK;
-                    } else {
-                      agent.mode = AGENT_MODES.REST_HUDDLE;
-                    }
+                if (huddleMember) {
+                  if (isInteriorHuddle) {
+                    agent.mode = AGENT_MODES.REST_HUDDLE;
+                  } else if (wantsCooling && coolingExitEligible) {
+                    agent.mode = AGENT_MODES.COOLING_EXIT;
+                  } else if (wantsWarmth) {
+                    agent.mode = AGENT_MODES.BOUNDARY_WALK;
                   } else {
-                    agent.mode = wantsWarmth
-                      ? AGENT_MODES.BOUNDARY_WALK
-                      : AGENT_MODES.FREE_WALK;
+                    agent.mode = AGENT_MODES.REST_HUDDLE;
                   }
+                } else {
+                  agent.mode = wantsWarmth
+                    ? AGENT_MODES.BOUNDARY_WALK
+                    : AGENT_MODES.FREE_WALK;
+                }
                 agent.modeTimer = 0;
                 agent.shelterSeeking = false;
                 agent.shelterWait = Math.max(
@@ -2019,7 +2067,10 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
               contactDeficit > 0.02 &&
               updatedHuddleIntent > 0.28 &&
               agent.mode !== AGENT_MODES.COOLING_EXIT &&
-              !(agent.mode === AGENT_MODES.FREE_WALK && updatedHuddleIntent < 0.62)
+              !(
+                agent.mode === AGENT_MODES.FREE_WALK &&
+                updatedHuddleIntent < 0.62
+              )
             ) {
               const localCenterX =
                 closeNeighborCenterX / Math.max(localDensityCount, 1);
@@ -2096,8 +2147,9 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 
             if (isInteriorHuddle && (waveGapActive || adjacentWaveStep)) {
               const gapAmount =
-                (nearestAheadDistance ?? nearestAheadWaveDistance ?? waveTriggerThresholdPx) -
-                waveTriggerThresholdPx;
+                (nearestAheadDistance ??
+                  nearestAheadWaveDistance ??
+                  waveTriggerThresholdPx) - waveTriggerThresholdPx;
               const gapRatio = clamp(
                 adjacentWaveStep && !waveGapActive
                   ? 0.28 + Math.min(0.5, updatedColdDrive * 0.3)
@@ -2158,7 +2210,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
               (isFullySurrounded ||
                 (!shouldRelocate &&
                   updatedWarmDrive < PARAMS.HUDDLE_RELEASE_WARM_THRESHOLD &&
-                  contactDeficit < PARAMS.HUDDLE_STATIC_LOCK_CONTACT_DEFICIT)) &&
+                  contactDeficit <
+                    PARAMS.HUDDLE_STATIC_LOCK_CONTACT_DEFICIT)) &&
               agent.stepRemaining <
                 stepDistancePx * PARAMS.HUDDLE_REST_LOCK_STEP_RATIO;
 
@@ -2257,14 +2310,13 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
               agent.mode === AGENT_MODES.WAVE_STEP &&
               agent.stepRemaining <= stepDistancePx * 0.05
             ) {
-              agent.mode =
-                huddleMember
-                  ? wantsWarmth
-                    ? AGENT_MODES.BOUNDARY_WALK
-                    : AGENT_MODES.REST_HUDDLE
-                  : wantsWarmth
-                    ? AGENT_MODES.BOUNDARY_WALK
-                    : AGENT_MODES.FREE_WALK;
+              agent.mode = huddleMember
+                ? wantsWarmth
+                  ? AGENT_MODES.BOUNDARY_WALK
+                  : AGENT_MODES.REST_HUDDLE
+                : wantsWarmth
+                  ? AGENT_MODES.BOUNDARY_WALK
+                  : AGENT_MODES.FREE_WALK;
               agent.modeTimer = 0;
             }
             const stepImpulse =
@@ -2366,10 +2418,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
                 ? PARAMS.HUDDLE_STATIC_SEPARATION_SCALE
                 : 1;
             const push =
-              overlapRatio *
-              behavior.separationForce *
-              pushScale *
-              dt;
+              overlapRatio * behavior.separationForce * pushScale * dt;
             const normalX = dx / distance;
             const normalY = dy / distance;
 
@@ -2457,20 +2506,21 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
                   freeWalkActivityRatio,
                 )
               : PARAMS.VELOCITY_DAMPING;
-            const settledMotion = Math.hypot(measuredVx, measuredVy);
+          const settledMotion = Math.hypot(measuredVx, measuredVy);
 
-            if (
-              agent.mode === AGENT_MODES.REST_HUDDLE &&
-              agent.stepRemaining < stepDistancePx * PARAMS.HARD_STOP_STEP_RATIO &&
-              settledMotion < PARAMS.HARD_STOP_SPEED_PX
-            ) {
-              agent.vx = 0;
-              agent.vy = 0;
-            } else {
-              agent.vx = lerp(agent.vx, measuredVx, 1 - effectiveVelocityDamping);
-              agent.vy = lerp(agent.vy, measuredVy, 1 - effectiveVelocityDamping);
-            }
-            if (agent.mode === AGENT_MODES.REST_HUDDLE) {
+          if (
+            agent.mode === AGENT_MODES.REST_HUDDLE &&
+            agent.stepRemaining <
+              stepDistancePx * PARAMS.HARD_STOP_STEP_RATIO &&
+            settledMotion < PARAMS.HARD_STOP_SPEED_PX
+          ) {
+            agent.vx = 0;
+            agent.vy = 0;
+          } else {
+            agent.vx = lerp(agent.vx, measuredVx, 1 - effectiveVelocityDamping);
+            agent.vy = lerp(agent.vy, measuredVy, 1 - effectiveVelocityDamping);
+          }
+          if (agent.mode === AGENT_MODES.REST_HUDDLE) {
             agent.vx *= 1 - PARAMS.REST_VELOCITY_DAMPING;
             agent.vy *= 1 - PARAMS.REST_VELOCITY_DAMPING;
           }
@@ -2526,7 +2576,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           if (
             !spriteDirectionDeadZone &&
             (motionSpeed > PARAMS.SPRITE_UPDATE_SPEED_PX ||
-              agent.stepRemaining > stepDistancePx * PARAMS.SPRITE_STEP_UPDATE_RATIO ||
+              agent.stepRemaining >
+                stepDistancePx * PARAMS.SPRITE_STEP_UPDATE_RATIO ||
               agent.mode === AGENT_MODES.WAVE_STEP ||
               agent.mode === AGENT_MODES.COOLING_EXIT)
           ) {
@@ -2535,7 +2586,11 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
               agent.spriteVelocity?.y ?? agent.vy,
               { x: 1, y: 0 },
             );
-            const nextSpriteVelocity = normalize2D(agent.vx, agent.vy, previousSpriteVelocity);
+            const nextSpriteVelocity = normalize2D(
+              agent.vx,
+              agent.vy,
+              previousSpriteVelocity,
+            );
             const spriteBlend =
               motionSpeed > PARAMS.SPRITE_UPDATE_SPEED_PX * 1.9
                 ? PARAMS.SPRITE_DIRECTION_FAST_BLEND
@@ -2549,10 +2604,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           }
         });
 
-        if (
-          debugOverlayEnabled &&
-          now - lastDebugLogTimeRef.current >= 0.75
-        ) {
+        if (debugOverlayEnabled && now - lastDebugLogTimeRef.current >= 0.75) {
           lastDebugLogTimeRef.current = now;
           const debugRows = agentsRef.current.map((agent, index) => {
             const speed = Math.hypot(agent.vx, agent.vy);
@@ -2573,14 +2625,14 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
               huddleMember: Boolean(agent.huddleMember),
               surrounded: Boolean(agent.isFullySurrounded),
               skinTempC: Number(
-                (agent.skinTempC ?? resolveSkinTempC(agent.thermalState)).toFixed(1),
+                (
+                  agent.skinTempC ?? resolveSkinTempC(agent.thermalState)
+                ).toFixed(1),
               ),
               expectedTempC: Number(
                 (agent.expectedSkinTempC ?? agent.skinTempC ?? 0).toFixed(1),
               ),
-              shortfallC: Number(
-                (agent.temperatureShortfallC ?? 0).toFixed(2),
-              ),
+              shortfallC: Number((agent.temperatureShortfallC ?? 0).toFixed(2)),
               thermal: Number(agent.thermalState.toFixed(3)),
               speed: Number(speed.toFixed(2)),
               stepRemaining: Number(agent.stepRemaining.toFixed(2)),
@@ -2725,7 +2777,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             ? clamp(
                 agent.modeTimer /
                   Math.max(
-                    PARAMS.STEP_DURATION_SEC * PARAMS.WAVE_VISUAL_BOB_DURATION_SCALE,
+                    PARAMS.STEP_DURATION_SEC *
+                      PARAMS.WAVE_VISUAL_BOB_DURATION_SCALE,
                     1e-3,
                   ),
                 0,
@@ -2790,17 +2843,9 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           ctx.textBaseline = "bottom";
           ctx.lineWidth = 3;
           ctx.strokeStyle = "rgba(10, 12, 16, 0.82)";
-          ctx.strokeText(
-            `${debugTempC}C`,
-            0,
-            -agent.renderHeight * 0.42,
-          );
+          ctx.strokeText(`${debugTempC}C`, 0, -agent.renderHeight * 0.42);
           ctx.fillStyle = "rgba(245, 248, 252, 0.96)";
-          ctx.fillText(
-            `${debugTempC}C`,
-            0,
-            -agent.renderHeight * 0.42,
-          );
+          ctx.fillText(`${debugTempC}C`, 0, -agent.renderHeight * 0.42);
         }
         ctx.restore();
       });

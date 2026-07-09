@@ -63,6 +63,7 @@ function SwarmCanvas({
   const [loadError, setLoadError] = React.useState(null);
   const [gpuError, setGpuError] = React.useState("");
   const [controls, setControls] = React.useState(null);
+  const [controlValueTime, setControlValueTime] = React.useState(0);
   const [isControlPanelOpen, setIsControlPanelOpen] = React.useState(true);
   const [retryCount, setRetryCount] = React.useState(0);
   const containerRef = React.useRef(null);
@@ -174,6 +175,22 @@ function SwarmCanvas({
         : merged;
     });
   }, [SwarmComponent]);
+
+  React.useEffect(() => {
+    const hasAnimatedValue = swarmUi?.controlFields?.some(
+      (field) => field.animatedValue,
+    );
+    if (!hasAnimatedValue) {
+      return undefined;
+    }
+
+    setControlValueTime(window.performance.now() * 0.001);
+    const intervalId = window.setInterval(() => {
+      setControlValueTime(window.performance.now() * 0.001);
+    }, 250);
+
+    return () => window.clearInterval(intervalId);
+  }, [swarmUi]);
 
   if (isLoading) {
     return (
@@ -319,7 +336,11 @@ function SwarmCanvas({
                   <span>{field.label}</span>
                   <div className="sim-control-field__value-group">
                     <span className="sim-control-field__value">
-                      {field.formatValue(resolvedControls[field.key])}
+                      {field.formatValue(
+                        resolvedControls[field.key],
+                        resolvedControls,
+                        controlValueTime,
+                      )}
                     </span>
                     {field.type === "toggle" ? (
                       <button

@@ -133,8 +133,18 @@ export const HOME_SPRITE_ATLASES = {
 
         if (state?.isJumping) {
           return {
+            stage: "grasshopper_jump",
+            rotation,
+            flipX,
+          };
+        }
+
+        if (state?.isFlying) {
+          return {
             stage:
-              state.jumpProgress < 0.3 ? "grasshopper_jump" : "grasshopper_fly",
+              state.isTakingOff && state.jumpProgress < 0.3
+                ? "grasshopper_jump"
+                : "grasshopper_fly",
             rotation,
             flipX,
           };

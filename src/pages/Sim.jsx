@@ -227,7 +227,13 @@ function SwarmCanvas({
 
   const handleControlChange = (key, rawValue) => {
     const nextValue =
-      typeof rawValue === "boolean" ? rawValue : Number(rawValue);
+      typeof rawValue === "boolean"
+        ? rawValue
+        : typeof rawValue === "string" &&
+            rawValue.trim() !== "" &&
+            !Number.isNaN(Number(rawValue))
+          ? Number(rawValue)
+          : rawValue;
 
     setControls((current) => {
       if (!current) {
@@ -329,7 +335,9 @@ function SwarmCanvas({
                 key={field.key}
                 className={[
                   "sim-control-field",
-                  field.type === "toggle" ? "sim-control-field--toggle" : "",
+                  field.type === "toggle" || field.type === "binary-toggle"
+                    ? "sim-control-field--toggle"
+                    : "",
                 ].join(" ")}
               >
                 <div className="sim-control-field__row">
@@ -362,6 +370,51 @@ function SwarmCanvas({
                           <span className="sim-control-toggle-switch__thumb" />
                         </span>
                       </button>
+                    ) : field.type === "binary-toggle" ? (
+                      <button
+                        type="button"
+                        className={[
+                          "sim-control-toggle-switch",
+                          "sim-control-toggle-switch--inline",
+                          resolvedControls[field.key] === field.onValue
+                            ? "is-on"
+                            : "is-off",
+                        ].join(" ")}
+                        onClick={() =>
+                          handleControlChange(
+                            field.key,
+                            resolvedControls[field.key] === field.onValue
+                              ? field.offValue
+                              : field.onValue,
+                          )
+                        }
+                        aria-pressed={
+                          resolvedControls[field.key] === field.onValue
+                        }
+                      >
+                        <span className="sim-control-toggle-switch__track">
+                          <span className="sim-control-toggle-switch__thumb" />
+                        </span>
+                      </button>
+                    ) : field.type === "select" ? (
+                      <select
+                        value={resolvedControls[field.key]}
+                        onChange={(event) =>
+                          handleControlChange(field.key, event.target.value)
+                        }
+                      >
+                        {field.options?.map((option) => {
+                          const optionValue =
+                            typeof option === "string" ? option : option.value;
+                          const optionLabel =
+                            typeof option === "string" ? option : option.label;
+                          return (
+                            <option key={optionValue} value={optionValue}>
+                              {optionLabel}
+                            </option>
+                          );
+                        })}
+                      </select>
                     ) : (
                       <button
                         type="button"
@@ -373,7 +426,9 @@ function SwarmCanvas({
                     )}
                   </div>
                 </div>
-                {field.type === "toggle" ? null : (
+                {field.type === "toggle" ||
+                field.type === "binary-toggle" ||
+                field.type === "select" ? null : (
                   <input
                     className="sim-control-slider"
                     type="range"
@@ -398,9 +453,15 @@ function SwarmCanvas({
 function Sim(props) {
   const { selectedAnimal, onBackClick, onDetailClick, isPaused } = props;
   const animalLabel = selectedAnimal ? animalNames[selectedAnimal] : "";
+  const simStyle =
+    selectedAnimal === "firefly"
+      ? {
+          background: "oklch(0.14 0.015 91.51)",
+        }
+      : undefined;
 
   return (
-    <div className="sim">
+    <div className="sim" style={simStyle}>
       {selectedAnimal && (
         <SwarmCanvas
           key={selectedAnimal}

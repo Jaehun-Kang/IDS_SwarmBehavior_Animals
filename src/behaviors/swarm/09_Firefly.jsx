@@ -570,8 +570,7 @@ const updateFemaleResponse = (agent, dt) => {
     agent.isGlowActive = agent.glowTimer > 0;
 
     while (
-      agent.flashIntervalAccumulator >=
-        PARAMS.FEMALE_RESPONSE_FLASH_INTERVAL_S &&
+      agent.flashIntervalAccumulator >= PARAMS.FEMALE_RESPONSE_FLASH_INTERVAL_S &&
       agent.flashCounter < agent.flashQuota
     ) {
       agent.flashIntervalAccumulator -= PARAMS.FEMALE_RESPONSE_FLASH_INTERVAL_S;
@@ -621,10 +620,7 @@ const updateThreatState = (agent, pointerState, interactionMode, dt) => {
     if (pointerState.active) {
       const dx = agent.x - pointerState.x;
       const dy = agent.y - pointerState.y;
-      if (
-        dx * dx + dy * dy <=
-        threatProfile.radiusPx * threatProfile.radiusPx
-      ) {
+      if (dx * dx + dy * dy <= threatProfile.radiusPx * threatProfile.radiusPx) {
         agent.threatTimer = threatProfile.durationS;
         agent.activeThreatMode = interactionMode;
       }

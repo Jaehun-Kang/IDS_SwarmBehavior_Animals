@@ -15,6 +15,8 @@ const animalNames = {
   krill: "남극크릴",
 };
 
+const DETAIL_PAGE_DISABLED = true;
+
 // 동적으로 모든 Swarm 모듈 로드
 const swarmModuleFiles = import.meta.glob("../behaviors/swarm/[0-9]*_*.jsx", {
   eager: false,
@@ -281,6 +283,21 @@ function SwarmCanvas({
       <button
         className="info_btn sim-overlay-button theme-button"
         onClick={onDetailClick}
+        disabled={DETAIL_PAGE_DISABLED}
+        aria-disabled={DETAIL_PAGE_DISABLED}
+        title={
+          DETAIL_PAGE_DISABLED
+            ? "상세 페이지는 현재 비활성화되어 있습니다."
+            : undefined
+        }
+        style={
+          DETAIL_PAGE_DISABLED
+            ? {
+                cursor: "not-allowed",
+                opacity: 0.45,
+              }
+            : undefined
+        }
       >
         자세히 보기
       </button>

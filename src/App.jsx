@@ -1,16 +1,57 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./styles/App.css";
 import Home from "./pages/Home.jsx";
 import Sim from "./pages/Sim.jsx";
 import Detail from "./pages/Detail.jsx";
 
 const DETAIL_ENTER_DURATION = 400;
+const INACTIVITY_TIMEOUT_MS = 60000;
 
 function App() {
   const [selectedAnimal, setSelectedAnimal] = useState(null);
   const [currentPage, setCurrentPage] = useState("home"); // home | sim | detail
   const [savedPosition, setSavedPosition] = useState(null);
   const [isPaused, setIsPaused] = useState(false);
+
+  useEffect(() => {
+    let timeoutId;
+
+    const resetInactivityTimeout = () => {
+      window.clearTimeout(timeoutId);
+
+      if (currentPage === "home") {
+        return;
+      }
+
+      timeoutId = window.setTimeout(() => {
+        setIsPaused(false);
+        setCurrentPage("home");
+      }, INACTIVITY_TIMEOUT_MS);
+    };
+
+    const activityEvents = [
+      "pointerdown",
+      "pointermove",
+      "keydown",
+      "wheel",
+      "touchstart",
+    ];
+
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, resetInactivityTimeout, {
+        passive: true,
+      });
+    });
+
+    resetInactivityTimeout();
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, resetInactivityTimeout);
+      });
+    };
+  }, [currentPage]);
 
   function onAnimalClick(e) {
     const animalId = e.currentTarget.dataset.speciesId || e.currentTarget.id;

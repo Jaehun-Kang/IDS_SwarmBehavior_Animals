@@ -17,6 +17,26 @@ const animalNames = {
 
 const DETAIL_PAGE_DISABLED = true;
 
+const FIREFLY_SIM_THEME = {
+  background: "oklch(0.14 0.015 91.51)",
+  "--theme-bg": "oklch(0.14 0.015 91.51)",
+  "--theme-bg-soft": "oklch(0.18 0.018 91.51)",
+  "--theme-text-strong": "oklch(0.9 0.028 95)",
+  "--theme-text": "rgb(232 226 207 / 0.88)",
+  "--theme-text-muted": "rgb(206 198 176 / 0.74)",
+  "--theme-text-soft": "rgb(184 176 156 / 0.62)",
+  "--theme-border": "rgb(224 214 188 / 0.18)",
+  "--theme-border-soft": "rgb(224 214 188 / 0.1)",
+  "--theme-panel": "rgb(10 14 17 / 0.7)",
+  "--theme-panel-strong": "rgb(18 23 28 / 0.9)",
+  "--theme-panel-hover": "rgb(28 35 42 / 0.96)",
+  "--theme-shadow": "0 0.875rem 2.5rem rgb(0 0 0 / 0.34)",
+  "--theme-shadow-soft": "0 0.375rem 1rem rgb(0 0 0 / 0.3)",
+  "--theme-surface-tint": "rgb(212 201 153 / 0.08)",
+  "--theme-accent": "rgb(247 220 116 / 0.32)",
+  "--theme-accent-strong": "rgb(255 229 126)",
+};
+
 // 동적으로 모든 Swarm 모듈 로드
 const swarmModuleFiles = import.meta.glob("../behaviors/swarm/[0-9]*_*.jsx", {
   eager: false,
@@ -470,12 +490,7 @@ function SwarmCanvas({
 function Sim(props) {
   const { selectedAnimal, onBackClick, onDetailClick, isPaused } = props;
   const animalLabel = selectedAnimal ? animalNames[selectedAnimal] : "";
-  const simStyle =
-    selectedAnimal === "firefly"
-      ? {
-          background: "oklch(0.14 0.015 91.51)",
-        }
-      : undefined;
+  const simStyle = selectedAnimal === "firefly" ? FIREFLY_SIM_THEME : undefined;
 
   return (
     <div className="sim" style={simStyle}>

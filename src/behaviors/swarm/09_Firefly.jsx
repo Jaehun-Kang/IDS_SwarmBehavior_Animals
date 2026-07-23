@@ -101,7 +101,8 @@ const PARAMS = {
   LIGHT_THREAT_EVASION_WEIGHT_MPS: 0.18,
   LIGHT_THREAT_RANDOM_TURN_RAD: 0.52,
   FLASHLIGHT_PULSE_INTERVAL_S: 0.53,
-  FLASHLIGHT_PULSE_STRENGTH: 20,
+  FLASHLIGHT_PULSE_STRENGTH: 26,
+  FLASHLIGHT_PULSE_RADIUS_PX: 132,
   PERTURBATION_RADIUS_PX: 96,
   PERTURBATION_TTL_S: 0.18,
   PERTURBATION_COUPLING_EQUIVALENT: 20,
@@ -112,9 +113,9 @@ const PARAMS = {
   FLASHLIGHT_HOTSPOT_RATIO: 0.16,
   FLASHLIGHT_FALLOFF_RATIO: 0.62,
   FLASHLIGHT_BLOOM_RADIUS_PX: 268,
-  FLASHLIGHT_BLOOM_ALPHA: 0.036,
-  FLASHLIGHT_DUST_ALPHA: 0.032,
-  FLASHLIGHT_DIRECTIONAL_ALPHA: 0.022,
+  FLASHLIGHT_BLOOM_ALPHA: 0.048,
+  FLASHLIGHT_DUST_ALPHA: 0.043,
+  FLASHLIGHT_DIRECTIONAL_ALPHA: 0.029,
   FLASHLIGHT_DIRECTIONAL_LENGTH_SCALE: 1.36,
   FLASHLIGHT_DIRECTIONAL_WIDTH_SCALE: 0.78,
   FLASHLIGHT_SOURCE_OFFSET_Y_PX: 110,
@@ -570,7 +571,8 @@ const updateFemaleResponse = (agent, dt) => {
     agent.isGlowActive = agent.glowTimer > 0;
 
     while (
-      agent.flashIntervalAccumulator >= PARAMS.FEMALE_RESPONSE_FLASH_INTERVAL_S &&
+      agent.flashIntervalAccumulator >=
+        PARAMS.FEMALE_RESPONSE_FLASH_INTERVAL_S &&
       agent.flashCounter < agent.flashQuota
     ) {
       agent.flashIntervalAccumulator -= PARAMS.FEMALE_RESPONSE_FLASH_INTERVAL_S;
@@ -620,7 +622,10 @@ const updateThreatState = (agent, pointerState, interactionMode, dt) => {
     if (pointerState.active) {
       const dx = agent.x - pointerState.x;
       const dy = agent.y - pointerState.y;
-      if (dx * dx + dy * dy <= threatProfile.radiusPx * threatProfile.radiusPx) {
+      if (
+        dx * dx + dy * dy <=
+        threatProfile.radiusPx * threatProfile.radiusPx
+      ) {
         agent.threatTimer = threatProfile.durationS;
         agent.activeThreatMode = interactionMode;
       }
@@ -1112,7 +1117,7 @@ const applyArtificialPerturbation = (agent, perturbationPulse) => {
   const dy = agent.y - perturbationPulse.y;
   if (
     dx * dx + dy * dy >
-    PARAMS.PERTURBATION_RADIUS_PX * PARAMS.PERTURBATION_RADIUS_PX
+    perturbationPulse.radiusPx * perturbationPulse.radiusPx
   ) {
     return;
   }
@@ -1499,6 +1504,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     active: false,
     id: 0,
     dragging: false,
+    radiusPx: PARAMS.PERTURBATION_RADIUS_PX,
   });
   const frameSizeRef = React.useRef(
     resolveAtlasFrameSize(ATLAS, { width: 64, height: 64 }),
@@ -1581,6 +1587,20 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         active: true,
         id: perturbationPulseRef.current.id + 1,
         strength: PARAMS.PERTURBATION_COUPLING_EQUIVALENT,
+        radiusPx: PARAMS.PERTURBATION_RADIUS_PX,
+      };
+    };
+
+    const emitFlashlightPulse = (x, y) => {
+      perturbationPulseRef.current = {
+        ...perturbationPulseRef.current,
+        x,
+        y,
+        ttl: PARAMS.PERTURBATION_TTL_S,
+        active: true,
+        id: perturbationPulseRef.current.id + 1,
+        strength: PARAMS.FLASHLIGHT_PULSE_STRENGTH,
+        radiusPx: PARAMS.FLASHLIGHT_PULSE_RADIUS_PX,
       };
     };
 
@@ -1630,6 +1650,10 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         };
         if (flashlightToggleRef.current) {
           flashlightPulseClockRef.current = PARAMS.FLASHLIGHT_PULSE_INTERVAL_S;
+          emitFlashlightPulse(
+            pointerThreatRef.current.x,
+            pointerThreatRef.current.y,
+          );
         }
         perturbationPulseRef.current.dragging = false;
         return;
@@ -1870,6 +1894,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             active: true,
             id: perturbationPulseRef.current.id + 1,
             strength: PARAMS.FLASHLIGHT_PULSE_STRENGTH,
+            radiusPx: PARAMS.FLASHLIGHT_PULSE_RADIUS_PX,
           };
         }
       } else {

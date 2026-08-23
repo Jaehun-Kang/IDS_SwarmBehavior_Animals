@@ -13,12 +13,26 @@
 }
 
 .home {
+  --home-paper-texture: url("../assets/texture/white-paper-texture-seamless.webp");
   position: relative;
   overflow: hidden;
   margin-inline: auto;
   display: block;
   width: 100vw;
   height: 100vh;
+  background: var(--home-paper-texture), linear-gradient(135deg, var(--theme-bg), var(--theme-bg-soft));
+  background-size: 34rem 34rem, 100% 100%;
+}
+.home::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 18% 22%, rgba(97, 72, 42, 0.045) 0 0.045rem, transparent 0.055rem), radial-gradient(circle at 74% 36%, rgba(97, 72, 42, 0.035) 0 0.035rem, transparent 0.05rem), linear-gradient(108deg, rgba(112, 82, 48, 0.025), transparent 18%, rgba(255, 255, 255, 0.16) 42%, transparent 72%);
+  background-size: 10rem 10rem, 10rem 10rem, 100% 100%;
+  mix-blend-mode: multiply;
+  opacity: 0.82;
 }
 .home canvas {
   position: absolute;
@@ -72,6 +86,7 @@
   background-color: rgba(255, 255, 255, 0.5);
   text-align: center;
   align-items: center;
+  z-index: 2;
 }
 .home .creature:hover {
   cursor: pointer;
@@ -407,3 +422,5 @@
 .home .creature[data-species-id=krill] .sprite_krill.krill_front {
   background-position: 100% center;
 }
+
+/*# sourceMappingURL=Home.css.map */

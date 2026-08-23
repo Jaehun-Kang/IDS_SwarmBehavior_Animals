@@ -1,6 +1,9 @@
 import React from "react";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
-import { resolveAtlasFrameSize } from "../../utils/spriteAtlas";
+import {
+  loadTexturedAtlasCanvas,
+  resolveAtlasFrameSize,
+} from "../../utils/spriteAtlas";
 import { resolveCanvasAtlasSprite } from "../../utils/spritePose";
 import {
   applyTransparentCanvasStyle,
@@ -288,8 +291,16 @@ const createAgent = (index, width, height) => {
   const radial = Math.sqrt((index + 0.5) / Math.max(PARAMS.DEFAULT_COUNT, 1));
   const centerX = width * 0.45;
   const centerY = height * 0.55;
-  const x = centerX + Math.cos(angle) * radiusPx * radial + randomBetween(-16, 16);
-  const y = centerY + Math.sin(angle) * radiusPx * radial * 0.82 + randomBetween(-14, 14);
+  const pastureRadiusX = Math.min(width * 0.34, radiusPx * 2.15);
+  const pastureRadiusY = Math.min(height * 0.28, radiusPx * 1.55);
+  const x =
+    centerX +
+    Math.cos(angle) * pastureRadiusX * radial +
+    randomBetween(-28, 28);
+  const y =
+    centerY +
+    Math.sin(angle) * pastureRadiusY * radial +
+    randomBetween(-22, 22);
   const heading = randomBetween(0, Math.PI * 2);
   const initialState = Math.random() < 0.62 ? SHEEP_STATES.STATIONARY : SHEEP_STATES.WALKING;
   const speed = resolveStateSpeedPx(initialState) * randomBetween(0.85, 1.15);
@@ -384,44 +395,20 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 
   // 이미지 로드
   React.useEffect(() => {
-    const image = new Image();
-    image.decoding = "async";
-    image.src = ATLAS.src;
+    let cancelled = false;
 
-    const handleLoad = () => {
-      imageRef.current = image;
-      const imageSize = {
-        width: ATLAS.imageSize?.width || image.naturalWidth || 64,
-        height: ATLAS.imageSize?.height || image.naturalHeight || 64,
-      };
-      frameSizeRef.current = resolveAtlasFrameSize(ATLAS, imageSize);
-
-      const rasterCanvas = document.createElement("canvas");
-      rasterCanvas.width = imageSize.width;
-      rasterCanvas.height = imageSize.height;
-      const rasterContext = rasterCanvas.getContext("2d");
-      if (rasterContext) {
-        rasterContext.clearRect(0, 0, rasterCanvas.width, rasterCanvas.height);
-        rasterContext.drawImage(
-          image,
-          0,
-          0,
-          rasterCanvas.width,
-          rasterCanvas.height,
-        );
-        rasterCanvasRef.current = rasterCanvas;
-      } else {
-        rasterCanvasRef.current = null;
+    loadTexturedAtlasCanvas(ATLAS).then(({ image, frameSize, canvas }) => {
+      if (cancelled) {
+        return;
       }
-    };
 
-    image.addEventListener("load", handleLoad);
-    if (image.complete) {
-      handleLoad();
-    }
+      imageRef.current = image;
+      frameSizeRef.current = frameSize;
+      rasterCanvasRef.current = canvas;
+    });
 
     return () => {
-      image.removeEventListener("load", handleLoad);
+      cancelled = true;
       rasterCanvasRef.current = null;
     };
   }, []);

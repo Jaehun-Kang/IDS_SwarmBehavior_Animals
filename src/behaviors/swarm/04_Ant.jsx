@@ -1,7 +1,10 @@
 import * as React from "react";
 import { P5Canvas } from "@p5-wrapper/react";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
-import { resolveAtlasFrameSize } from "../../utils/spriteAtlas";
+import {
+  loadTexturedAtlasCanvas,
+  resolveAtlasFrameSize,
+} from "../../utils/spriteAtlas";
 import { resolveCanvasAtlasSprite } from "../../utils/spritePose";
 import {
   applyTransparentCanvasStyle,
@@ -540,6 +543,26 @@ const createField = (width, height, cellSizePx) => {
   };
 };
 
+const resizeField = (field, width, height, cellSizePx, scaleX, scaleY) => {
+  const nextField = createField(width, height, cellSizePx);
+
+  for (let row = 0; row < nextField.rows; row += 1) {
+    for (let column = 0; column < nextField.cols; column += 1) {
+      const x = ((column + 0.5) * nextField.cellSizePx) / scaleX;
+      const y = ((row + 0.5) * nextField.cellSizePx) / scaleY;
+      nextField.values[getFieldIndex(nextField, column, row)] = sampleField(
+        field,
+        x,
+        y,
+      );
+    }
+  }
+
+  nextField.maxConcentration = field.maxConcentration;
+  nextField.activeConcentration = field.activeConcentration;
+  return nextField;
+};
+
 const getFieldIndex = (field, column, row) => row * field.cols + column;
 
 const sampleField = (field, x, y) => {
@@ -771,6 +794,7 @@ const createWorld = (width, height, controls) => {
     recruitmentTrailMarkers: [],
     nextRecruitmentMarkerId: 1,
     millOutbreakActive: controls.ENABLE_MILL,
+    nextAntId: controls.AGENT_COUNT,
     spatialHash: null,
     metrics,
     trail,
@@ -792,7 +816,144 @@ const createWorld = (width, height, controls) => {
 const rebuildWorld = (world, controls) =>
   createWorld(world.width, world.height, controls);
 
-const countMobileAnts = (world) => world.ants.length;
+const resizeWorld = (world, width, height, controls) => {
+  if (!world || (world.width === width && world.height === height)) {
+    return world;
+  }
+
+  const previousWidth = Math.max(world.width, 1);
+  const previousHeight = Math.max(world.height, 1);
+  const scaleX = width / previousWidth;
+  const scaleY = height / previousHeight;
+  const metrics = resolveMetrics(width, height, controls);
+
+  world.ants.forEach((ant) => {
+    ant.position.x = clamp(ant.position.x * scaleX, 0, width);
+    ant.position.y = clamp(ant.position.y * scaleY, 0, height);
+    if (ant.previousScreenPosition) {
+      ant.previousScreenPosition = {
+        x: ant.previousScreenPosition.x * scaleX,
+        y: ant.previousScreenPosition.y * scaleY,
+      };
+    }
+  });
+
+  world.foodPatches.forEach((patch) => {
+    patch.position = {
+      x: clamp(patch.position.x * scaleX, 0, width),
+      y: clamp(patch.position.y * scaleY, 0, height),
+    };
+    patch.radiusPx = metrics.bodyLengthsToPx(FOOD_PATCH_RADIUS_BODY_LENGTHS);
+  });
+
+  world.recruitmentTrailMarkers.forEach((marker) => {
+    marker.position = {
+      x: clamp(marker.position.x * scaleX, 0, width),
+      y: clamp(marker.position.y * scaleY, 0, height),
+    };
+  });
+
+  world.width = width;
+  world.height = height;
+  world.metrics = metrics;
+  world.trail = createTrail(width, height, metrics);
+  world.field = resizeField(
+    world.field,
+    width,
+    height,
+    metrics.fieldCellSizePx,
+    scaleX,
+    scaleY,
+  );
+  world.recruitmentField = resizeField(
+    world.recruitmentField,
+    width,
+    height,
+    metrics.fieldCellSizePx,
+    scaleX,
+    scaleY,
+  );
+  world.spatialHash = null;
+  return world;
+};
+
+const isPopulationExiting = (ant) => ant.populationExit === true;
+
+const countMobileAnts = (world) =>
+  world.ants.reduce(
+    (count, ant) => (isPopulationExiting(ant) ? count : count + 1),
+    0,
+  );
+
+const restorePopulationExitAnt = (ant) => {
+  ant.populationExit = false;
+  ant.state = "trail";
+  ant.role = "outbound";
+  ant.trailMode = "exploratory";
+  ant.foodLinkedRecruitment = false;
+  ant.targetFoodPatchIndex = null;
+  ant.targetFoodPatchId = null;
+  ant.knowsFoodLocation = false;
+  ant.confusionTime = 0;
+  ant.trappedTime = 0;
+  ant.millTime = 0;
+  ant.millDisableTime = 0;
+  ant.millSeedHoldS = 0;
+  ant.millEntryBlendS = 0;
+  ant.millAnchor = null;
+  ant.millTrailId = null;
+  ant.loopingTime = 0;
+  ant.loopingAnchor = null;
+  ant.reserveTime = 0;
+  ant.heading += sampleGaussian() * 0.12;
+  ant.memoryHeading = ant.heading;
+  ant.wanderHeading = ant.heading;
+  ant.searchHeading =
+    ant.heading + (Math.random() - 0.5) * LONG_RANGE_SEARCH_SPREAD_RAD;
+  ant.previousScreenPosition = null;
+};
+
+const createPopulationEntryAnt = (world, controls) => {
+  const index = world.nextAntId ?? world.ants.length;
+  world.nextAntId = index + 1;
+  const ant = createAnt(world, controls, "outbound", index);
+  ant.position = { ...world.trail.colony };
+  ant.heading = Math.random() * Math.PI * 2;
+  ant.speedPxS = controls.V_SEARCH_CM_S * world.metrics.pxPerCm;
+  restorePopulationExitAnt(ant);
+  ant.populationSpawnBlendS = 0.35 + Math.random() * 0.25;
+  return ant;
+};
+
+const markPopulationExitAnt = (ant, world, controls) => {
+  const offset = subtract(world.trail.colony, ant.position);
+  const direction = normalize(offset, angleToVector(ant.heading));
+  ant.populationExit = true;
+  ant.state = "countExit";
+  ant.role = "inbound";
+  ant.trailMode = "none";
+  ant.foodLinkedRecruitment = false;
+  ant.targetFoodPatchIndex = null;
+  ant.targetFoodPatchId = null;
+  ant.knowsFoodLocation = false;
+  ant.arousalTime = 0;
+  ant.confusionTime = 0;
+  ant.trappedTime = 0;
+  ant.loopingTime = 0;
+  ant.loopingAnchor = null;
+  ant.millTime = 0;
+  ant.millDisableTime = 0;
+  ant.millSeedHoldS = 0;
+  ant.millEntryBlendS = 0;
+  ant.millAnchor = null;
+  ant.millTrailId = null;
+  ant.heading = vectorToAngle(direction);
+  ant.speedPxS = Math.max(
+    controls.V_MAX_CM_S * world.metrics.pxPerCm,
+    controls.V_SEARCH_CM_S * world.metrics.pxPerCm * 1.8,
+  );
+  ant.previousScreenPosition = null;
+};
 
 const syncAntPopulation = (world, controls) => {
   if (countMobileAnts(world) === controls.AGENT_COUNT) {
@@ -800,23 +961,37 @@ const syncAntPopulation = (world, controls) => {
   }
 
   world.lastAgentCount = controls.AGENT_COUNT;
-  while (countMobileAnts(world) > controls.AGENT_COUNT) {
-    const removableIndex = world.ants.length - 1;
-    if (removableIndex < 0) {
+
+  while (countMobileAnts(world) < controls.AGENT_COUNT) {
+    const exitingAnt = world.ants.find(isPopulationExiting);
+    if (!exitingAnt) {
       break;
     }
-    world.ants.splice(removableIndex, 1);
+    restorePopulationExitAnt(exitingAnt);
   }
 
   while (countMobileAnts(world) < controls.AGENT_COUNT) {
-    const index = countMobileAnts(world);
-    world.ants.push(createAnt(world, controls, "outbound", index));
+    world.ants.push(createPopulationEntryAnt(world, controls));
+  }
+
+  if (countMobileAnts(world) > controls.AGENT_COUNT) {
+    const excess = countMobileAnts(world) - controls.AGENT_COUNT;
+    world.ants
+      .filter((ant) => !isPopulationExiting(ant))
+      .sort(
+        (left, right) =>
+          distance(right.position, world.trail.colony) -
+          distance(left.position, world.trail.colony),
+      )
+      .slice(0, excess)
+      .forEach((ant) => markPopulationExitAnt(ant, world, controls));
   }
 };
 
 const countActiveRaiders = (world) =>
   world.ants.reduce(
-    (count, ant) => (ant.state === "reserve" ? count : count + 1),
+    (count, ant) =>
+      ant.state === "reserve" || isPopulationExiting(ant) ? count : count + 1,
     0,
   );
 
@@ -4482,6 +4657,25 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
   }
 };
 const updateAnt = (ant, ants, world, controls, dt) => {
+  if (isPopulationExiting(ant)) {
+    const offset = subtract(world.trail.colony, ant.position);
+    const remainingDistancePx = length(offset);
+    const direction = normalize(offset, angleToVector(ant.heading));
+    const targetSpeedPxS = Math.max(
+      controls.V_MAX_CM_S * world.metrics.pxPerCm,
+      controls.V_SEARCH_CM_S * world.metrics.pxPerCm * 1.8,
+    );
+    ant.heading = vectorToAngle(direction);
+    ant.speedPxS = lerp(ant.speedPxS, targetSpeedPxS, 0.34);
+    ant.position = add(
+      ant.position,
+      scale(direction, Math.min(remainingDistancePx, ant.speedPxS * dt)),
+    );
+    ant.position.x = clamp(ant.position.x, 0, world.width);
+    ant.position.y = clamp(ant.position.y, 0, world.height);
+    return;
+  }
+
   if (ant.state === "reserve") {
     updateReserveAnt(ant, world, controls, dt);
     ant.position.x = clamp(ant.position.x, 0, world.width);
@@ -4633,6 +4827,12 @@ const stepWorld = (world, controls, dt) => {
   buildSpatialHash(world);
   updateMillOutbreak(world, controls, dt);
   world.ants.forEach((ant) => updateAnt(ant, world.ants, world, controls, dt));
+  world.ants = world.ants.filter(
+    (ant) =>
+      !isPopulationExiting(ant) ||
+      distance(ant.position, world.trail.colony) >
+        world.metrics.bodyLengthsToPx(0.8),
+  );
   buildSpatialHash(world);
   resolveAntPositionSpacing(world);
   updateFrontCongestion(world);
@@ -4886,52 +5086,26 @@ export function App({ controls, onGpuErrorChange, isPaused = false } = {}) {
   }, [onGpuErrorChange]);
 
   React.useEffect(() => {
-    const image = new Image();
-    image.decoding = "async";
-    image.src = ATLAS.src;
+    let cancelled = false;
 
-    const handleLoad = () => {
-      const width = image.naturalWidth || image.width || 64;
-      const height = image.naturalHeight || image.height || 64;
-      const rasterCanvas = document.createElement("canvas");
-      rasterCanvas.width = width;
-      rasterCanvas.height = height;
-
-      const rasterContext = rasterCanvas.getContext("2d");
-      if (!rasterContext) {
-        imageRef.current = image;
-        frameSizeRef.current = resolveAtlasFrameSize(ATLAS, {
-          width,
-          height,
-        });
-        onGpuErrorChange?.("");
+    loadTexturedAtlasCanvas(ATLAS).then(({ image, frameSize, canvas }) => {
+      if (cancelled) {
         return;
       }
 
-      rasterContext.clearRect(0, 0, width, height);
-      rasterContext.drawImage(image, 0, 0, width, height);
-      imageRef.current = rasterCanvas;
-      frameSizeRef.current = resolveAtlasFrameSize(ATLAS, {
-        width,
-        height,
-      });
+      imageRef.current = canvas || image;
+      frameSizeRef.current = frameSize;
       onGpuErrorChange?.("");
-    };
+    }).catch(() => {
+      if (cancelled) {
+        return;
+      }
 
-    const handleError = () => {
-      imageRef.current = null;
       onGpuErrorChange?.("");
-    };
-
-    image.addEventListener("load", handleLoad);
-    image.addEventListener("error", handleError);
-    if (image.complete) {
-      handleLoad();
-    }
+    });
 
     return () => {
-      image.removeEventListener("load", handleLoad);
-      image.removeEventListener("error", handleError);
+      cancelled = true;
     };
   }, [onGpuErrorChange]);
 
@@ -4981,10 +5155,9 @@ export function App({ controls, onGpuErrorChange, isPaused = false } = {}) {
 
       if (
         world.width !== p5.width ||
-        world.height !== p5.height ||
-        world.lastAgentCount !== liveControls.AGENT_COUNT
+        world.height !== p5.height
       ) {
-        world = rebuildWorld(world, liveControls);
+        world = resizeWorld(world, p5.width, p5.height, liveControls);
         simulationAccumulator = 0;
       }
 
@@ -5011,7 +5184,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false } = {}) {
     p5.windowResized = () => {
       p5.resizeCanvas(p5.windowWidth, p5.windowHeight);
       if (world) {
-        world = createWorld(
+        world = resizeWorld(
+          world,
           p5.windowWidth,
           p5.windowHeight,
           controlsRef.current,

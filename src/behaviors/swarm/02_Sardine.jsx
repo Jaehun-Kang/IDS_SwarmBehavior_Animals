@@ -1,8 +1,8 @@
 import React from "react";
-import sardineSpriteSheetUrl from "../../assets/sardine_1.svg";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
   getAtlasFrameIndex,
+  loadTexturedAtlasCanvas,
   resolveAtlasGrid,
   resolveStageFrameSequence,
 } from "../../utils/spriteAtlas";
@@ -421,57 +421,37 @@ void main() {
 }
 `;
 
-const loadTexture = (gl, sourceUrl) =>
+const loadTexture = (gl, atlas) =>
   new Promise((resolve, reject) => {
-    const image = new Image();
+    loadTexturedAtlasCanvas(atlas)
+      .then(({ image, canvas }) => {
+        const textureSource = canvas || image;
 
-    image.onload = () => {
-      const rasterCanvas = document.createElement("canvas");
-      rasterCanvas.width = image.naturalWidth || image.width;
-      rasterCanvas.height = image.naturalHeight || image.height;
+        const texture = gl.createTexture();
+        if (!texture) {
+          reject(new Error("texture-create-failed"));
+          return;
+        }
 
-      const rasterContext = rasterCanvas.getContext("2d");
-      if (!rasterContext) {
-        reject(new Error("texture-rasterize-failed"));
-        return;
-      }
-
-      rasterContext.clearRect(0, 0, rasterCanvas.width, rasterCanvas.height);
-      rasterContext.drawImage(
-        image,
-        0,
-        0,
-        rasterCanvas.width,
-        rasterCanvas.height,
-      );
-
-      const texture = gl.createTexture();
-      if (!texture) {
-        reject(new Error("texture-create-failed"));
-        return;
-      }
-
-      gl.bindTexture(gl.TEXTURE_2D, texture);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-      gl.texImage2D(
-        gl.TEXTURE_2D,
-        0,
-        gl.RGBA,
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        rasterCanvas,
-      );
-      gl.bindTexture(gl.TEXTURE_2D, null);
-      resolve(texture);
-    };
-
-    image.onerror = () => reject(new Error("texture-load-failed"));
-    image.src = sourceUrl;
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          textureSource,
+        );
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        resolve(texture);
+      })
+      .catch(() => reject(new Error("texture-load-failed")));
   });
 
 const createShader = (gl, type, source) => {
@@ -2879,7 +2859,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
       }
     };
 
-    loadTexture(gl, sardineSpriteSheetUrl)
+    loadTexture(gl, SARDINE_SPRITE_ATLAS)
       .then((texture) => {
         if (disposed) {
           gl.deleteTexture(texture);

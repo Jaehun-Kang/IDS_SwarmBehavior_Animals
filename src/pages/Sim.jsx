@@ -3,6 +3,13 @@ import "../styles/Sim.css";
 import { animals } from "../behaviors/animalData";
 import SpriteAtlas from "../components/SpriteAtlas.jsx";
 import { HOME_SPRITE_ATLASES } from "../data/spriteAtlases";
+import blackPaperTextureUrl from "../assets/texture/black-paper-texture-seamless.webp";
+import grassPaperTextureUrl from "../assets/texture/grass-paper-texture-seamless.webp";
+import sandPaperTextureUrl from "../assets/texture/sand-paper-texture-seamless.webp";
+import seaPaperTextureUrl from "../assets/texture/sea-paper-texture-seamless.webp";
+import skyPaperTextureUrl from "../assets/texture/sky-paper-texture-seamless.webp";
+import snowPaperTextureUrl from "../assets/texture/snow-paper-texture-seamless.webp";
+import soilPaperTextureUrl from "../assets/texture/soil-paper-texture-seamless.webp";
 
 const animalNames = {
   starling: "흰점찌르레기",
@@ -20,13 +27,45 @@ const animalNames = {
 
 const DETAIL_PAGE_DISABLED = false;
 
-const animalDockItems = animals.map((animal) => ({
-  id: animal.id,
-  label: animalNames[animal.id] || animal.name,
-}));
+const ANIMAL_ORDER = [
+  "starling",
+  "sardine",
+  "grasshopper",
+  "ant",
+  "bat",
+  "sheep",
+  "penguin",
+  "bee",
+  "firefly",
+  "spiny_lobster",
+  "krill",
+];
+
+const SIM_TEXTURES = {
+  starling: skyPaperTextureUrl,
+  sardine: seaPaperTextureUrl,
+  grasshopper: sandPaperTextureUrl,
+  ant: soilPaperTextureUrl,
+  bat: skyPaperTextureUrl,
+  sheep: grassPaperTextureUrl,
+  penguin: snowPaperTextureUrl,
+  bee: grassPaperTextureUrl,
+  firefly: blackPaperTextureUrl,
+  spiny_lobster: seaPaperTextureUrl,
+  krill: seaPaperTextureUrl,
+};
+
+const animalsById = Object.fromEntries(animals.map((animal) => [animal.id, animal]));
+
+const animalDockItems = ANIMAL_ORDER.map((id) => {
+  const animal = animalsById[id];
+  return {
+    id,
+    label: animalNames[id] || animal?.name || id,
+  };
+}).filter((animal) => animalsById[animal.id]);
 
 const FIREFLY_SIM_THEME = {
-  background: "oklch(0.14 0.015 91.51)",
   "--theme-bg": "oklch(0.14 0.015 91.51)",
   "--theme-bg-soft": "oklch(0.18 0.018 91.51)",
   "--theme-text-strong": "oklch(0.9 0.028 95)",
@@ -559,10 +598,26 @@ function Sim(props) {
     isPaused,
   } = props;
   const animalLabel = selectedAnimal ? animalNames[selectedAnimal] : "";
-  const simStyle = selectedAnimal === "firefly" ? FIREFLY_SIM_THEME : undefined;
+  const textureUrl = selectedAnimal ? SIM_TEXTURES[selectedAnimal] : null;
+  const simTextureStyle = textureUrl
+    ? {
+        "--sim-paper-texture": `url(${textureUrl})`,
+        "--sim-black-paper-texture": `url(${textureUrl})`,
+      }
+    : null;
+  const simStyle =
+    selectedAnimal === "firefly"
+      ? { ...FIREFLY_SIM_THEME, ...simTextureStyle }
+      : simTextureStyle || undefined;
+  const simClassName = [
+    "sim",
+    selectedAnimal === "firefly" ? "sim--firefly" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <div className="sim" style={simStyle}>
+    <div className={simClassName} style={simStyle}>
       {selectedAnimal && (
         <SwarmCanvas
           key={selectedAnimal}

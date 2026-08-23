@@ -1,6 +1,9 @@
 import React from "react";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
-import { resolveAtlasFrameSize } from "../../utils/spriteAtlas";
+import {
+  loadTexturedAtlasCanvas,
+  resolveAtlasFrameSize,
+} from "../../utils/spriteAtlas";
 import { resolveCanvasAtlasSprite } from "../../utils/spritePose";
 import {
   applyTransparentCanvasStyle,
@@ -68,6 +71,15 @@ const PARAMS = {
   BASE_FORWARD_BLEND: 0.26,
   BASE_SPEED_RESPONSE: 3.4,
   ACOUSTIC_STEER_WEIGHT: 1.55,
+  ENTRANCE_ACOUSTIC_RADIUS_M: 6.2,
+  ENTRANCE_CENTERLINE_WIDTH_M: 1.15,
+  ENTRANCE_ACOUSTIC_STEER_WEIGHT: 1.28,
+  ENTRANCE_FLOW_ALIGNMENT_WEIGHT: 0.74,
+  RETURN_CONGESTION_RADIUS_M: 5.4,
+  RETURN_CONGESTION_BRAKE_WEIGHT: 0.42,
+  BRIGHT_LIGHT_CIRCLE_BACK_RADIUS_M: 4.8,
+  BRIGHT_LIGHT_CIRCLE_BACK_MIN_S: 1.1,
+  BRIGHT_LIGHT_CIRCLE_BACK_MAX_S: 2.4,
   ALIGNMENT_WEIGHT: 1.35,
   PLUME_PULL_START_M: 1.4,
   PLUME_HALF_WIDTH_M: 3.2,
@@ -255,7 +267,7 @@ const drawEntranceOpening = (ctx, entranceZone) => {
 
   ctx.save();
 
-  ctx.fillStyle = "rgba(10, 12, 18, 0.72)";
+  ctx.fillStyle = "rgba(3, 4, 7, 0.60)";
   ctx.beginPath();
   ctx.arc(centerX, centerY, openingRadius, 0, Math.PI * 2);
   ctx.fill();
@@ -433,6 +445,70 @@ const getOutsideRoamSteer = (agent, environment, width, height, timeS) => {
       wander.y * wanderWeight +
       offscreenReturn.y,
   };
+};
+
+const getEntranceAcousticSteer = (agent, environment, phase, controls) => {
+  const distanceToEntrancePx = Math.hypot(
+    agent.x - environment.entrance.x,
+    agent.y - environment.entrance.y,
+  );
+  const influenceRadiusPx = metersToPx(PARAMS.ENTRANCE_ACOUSTIC_RADIUS_M);
+
+  if (distanceToEntrancePx >= influenceRadiusPx) {
+    return { x: 0, y: 0, congestionRatio: 0 };
+  }
+
+  const influence = 1 - distanceToEntrancePx / Math.max(influenceRadiusPx, 1);
+  const projection = projectPointOnLine(
+    agent,
+    environment.entrance,
+    environment.tangent,
+  );
+  const offsetX = agent.x - projection.x;
+  const offsetY = agent.y - projection.y;
+  const lateralDistancePx = Math.hypot(offsetX, offsetY);
+  const centerlineWidthPx = metersToPx(PARAMS.ENTRANCE_CENTERLINE_WIDTH_M);
+  const centerlineOverflow = clamp(
+    (lateralDistancePx - centerlineWidthPx) /
+      Math.max(centerlineWidthPx * 1.4, 1),
+    0,
+    1,
+  );
+  const isReturning =
+    !controls.IS_EMERGING ||
+    phase === BAT_PHASES.RETURNING ||
+    phase === BAT_PHASES.ENTERING;
+  const flowDirection = isReturning
+    ? { x: -environment.tangent.x, y: -environment.tangent.y }
+    : environment.tangent;
+  let steerX =
+    flowDirection.x *
+    PARAMS.ENTRANCE_FLOW_ALIGNMENT_WEIGHT *
+    influence *
+    controls.ACOUSTIC_GAIN;
+  let steerY =
+    flowDirection.y *
+    PARAMS.ENTRANCE_FLOW_ALIGNMENT_WEIGHT *
+    influence *
+    controls.ACOUSTIC_GAIN;
+
+  if (lateralDistancePx > 1e-4 && centerlineOverflow > 0) {
+    const wallEchoWeight =
+      centerlineOverflow *
+      influence *
+      PARAMS.ENTRANCE_ACOUSTIC_STEER_WEIGHT *
+      controls.ACOUSTIC_GAIN;
+    steerX += (-offsetX / lateralDistancePx) * wallEchoWeight;
+    steerY += (-offsetY / lateralDistancePx) * wallEchoWeight;
+  }
+
+  const congestionRadiusPx = metersToPx(PARAMS.RETURN_CONGESTION_RADIUS_M);
+  const congestionRatio =
+    isReturning && distanceToEntrancePx < congestionRadiusPx
+      ? 1 - distanceToEntrancePx / Math.max(congestionRadiusPx, 1)
+      : 0;
+
+  return { x: steerX, y: steerY, congestionRatio };
 };
 
 const syncAgentMode = (agent, controls, environment) => {
@@ -749,6 +825,43 @@ const createAgent = (width, height, timeS = 0, isEmerging = true) => {
   return agent;
 };
 
+const activeAgentCount = (agents) =>
+  agents.reduce(
+    (count, agent) => (agent.populationRetiring ? count : count + 1),
+    0,
+  );
+
+const sendAgentToEntranceForRemoval = (agent, width, height) => {
+  const environment = getEnvironment(width, height);
+  const isInsideEntrance = isInsideEntranceZone(agent, environment);
+
+  agent.populationRetiring = true;
+  agent.populationRetireDurationS = PARAMS.ENTERING_DURATION_S;
+  agent.isEmergingMode = false;
+
+  if (agent.phase === BAT_PHASES.INSIDE || isInsideEntrance) {
+    agent.phase = BAT_PHASES.ENTERING;
+    agent.phaseTimerS = PARAMS.ENTERING_DURATION_S;
+  } else if (
+    agent.phase === BAT_PHASES.OUTSIDE ||
+    agent.phase === BAT_PHASES.EMERGING ||
+    agent.phase === BAT_PHASES.EXITING
+  ) {
+    agent.phase = BAT_PHASES.LOITERING;
+    agent.phaseTimerS = sampleOutsideRoamDuration();
+    agent.outsideRoamDurationS = agent.phaseTimerS;
+  } else if (agent.phase !== BAT_PHASES.LOITERING) {
+    agent.phase = BAT_PHASES.RETURNING;
+    agent.phaseTimerS = 0;
+  }
+
+  agent.speedMps = Math.max(agent.speedMps, PARAMS.SPEED_MIN_MPS);
+  agent.collisionCooldownS = 0;
+  agent.evasionTimerS = 0;
+  agent.protestCallActive = false;
+  agent.previousScreenPosition = null;
+};
+
 const resizeAgents = (
   agents,
   targetCount,
@@ -759,7 +872,26 @@ const resizeAgents = (
 ) => {
   const isInitialFill = agents.length === 0;
 
-  while (agents.length < targetCount) {
+  for (let index = agents.length - 1; index >= 0; index -= 1) {
+    const agent = agents[index];
+    if (
+      agent.populationRetiring &&
+      agent.phase === BAT_PHASES.INSIDE &&
+      activeAgentCount(agents) >= targetCount
+    ) {
+      agents.splice(index, 1);
+    }
+  }
+
+  while (activeAgentCount(agents) < targetCount) {
+    const retiringAgent = agents.find((agent) => agent.populationRetiring);
+    if (retiringAgent) {
+      retiringAgent.populationRetiring = false;
+      retiringAgent.isEmergingMode = isEmerging;
+      resetAgentAtEntrance(retiringAgent, width, height, timeS, isEmerging);
+      continue;
+    }
+
     const agent = createAgent(width, height, timeS, isEmerging);
     if (!isEmerging) {
       setAgentInside(agent, width, height);
@@ -774,8 +906,24 @@ const resizeAgents = (
     agents.push(agent);
   }
 
-  if (agents.length > targetCount) {
-    agents.length = targetCount;
+  if (activeAgentCount(agents) > targetCount) {
+    const excess = activeAgentCount(agents) - targetCount;
+    const environment = getEnvironment(width, height);
+    agents
+      .filter((agent) => !agent.populationRetiring)
+      .sort(
+        (left, right) =>
+          Math.hypot(
+            right.x - environment.entrance.x,
+            right.y - environment.entrance.y,
+          ) -
+          Math.hypot(
+            left.x - environment.entrance.x,
+            left.y - environment.entrance.y,
+          ),
+      )
+      .slice(0, excess)
+      .forEach((agent) => sendAgentToEntranceForRemoval(agent, width, height));
   }
 };
 
@@ -791,6 +939,9 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
   const cellSizePx = metersToPx(PARAMS.MAX_NEIGHBOR_QUERY_RADIUS_M);
 
   agents.forEach((agent) => {
+    if (agent.populationRetiring) {
+      return;
+    }
     syncAgentMode(agent, controls, environment);
   });
 
@@ -916,9 +1067,12 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
     }
 
     if (agent.phase === BAT_PHASES.ENTERING) {
+      const enterDurationS = agent.populationRetiring
+        ? (agent.populationRetireDurationS ?? PARAMS.ENTERING_DURATION_S)
+        : PARAMS.ENTERING_DURATION_S;
       const remainingS = Math.max(0, agent.phaseTimerS - dt);
       const enterProgress =
-        1 - remainingS / Math.max(PARAMS.ENTERING_DURATION_S, 1e-6);
+        1 - remainingS / Math.max(enterDurationS, 1e-6);
       const targetX = environment.entrance.x;
       const targetY = environment.entrance.y;
       const nextX = lerp(agent.x, targetX, clamp(dt * 10.5, 0, 1));
@@ -947,6 +1101,9 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
       return;
     }
 
+    const movementControls = agent.populationRetiring
+      ? { ...controls, IS_EMERGING: false }
+      : controls;
     const direction = angleToVector(agent.heading);
     const right = { x: -direction.y, y: direction.x };
     const candidates = getNeighborIndices(
@@ -1047,9 +1204,27 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
       agent.x - environment.entrance.x,
       agent.y - environment.entrance.y,
     );
+    const lightLux = controls.LIGHT_INTENSITY_LUX;
 
-    if (controls.IS_EMERGING) {
+    if (movementControls.IS_EMERGING) {
       if (
+        phase === BAT_PHASES.EMERGING &&
+        lightLux >= PARAMS.LIGHT_HIGH_LUX &&
+        distanceToEntrancePx <
+          metersToPx(PARAMS.BRIGHT_LIGHT_CIRCLE_BACK_RADIUS_M)
+      ) {
+        phase = BAT_PHASES.LOITERING;
+        phaseTimerS = randomBetween(
+          PARAMS.BRIGHT_LIGHT_CIRCLE_BACK_MIN_S,
+          PARAMS.BRIGHT_LIGHT_CIRCLE_BACK_MAX_S,
+        );
+        outsideRoamDurationS = phaseTimerS;
+      } else if (
+        phase === BAT_PHASES.LOITERING &&
+        phaseTimerS <= 0
+      ) {
+        phase = BAT_PHASES.EMERGING;
+      } else if (
         phase === BAT_PHASES.EMERGING &&
         projectionAlongPlume.t >= emergenceTransitionPx
       ) {
@@ -1075,6 +1250,12 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
     const offscreenReturnSteer = getOffscreenReturnSteer(agent, width, height);
     const acousticLevelSum = leftEarLevel + rightEarLevel;
     const ild = rightEarLevel - leftEarLevel;
+    const entranceAcousticSteer = getEntranceAcousticSteer(
+      agent,
+      environment,
+      phase,
+      movementControls,
+    );
 
     if (acousticLevelSum > 1e-4) {
       const turnStrength =
@@ -1120,8 +1301,12 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
 
       if (weightSum > 0) {
         const postEmergenceRatio = getPostEmergenceCohesionRatio(
-          { phase, phaseTimerS, isEmergingMode: controls.IS_EMERGING },
-          controls,
+          {
+            phase,
+            phaseTimerS,
+            isEmergingMode: movementControls.IS_EMERGING,
+          },
+          movementControls,
         );
         const alignmentWeightMultiplier =
           phase === BAT_PHASES.OUTSIDE
@@ -1144,7 +1329,7 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
       }
     }
 
-    if (controls.IS_EMERGING && phase === BAT_PHASES.EMERGING) {
+    if (movementControls.IS_EMERGING && phase === BAT_PHASES.EMERGING) {
       desiredX += environment.tangent.x * (PARAMS.BASE_FORWARD_BLEND * 1.3);
       desiredY += environment.tangent.y * (PARAMS.BASE_FORWARD_BLEND * 1.3);
       const plumeContainment = getPlumeContainmentSteer(
@@ -1164,7 +1349,7 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
       );
       desiredX += outsideTransit.x;
       desiredY += outsideTransit.y;
-    } else if (!controls.IS_EMERGING && phase === BAT_PHASES.RETURNING) {
+    } else if (!movementControls.IS_EMERGING && phase === BAT_PHASES.RETURNING) {
       const toEntrance = normalize2D(
         environment.entrance.x - agent.x,
         environment.entrance.y - agent.y,
@@ -1194,15 +1379,16 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
 
     desiredX += offscreenReturnSteer.x;
     desiredY += offscreenReturnSteer.y;
+    desiredX += entranceAcousticSteer.x;
+    desiredY += entranceAcousticSteer.y;
 
     const lightVector = normalize2D(
       environment.light.x - agent.x,
       environment.light.y - agent.y,
       environment.tangent,
     );
-    const lightLux = controls.LIGHT_INTENSITY_LUX;
 
-    if (controls.IS_EMERGING && lightLux <= PARAMS.LIGHT_LOW_LUX) {
+    if (movementControls.IS_EMERGING && lightLux <= PARAMS.LIGHT_LOW_LUX) {
       const attractionRatio =
         1 - lightLux / Math.max(PARAMS.LIGHT_LOW_LUX, 1e-6);
       visualSteerX +=
@@ -1215,7 +1401,10 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
         controls.EXIT_PULL *
         attractionRatio *
         PARAMS.LOW_LIGHT_ATTRACTION_WEIGHT;
-    } else if (!controls.IS_EMERGING && lightLux >= PARAMS.LIGHT_HIGH_LUX) {
+    } else if (
+      !movementControls.IS_EMERGING &&
+      lightLux >= PARAMS.LIGHT_HIGH_LUX
+    ) {
       const repulsionRatio = clamp(
         (lightLux - PARAMS.LIGHT_HIGH_LUX) / 50,
         0,
@@ -1293,13 +1482,17 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
       targetSpeedMps += PARAMS.TRANSIT_SPEED_BONUS_MPS;
     }
 
-    if (!controls.IS_EMERGING && phase === BAT_PHASES.RETURNING) {
+    if (!movementControls.IS_EMERGING && phase === BAT_PHASES.RETURNING) {
       const entranceSlowdown = clamp(
         distanceToEntrancePx / metersToPx(3.5),
         0.55,
         1,
       );
       targetSpeedMps *= lerp(PARAMS.RETURN_SPEED_DAMPING, 1, entranceSlowdown);
+      targetSpeedMps *=
+        1 -
+        entranceAcousticSteer.congestionRatio *
+          PARAMS.RETURN_CONGESTION_BRAKE_WEIGHT;
     }
 
     if (Number.isFinite(nearestFrontDistancePx)) {
@@ -1314,7 +1507,10 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
             1,
           );
         targetSpeedMps *=
-          1 - brakeRatio * (PARAMS.PROXIMITY_BRAKE_WEIGHT * 0.45);
+          1 -
+          brakeRatio *
+            PARAMS.PROXIMITY_BRAKE_WEIGHT *
+            lerp(0.45, 0.82, entranceAcousticSteer.congestionRatio);
       }
     }
 
@@ -1350,7 +1546,7 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
     let nextX = agent.x + nextDirection.x * metersToPx(nextSpeedMps) * dt;
     let nextY = agent.y + nextDirection.y * metersToPx(nextSpeedMps) * dt;
 
-    if (!controls.IS_EMERGING && phase === BAT_PHASES.RETURNING) {
+    if (!movementControls.IS_EMERGING && phase === BAT_PHASES.RETURNING) {
       if (isInsideEntranceZone({ x: nextX, y: nextY }, environment)) {
         phase = BAT_PHASES.ENTERING;
         phaseTimerS = PARAMS.ENTERING_DURATION_S;
@@ -1398,7 +1594,9 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
     agent.phase = plan.phase;
     agent.phaseTimerS = plan.phaseTimerS;
     agent.outsideRoamDurationS = plan.outsideRoamDurationS;
-    agent.isEmergingMode = controls.IS_EMERGING;
+    agent.isEmergingMode = agent.populationRetiring
+      ? false
+      : controls.IS_EMERGING;
     agent.dynamicFrontalAngle = plan.dynamicFrontalAngle;
     if (Object.prototype.hasOwnProperty.call(plan, "exitTargetX")) {
       agent.exitTargetX = plan.exitTargetX;
@@ -1431,44 +1629,20 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   }, [onGpuErrorChange]);
 
   React.useEffect(() => {
-    const image = new Image();
-    image.decoding = "async";
-    image.src = ATLAS.src;
+    let cancelled = false;
 
-    const handleLoad = () => {
-      imageRef.current = image;
-      const imageSize = {
-        width: ATLAS.imageSize?.width || image.naturalWidth || 64,
-        height: ATLAS.imageSize?.height || image.naturalHeight || 64,
-      };
-      frameSizeRef.current = resolveAtlasFrameSize(ATLAS, imageSize);
-
-      const rasterCanvas = document.createElement("canvas");
-      rasterCanvas.width = imageSize.width;
-      rasterCanvas.height = imageSize.height;
-      const rasterContext = rasterCanvas.getContext("2d");
-      if (rasterContext) {
-        rasterContext.clearRect(0, 0, rasterCanvas.width, rasterCanvas.height);
-        rasterContext.drawImage(
-          image,
-          0,
-          0,
-          rasterCanvas.width,
-          rasterCanvas.height,
-        );
-        rasterCanvasRef.current = rasterCanvas;
-      } else {
-        rasterCanvasRef.current = null;
+    loadTexturedAtlasCanvas(ATLAS).then(({ image, frameSize, canvas }) => {
+      if (cancelled) {
+        return;
       }
-    };
 
-    image.addEventListener("load", handleLoad);
-    if (image.complete) {
-      handleLoad();
-    }
+      imageRef.current = image;
+      frameSizeRef.current = frameSize;
+      rasterCanvasRef.current = canvas;
+    });
 
     return () => {
-      image.removeEventListener("load", handleLoad);
+      cancelled = true;
       rasterCanvasRef.current = null;
     };
   }, []);
@@ -1559,7 +1733,13 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             ? clamp(
                 1 -
                   agent.phaseTimerS /
-                    Math.max(PARAMS.ENTERING_DURATION_S, 1e-6),
+                    Math.max(
+                      agent.populationRetiring
+                        ? (agent.populationRetireDurationS ??
+                            PARAMS.ENTERING_DURATION_S)
+                        : PARAMS.ENTERING_DURATION_S,
+                      1e-6,
+                    ),
                 0,
                 1,
               )

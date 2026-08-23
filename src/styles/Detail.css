@@ -196,7 +196,7 @@
   justify-content: center;
 }
 .detail-header-artwork::after {
-  content: "";
+  content: none;
   position: absolute;
   inset: 0.375rem;
   pointer-events: none;
@@ -212,8 +212,8 @@
   height: 100%;
   -o-object-fit: contain;
      object-fit: contain;
-  filter: sepia(0.14) saturate(0.86) contrast(0.96) drop-shadow(0 0 0.125rem rgba(37, 33, 27, 0.14));
-  mix-blend-mode: multiply;
+  filter: none;
+  mix-blend-mode: normal;
 }
 
 .detail-english {
@@ -560,15 +560,14 @@
   justify-content: center;
 }
 .detail-intro-artwork::after {
-  content: "";
+  content: none;
   position: absolute;
   width: min(74%, 24rem);
   height: min(74%, 24rem);
   pointer-events: none;
   background-image: var(--detail-paper-texture);
-  background-size: 12rem 12rem;
-  mix-blend-mode: multiply;
-  opacity: 0.24;
+  background-size: 24rem 24rem;
+  opacity: 0.3;
   mask-image: var(--detail-artwork-mask);
   mask-position: center;
   mask-repeat: no-repeat;

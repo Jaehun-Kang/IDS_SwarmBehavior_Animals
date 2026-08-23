@@ -1,4 +1,29 @@
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const texturedAtlasCache = new Map();
+const imageLoadCache = new Map();
+
+const loadImage = (src) => {
+  if (!src) {
+    return Promise.reject(new Error("image-source-missing"));
+  }
+
+  const cached = imageLoadCache.get(src);
+  if (cached) {
+    return cached;
+  }
+
+  const promise = new Promise((resolve, reject) => {
+    const image = new Image();
+    image.decoding = "async";
+
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(`image-load-failed:${src}`));
+    image.src = src;
+  });
+
+  imageLoadCache.set(src, promise);
+  return promise;
+};
 
 const resolveConfiguredImageSize = (atlas, imageSize) => {
   if (atlas?.imageSize?.width && atlas?.imageSize?.height) {
@@ -212,4 +237,43 @@ export const getAtlasFrameStyle = ({ atlas, imageSize, frame }) => {
     backgroundSize: `${grid.columns * 100}% ${grid.rows * 100}%`,
     backgroundPosition: `${getAxisPosition(resolvedFrame.x, grid.columns)} ${getAxisPosition(resolvedFrame.y, grid.rows)}`,
   };
+};
+
+export const loadTexturedAtlasCanvas = async (atlas) => {
+  const cacheKey = [
+    atlas?.src,
+    atlas?.imageSize?.width || "",
+    atlas?.imageSize?.height || "",
+  ].join("|");
+
+  const cached = texturedAtlasCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const promise = loadImage(atlas.src)
+    .then((image) => {
+      const width = atlas?.imageSize?.width || image.naturalWidth || image.width || 64;
+      const height =
+        atlas?.imageSize?.height || image.naturalHeight || image.height || 64;
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const context = canvas.getContext("2d");
+      if (context) {
+        context.clearRect(0, 0, width, height);
+        context.drawImage(image, 0, 0, width, height);
+      }
+
+      return {
+        image,
+        imageSize: { width, height },
+        frameSize: resolveAtlasFrameSize(atlas, { width, height }),
+        canvas: context ? canvas : null,
+      };
+    });
+
+  texturedAtlasCache.set(cacheKey, promise);
+  return promise;
 };

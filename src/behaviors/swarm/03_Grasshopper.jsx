@@ -1,6 +1,9 @@
 import React from "react";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
-import { resolveAtlasFrameSize } from "../../utils/spriteAtlas";
+import {
+  loadTexturedAtlasCanvas,
+  resolveAtlasFrameSize,
+} from "../../utils/spriteAtlas";
 import { resolveCanvasAtlasSprite } from "../../utils/spritePose";
 import {
   applyTransparentCanvasStyle,
@@ -1263,44 +1266,20 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   }, [onGpuErrorChange]);
 
   React.useEffect(() => {
-    const image = new Image();
-    image.decoding = "async";
-    image.src = ATLAS.src;
+    let cancelled = false;
 
-    const handleLoad = () => {
-      imageRef.current = image;
-      const imageSize = {
-        width: ATLAS.imageSize?.width || image.naturalWidth || 64,
-        height: ATLAS.imageSize?.height || image.naturalHeight || 64,
-      };
-      frameSizeRef.current = resolveAtlasFrameSize(ATLAS, imageSize);
-
-      const rasterCanvas = document.createElement("canvas");
-      rasterCanvas.width = imageSize.width;
-      rasterCanvas.height = imageSize.height;
-      const rasterContext = rasterCanvas.getContext("2d");
-      if (rasterContext) {
-        rasterContext.clearRect(0, 0, rasterCanvas.width, rasterCanvas.height);
-        rasterContext.drawImage(
-          image,
-          0,
-          0,
-          rasterCanvas.width,
-          rasterCanvas.height,
-        );
-        rasterCanvasRef.current = rasterCanvas;
-      } else {
-        rasterCanvasRef.current = null;
+    loadTexturedAtlasCanvas(ATLAS).then(({ image, frameSize, canvas }) => {
+      if (cancelled) {
+        return;
       }
-    };
 
-    image.addEventListener("load", handleLoad);
-    if (image.complete) {
-      handleLoad();
-    }
+      imageRef.current = image;
+      frameSizeRef.current = frameSize;
+      rasterCanvasRef.current = canvas;
+    });
 
     return () => {
-      image.removeEventListener("load", handleLoad);
+      cancelled = true;
       rasterCanvasRef.current = null;
     };
   }, []);

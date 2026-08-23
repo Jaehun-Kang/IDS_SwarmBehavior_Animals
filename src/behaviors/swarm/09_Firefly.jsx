@@ -1,6 +1,9 @@
 import React from "react";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
-import { resolveAtlasFrameSize } from "../../utils/spriteAtlas";
+import {
+  loadTexturedAtlasCanvas,
+  resolveAtlasFrameSize,
+} from "../../utils/spriteAtlas";
 import { resolveCanvasAtlasSprite } from "../../utils/spritePose";
 import {
   applyTransparentCanvasStyle,
@@ -109,17 +112,17 @@ const PARAMS = {
   PHASE_RING_RADIUS_PX: 8,
   PHASE_RING_LINE_WIDTH_PX: 1.2,
   PHASE_RING_ALPHA: 0.75,
-  FLASHLIGHT_RADIUS_PX: 176,
-  FLASHLIGHT_HOTSPOT_RATIO: 0.16,
-  FLASHLIGHT_FALLOFF_RATIO: 0.62,
-  FLASHLIGHT_BLOOM_RADIUS_PX: 268,
-  FLASHLIGHT_BLOOM_ALPHA: 0.048,
-  FLASHLIGHT_DUST_ALPHA: 0.043,
-  FLASHLIGHT_DIRECTIONAL_ALPHA: 0.029,
+  FLASHLIGHT_RADIUS_PX: 198,
+  FLASHLIGHT_HOTSPOT_RATIO: 0.18,
+  FLASHLIGHT_FALLOFF_RATIO: 0.68,
+  FLASHLIGHT_BLOOM_RADIUS_PX: 304,
+  FLASHLIGHT_BLOOM_ALPHA: 0.066,
+  FLASHLIGHT_DUST_ALPHA: 0.06,
+  FLASHLIGHT_DIRECTIONAL_ALPHA: 0.041,
   FLASHLIGHT_DIRECTIONAL_LENGTH_SCALE: 1.36,
   FLASHLIGHT_DIRECTIONAL_WIDTH_SCALE: 0.78,
   FLASHLIGHT_SOURCE_OFFSET_Y_PX: 110,
-  FLASHLIGHT_BODY_REVEAL_ALPHA: 0.92,
+  FLASHLIGHT_BODY_REVEAL_ALPHA: 1,
   AMBIENT_BODY_ALPHA: 0.28,
   GLOW_SPILLOVER_RADIUS_PX: 74,
   GLOW_SPILLOVER_ALPHA: 0.2,
@@ -1325,6 +1328,80 @@ const drawFlashlightOverlay = (ctx, pointerState, width, height) => {
   ctx.restore();
 };
 
+const createTintedAtlasCanvas = (source, width, height, fillStyle, alpha) => {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return source;
+  }
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(source, 0, 0, width, height);
+  ctx.globalCompositeOperation = "source-atop";
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = fillStyle;
+  ctx.fillRect(0, 0, width, height);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+  return canvas;
+};
+
+const createGlowHaloFrames = (source, frameSize) => {
+  const margin = 24;
+  const frames = new Map();
+  const frameWidth = frameSize.width;
+  const frameHeight = frameSize.height;
+  const columns = Math.max(1, Math.floor(source.width / frameWidth));
+  const rows = Math.max(1, Math.floor(source.height / frameHeight));
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const canvas = document.createElement("canvas");
+      canvas.width = frameWidth + margin * 2;
+      canvas.height = frameHeight + margin * 2;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        continue;
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.shadowColor = "rgba(255, 240, 120, 0.55)";
+      ctx.shadowBlur = 18;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.drawImage(
+        source,
+        column * frameWidth,
+        row * frameHeight,
+        frameWidth,
+        frameHeight,
+        margin,
+        margin,
+        frameWidth,
+        frameHeight,
+      );
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.drawImage(
+        source,
+        column * frameWidth,
+        row * frameHeight,
+        frameWidth,
+        frameHeight,
+        margin,
+        margin,
+        frameWidth,
+        frameHeight,
+      );
+      ctx.globalCompositeOperation = "source-over";
+      frames.set(`${column}:${row}`, { canvas, margin });
+    }
+  }
+
+  return frames;
+};
+
 const resolveGlowSpillIntensity = (agent) => {
   if (
     agent.isGlowActive ||
@@ -1484,6 +1561,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const canvasRef = React.useRef(null);
   const imageRef = React.useRef(null);
   const rasterCanvasRef = React.useRef(null);
+  const atlasVariantsRef = React.useRef(null);
+  const glowHaloRef = React.useRef(null);
   const animationFrameRef = React.useRef(0);
   const agentsRef = React.useRef([]);
   const obstaclesRef = React.useRef([]);
@@ -1521,45 +1600,54 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   }, [onGpuErrorChange]);
 
   React.useEffect(() => {
-    const image = new Image();
-    image.decoding = "async";
-    image.src = ATLAS.src;
+    let cancelled = false;
 
-    const handleLoad = () => {
-      imageRef.current = image;
-      const imageSize = {
-        width: ATLAS.imageSize?.width || image.naturalWidth || 64,
-        height: ATLAS.imageSize?.height || image.naturalHeight || 64,
-      };
-      frameSizeRef.current = resolveAtlasFrameSize(ATLAS, imageSize);
-
-      const rasterCanvas = document.createElement("canvas");
-      rasterCanvas.width = imageSize.width;
-      rasterCanvas.height = imageSize.height;
-      const rasterContext = rasterCanvas.getContext("2d");
-      if (rasterContext) {
-        rasterContext.clearRect(0, 0, rasterCanvas.width, rasterCanvas.height);
-        rasterContext.drawImage(
-          image,
-          0,
-          0,
-          rasterCanvas.width,
-          rasterCanvas.height,
-        );
-        rasterCanvasRef.current = rasterCanvas;
-      } else {
-        rasterCanvasRef.current = null;
+    loadTexturedAtlasCanvas(ATLAS).then(({ image, imageSize, frameSize, canvas }) => {
+      if (cancelled) {
+        return;
       }
-    };
 
-    image.addEventListener("load", handleLoad);
-    if (image.complete) {
-      handleLoad();
-    }
+      const atlasSource = canvas || image;
+      const atlasWidth =
+        imageSize?.width || atlasSource.width || image.naturalWidth || 64;
+      const atlasHeight =
+        imageSize?.height || atlasSource.height || image.naturalHeight || 64;
+
+      imageRef.current = image;
+      frameSizeRef.current = frameSize;
+      rasterCanvasRef.current = atlasSource;
+      atlasVariantsRef.current = {
+        base: atlasSource,
+        dim: createTintedAtlasCanvas(
+          atlasSource,
+          atlasWidth,
+          atlasHeight,
+          "rgb(18, 22, 14)",
+          0.34,
+        ),
+        revealed: createTintedAtlasCanvas(
+          atlasSource,
+          atlasWidth,
+          atlasHeight,
+          "rgb(246, 233, 176)",
+          0.18,
+        ),
+        glow: createTintedAtlasCanvas(
+          atlasSource,
+          atlasWidth,
+          atlasHeight,
+          "rgb(255, 238, 128)",
+          0.22,
+        ),
+      };
+      glowHaloRef.current = createGlowHaloFrames(atlasSource, frameSize);
+    });
 
     return () => {
-      image.removeEventListener("load", handleLoad);
+      cancelled = true;
       rasterCanvasRef.current = null;
+      atlasVariantsRef.current = null;
+      glowHaloRef.current = null;
     };
   }, []);
 
@@ -1874,6 +1962,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       }
 
       const image = rasterCanvasRef.current || imageRef.current;
+      const atlasVariants = atlasVariantsRef.current;
+      const glowHalo = glowHaloRef.current;
       const frameSize = frameSizeRef.current;
       const isLightThreatActive =
         sanitizedControls.INTERACTION_MODE === "light_threat" &&
@@ -1951,12 +2041,42 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
               )
             : 0;
           const glowSpillIntensity = resolveGlowSpillIntensity(agent);
-          const bodyRevealIntensity = Math.max(
-            flashlightIntensity,
-            glowSpillIntensity * PARAMS.GLOW_SPILLOVER_ALPHA,
-          );
+          const bodyRevealIntensity = flashlightIntensity;
+          const sourceImage = agent.isGlowActive
+            ? bodyRevealIntensity > 0.32
+              ? (atlasVariants?.revealed ?? image)
+              : (atlasVariants?.base ?? image)
+            : bodyRevealIntensity > 0.32
+              ? (atlasVariants?.revealed ?? image)
+              : (atlasVariants?.dim ?? image);
 
           agent.previousScreenPosition = sprite.pose.screenPosition;
+
+          if (agent.isGlowActive && glowHalo) {
+            const haloFrame = glowHalo.get(`${sprite.frame.x}:${sprite.frame.y}`);
+            const haloAlpha = lerp(
+              0.62,
+              0.82,
+              Math.max(flashlightIntensity, glowSpillIntensity * 0.3),
+            );
+            if (haloFrame) {
+              const haloScale = drawWidth / Math.max(frameSize.width, 1);
+              ctx.save();
+              ctx.translate(projected.x, projected.y + bobOffset);
+              ctx.rotate(sprite.rotation);
+              ctx.scale(sprite.flipX * renderScale, renderScale);
+              ctx.globalCompositeOperation = "screen";
+              ctx.globalAlpha = haloAlpha;
+              ctx.drawImage(
+                haloFrame.canvas,
+                -drawWidth * 0.5 - haloFrame.margin * haloScale,
+                -drawHeight * 0.5 - haloFrame.margin * haloScale,
+                haloFrame.canvas.width * haloScale,
+                haloFrame.canvas.height * haloScale,
+              );
+              ctx.restore();
+            }
+          }
 
           ctx.save();
           ctx.translate(projected.x, projected.y + bobOffset);
@@ -1968,21 +2088,15 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
               1,
               Math.max(flashlightIntensity, glowSpillIntensity * 0.3),
             );
-            ctx.filter = `brightness(${100 + flashlightIntensity * 12}%) saturate(${100 + flashlightIntensity * 18}%)`;
           } else {
             ctx.globalAlpha = lerp(
               PARAMS.AMBIENT_BODY_ALPHA,
               PARAMS.FLASHLIGHT_BODY_REVEAL_ALPHA,
               bodyRevealIntensity,
             );
-            ctx.filter = `brightness(${56 + bodyRevealIntensity * 72}%) saturate(${28 + bodyRevealIntensity * 82}%) contrast(${88 + bodyRevealIntensity * 16}%)`;
-          }
-          if (agent.isGlowActive) {
-            ctx.shadowColor = "rgba(255, 240, 120, 0.55)";
-            ctx.shadowBlur = 18;
           }
           ctx.drawImage(
-            image,
+            sourceImage,
             sprite.frame.x * frameSize.width,
             sprite.frame.y * frameSize.height,
             frameSize.width,

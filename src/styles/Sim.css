@@ -1,15 +1,41 @@
 .sim {
   --sim-left-overlay-width: 20rem;
   --sim-overlay-gap: 0.875rem;
+  --sim-paper-texture: url("../assets/texture/white-paper-texture-seamless.webp");
+  --sim-black-paper-texture: url("../assets/texture/black-paper-texture-seamless.webp");
   width: 100vw;
   height: 100vh;
-  background-color: var(--theme-bg);
+  background: var(--sim-paper-texture), linear-gradient(135deg, var(--theme-bg), var(--theme-bg-soft));
+  background-size: 34rem 34rem, 100% 100%;
   position: relative;
+}
+.sim::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 18% 22%, rgba(97, 72, 42, 0.045) 0 0.045rem, transparent 0.055rem), radial-gradient(circle at 74% 36%, rgba(97, 72, 42, 0.035) 0 0.035rem, transparent 0.05rem), linear-gradient(108deg, rgba(112, 82, 48, 0.025), transparent 18%, rgba(255, 255, 255, 0.16) 42%, transparent 72%);
+  background-size: 10rem 10rem, 10rem 10rem, 100% 100%;
+  mix-blend-mode: multiply;
+  opacity: 0.82;
+}
+.sim.sim--firefly {
+  background: var(--sim-black-paper-texture), linear-gradient(135deg, rgb(16, 16, 14), rgb(29, 28, 24));
+  background-size: 34rem 34rem, 100% 100%;
+}
+.sim.sim--firefly::before {
+  background: radial-gradient(circle at 18% 22%, rgba(255, 239, 184, 0.035) 0 0.045rem, transparent 0.055rem), radial-gradient(circle at 74% 36%, rgba(255, 239, 184, 0.028) 0 0.035rem, transparent 0.05rem), linear-gradient(108deg, rgba(255, 235, 166, 0.02), transparent 18%, rgba(255, 255, 255, 0.035) 42%, transparent 72%);
+  background-size: 10rem 10rem, 10rem 10rem, 100% 100%;
+  mix-blend-mode: screen;
+  opacity: 0.72;
 }
 .sim .sim-canvas {
   position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
+  background: transparent;
 }
 .sim .sim-overlay-panel {
   border-radius: 1.125rem;
@@ -20,6 +46,8 @@
   font-family: var(--theme-ui-font);
 }
 .sim .sim-state {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   display: flex;
@@ -27,7 +55,7 @@
   justify-content: center;
   flex-direction: column;
   gap: 16px;
-  background-color: var(--theme-bg);
+  background: transparent;
 }
 .sim .sim-state--loading, .sim .sim-state--placeholder {
   color: var(--theme-text-strong);
@@ -158,9 +186,7 @@
   font-size: 1.5rem;
   text-align: center;
   pointer-events: none;
-  -webkit-user-select: none;
-     -moz-user-select: none;
-          user-select: none;
+  user-select: none;
   transform: translateX(-50%);
 }
 .sim .sim-control-panel {
@@ -453,3 +479,5 @@
 .sim .sim-animal-dock__item:hover .sim-animal-dock__label, .sim .sim-animal-dock__item.is-active .sim-animal-dock__label {
   opacity: 1;
 }
+
+/*# sourceMappingURL=Sim.css.map */

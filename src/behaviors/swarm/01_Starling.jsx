@@ -1,8 +1,8 @@
 import React from "react";
-import starlingSpriteSheetUrl from "../../assets/starling_1.svg";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
   getAtlasFrameIndex,
+  loadTexturedAtlasCanvas,
   resolveAtlasGrid,
   resolveStageFrameSequence,
 } from "../../utils/spriteAtlas";
@@ -636,57 +636,37 @@ void main() {
 }
 `;
 
-const loadTexture = (gl, sourceUrl) =>
+const loadTexture = (gl, atlas) =>
   new Promise((resolve, reject) => {
-    const image = new Image();
+    loadTexturedAtlasCanvas(atlas)
+      .then(({ image, canvas }) => {
+        const textureSource = canvas || image;
 
-    image.onload = () => {
-      const rasterCanvas = document.createElement("canvas");
-      rasterCanvas.width = image.naturalWidth || image.width;
-      rasterCanvas.height = image.naturalHeight || image.height;
+        const texture = gl.createTexture();
+        if (!texture) {
+          reject(new Error("texture-create-failed"));
+          return;
+        }
 
-      const rasterContext = rasterCanvas.getContext("2d");
-      if (!rasterContext) {
-        reject(new Error("texture-rasterize-failed"));
-        return;
-      }
-
-      rasterContext.clearRect(0, 0, rasterCanvas.width, rasterCanvas.height);
-      rasterContext.drawImage(
-        image,
-        0,
-        0,
-        rasterCanvas.width,
-        rasterCanvas.height,
-      );
-
-      const texture = gl.createTexture();
-      if (!texture) {
-        reject(new Error("texture-create-failed"));
-        return;
-      }
-
-      gl.bindTexture(gl.TEXTURE_2D, texture);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-      gl.texImage2D(
-        gl.TEXTURE_2D,
-        0,
-        gl.RGBA,
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        rasterCanvas,
-      );
-      gl.bindTexture(gl.TEXTURE_2D, null);
-      resolve(texture);
-    };
-
-    image.onerror = () => reject(new Error("texture-load-failed"));
-    image.src = sourceUrl;
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          textureSource,
+        );
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        resolve(texture);
+      })
+      .catch(() => reject(new Error("texture-load-failed")));
   });
 
 const createShader = (gl, type, source) => {
@@ -1110,8 +1090,12 @@ const collectNeighborStates = (boidIndex, boid, delayedStates, spatialGrid) => {
   return fallbackNearestStates;
 };
 
-const createBoid = (id, center, dimensions) => {
-  const position = sampleShellPoint(center, dimensions);
+const createBoid = (id, center, dimensions, spreadScale = 1) => {
+  const position = sampleShellPoint(center, {
+    x: dimensions.x * spreadScale,
+    y: dimensions.y * spreadScale,
+    z: dimensions.z * spreadScale,
+  });
   const horizontalAngle = randomBetween(-Math.PI, Math.PI);
   const heading = normalize3D({
     x: Math.cos(horizontalAngle),
@@ -1185,6 +1169,30 @@ const createEnteringBoid = (id, center, dimensions, width, height) => {
   );
   boid.direction = normalize3D(subtract3D(center, boid.position), boid.direction);
   boid.isEntering = true;
+  boid.history = [];
+
+  return boid;
+};
+
+const createInitialScreenBoid = (id, center, dimensions, width, height) => {
+  const boid = createBoid(id, center, dimensions);
+  const depth = randomBetween(
+    PARAMS.VISIBLE_DEPTH_MIN * 0.62,
+    PARAMS.VISIBLE_DEPTH_MAX * 0.62,
+  );
+
+  boid.position = getWorldPointOnPointerRay(
+    randomBetween(width * 0.08, width * 0.92),
+    randomBetween(height * 0.14, height * 0.86),
+    depth,
+    width,
+    height,
+  );
+  boid.direction = normalize3D({
+    x: randomBetween(-1, 1),
+    y: randomBetween(-0.16, 0.16),
+    z: randomBetween(-1, 1),
+  }, boid.direction);
   boid.history = [];
 
   return boid;
@@ -1383,10 +1391,15 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
     y: 0,
     active: false,
   });
+  const isPausedRef = React.useRef(isPaused);
   const resolvedControls = React.useMemo(
     () => sanitizeControlState(controls),
     [controls],
   );
+
+  React.useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
 
   React.useEffect(() => {
     Object.assign(PARAMS, resolvedControls);
@@ -1422,8 +1435,16 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
     let isDisposed = false;
     const flockCenter = { x: 0, y: 0, z: 0 };
     const flockDimensions = { x: 152, y: 54, z: 302 };
+    const initialWidth = window.innerWidth;
+    const initialHeight = window.innerHeight;
     const boids = Array.from({ length: PARAMS.BOID_COUNT }, (_, index) =>
-      createBoid(index, flockCenter, flockDimensions),
+      createInitialScreenBoid(
+        index,
+        flockCenter,
+        flockDimensions,
+        initialWidth,
+        initialHeight,
+      ),
     );
     let nextBoidId = boids.length;
 
@@ -1509,13 +1530,26 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
         nextTurnTime = now + randomBetween(3.4, 5.6);
       }
 
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      if (isPausedRef.current) {
+        drawBoidsWithWebGL(
+          gl,
+          renderer,
+          width,
+          height,
+          window.devicePixelRatio || 1,
+          boids,
+        );
+        animationFrame = window.requestAnimationFrame(step);
+        return;
+      }
+
       if (now >= nextTurnTime) {
         spawnTurnSignal(boids, flockCenter, now);
         nextTurnTime = now + randomBetween(4.5, 7.5);
       }
-
-      const width = window.innerWidth;
-      const height = window.innerHeight;
 
       reconcileBoidCount(width, height);
 
@@ -1889,12 +1923,10 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
         boids,
       );
 
-      if (!isPaused) {
-        animationFrame = window.requestAnimationFrame(step);
-      }
+      animationFrame = window.requestAnimationFrame(step);
     };
 
-    loadTexture(gl, starlingSpriteSheetUrl)
+    loadTexture(gl, STARLING_SPRITE_ATLAS)
       .then((spriteSheetTexture) => {
         if (isDisposed) {
           gl.deleteTexture(spriteSheetTexture);
@@ -1923,7 +1955,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
       destroyRenderer(gl, renderer);
       onGpuErrorChange?.("");
     };
-  }, [onGpuErrorChange, isPaused]);
+  }, [onGpuErrorChange]);
 
   return (
     <div

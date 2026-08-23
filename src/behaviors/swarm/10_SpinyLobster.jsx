@@ -49,8 +49,8 @@ const INFERRED_PARAMS = {
   DISEASE_REPULSION_WEIGHT: 2.35,
   HEALTHY_ATTRACTION_WEIGHT: 0.8,
   HEALTHY_WANDER_BLEND: 0.42,
-  MIGRATION_ALIGN_WEIGHT: 1.15,
-  MIGRATION_COHESION_WEIGHT: 1.25,
+  MIGRATION_ALIGN_WEIGHT: 1.35,
+  MIGRATION_COHESION_WEIGHT: 1.65,
   MIGRATION_BRAKE_WEIGHT: 2.4,
   SEEK_SHELTER_SPEED_CM_S: 12,
   DISEASE_ESCAPE_SPEED_CM_S: 32,
@@ -89,6 +89,9 @@ const PARAMS = {
   FORAGE_SPEED_MIN_CM_S: 5,
   FORAGE_SPEED_MAX_CM_S: 10,
   MAX_QUEUE_SIZE: 65,
+  QUEUE_AHEAD_ALIGNMENT_MIN: 0.18,
+  QUEUE_HEADING_ALIGNMENT_MIN: 0.12,
+  QUEUE_TRAIL_WIDTH_CM: 8,
   HEALTHY_CHEM_STRENGTH: 1.1,
   DISEASE_CHEM_STRENGTH: 2.8,
   WANDER_TURN_RATE_RAD_S: 0.95,
@@ -397,6 +400,33 @@ const createAgents = (count, width, height, behavior, shelters, algaeCovers) =>
     createAgent(index, width, height, behavior, shelters, algaeCovers),
   );
 
+const reconcileAgents = (
+  agents,
+  count,
+  width,
+  height,
+  behavior,
+  shelters,
+  algaeCovers,
+) => {
+  if (agents.length === count) {
+    return agents;
+  }
+
+  if (agents.length > count) {
+    return agents.slice(0, count);
+  }
+
+  const nextAgents = [...agents];
+  for (let index = agents.length; index < count; index += 1) {
+    nextAgents.push(
+      createAgent(index, width, height, behavior, shelters, algaeCovers),
+    );
+  }
+
+  return nextAgents;
+};
+
 const getShelterOccupancy = (agents, shelters) => {
   const occupancy = new Map();
   shelters.forEach((shelter) => {
@@ -671,7 +701,7 @@ const buildQueueAssignments = (agents, behavior) => {
       }
 
       const ahead = (dx * heading.x + dy * heading.y) / distance;
-      if (ahead < 0.35) {
+      if (ahead < PARAMS.QUEUE_AHEAD_ALIGNMENT_MIN) {
         return;
       }
 
@@ -682,7 +712,7 @@ const buildQueueAssignments = (agents, behavior) => {
       );
       const headingAgreement =
         heading.x * candidateHeading.x + heading.y * candidateHeading.y;
-      if (headingAgreement < 0.35) {
+      if (headingAgreement < PARAMS.QUEUE_HEADING_ALIGNMENT_MIN) {
         return;
       }
 
@@ -982,6 +1012,28 @@ const updateAgent = ({
           x: leader.x - leaderDir.x * behavior.queueTargetDistanceCm,
           y: leader.y - leaderDir.y * behavior.queueTargetDistanceCm,
         };
+        const lateralDir = { x: -leaderDir.y, y: leaderDir.x };
+        const lateralOffset =
+          (agent.x - tailTarget.x) * lateralDir.x +
+          (agent.y - tailTarget.y) * lateralDir.y;
+        const laneTarget = {
+          x:
+            tailTarget.x -
+            lateralDir.x *
+              clamp(
+                lateralOffset,
+                -PARAMS.QUEUE_TRAIL_WIDTH_CM,
+                PARAMS.QUEUE_TRAIL_WIDTH_CM,
+              ),
+          y:
+            tailTarget.y -
+            lateralDir.y *
+              clamp(
+                lateralOffset,
+                -PARAMS.QUEUE_TRAIL_WIDTH_CM,
+                PARAMS.QUEUE_TRAIL_WIDTH_CM,
+              ),
+        };
         if (agent.queueGapDistance < behavior.queueBrakeDistanceCm) {
           const brake = steerTowardPoint(agent, leader.x, leader.y, 0);
           applyForce(agent, -brake.x, -brake.y, PARAMS.MIGRATION_BRAKE_WEIGHT);
@@ -998,8 +1050,8 @@ const updateAgent = ({
           );
           const cohesion = steerTowardPoint(
             agent,
-            tailTarget.x,
-            tailTarget.y,
+            laneTarget.x,
+            laneTarget.y,
             behavior.minQueueSpeedCmS,
           );
           applyForce(
@@ -1210,9 +1262,13 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const lastTimeRef = React.useRef(0);
   const elapsedTimeRef = React.useRef(0);
   const worldRef = React.useRef({ shelters: [], algaeCovers: [] });
+  const behaviorRef = React.useRef(null);
+  const isPausedRef = React.useRef(isPaused);
 
   const sanitizedControls = App.sanitizeControlState(controls);
   const behavior = resolveBehaviorConfig(sanitizedControls);
+  behaviorRef.current = behavior;
+  isPausedRef.current = isPaused;
 
   React.useEffect(() => {
     onGpuErrorChange?.("");
@@ -1277,44 +1333,53 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     lastTimeRef.current = 0;
     elapsedTimeRef.current = 0;
 
-    const ensureWorld = (width, height) => {
+    const ensureWorld = (width, height, currentBehavior) => {
       worldRef.current = {
         shelters: resolveShelters(width, height),
         algaeCovers: resolveAlgaeCovers(width, height),
       };
       agentsRef.current = createAgents(
-        behavior.count,
+        currentBehavior.count,
         width,
         height,
-        behavior,
+        currentBehavior,
         worldRef.current.shelters,
         worldRef.current.algaeCovers,
       );
     };
 
     const render = (timestamp) => {
+      const currentBehavior = behaviorRef.current || behavior;
+      const currentIsPaused = isPausedRef.current;
       const now = timestamp * 0.001;
       const dt = lastTimeRef.current
         ? Math.min(now - lastTimeRef.current, 0.05)
         : 0.016;
       lastTimeRef.current = now;
 
-      if (!isPaused) {
+      if (!currentIsPaused) {
         elapsedTimeRef.current += dt;
       }
 
       const { width, height } = syncCanvasSize(canvas, ctx);
-      if (
-        agentsRef.current.length !== behavior.count ||
-        worldRef.current.shelters.length === 0
-      ) {
-        ensureWorld(width, height);
+      if (worldRef.current.shelters.length === 0) {
+        ensureWorld(width, height, currentBehavior);
+      } else if (agentsRef.current.length !== currentBehavior.count) {
+        agentsRef.current = reconcileAgents(
+          agentsRef.current,
+          currentBehavior.count,
+          width,
+          height,
+          currentBehavior,
+          worldRef.current.shelters,
+          worldRef.current.algaeCovers,
+        );
       }
 
       const image = rasterCanvasRef.current || imageRef.current;
       const frameSize = frameSizeRef.current;
       const globalTimeHour = resolveGlobalTimeHours(
-        behavior.startHour,
+        currentBehavior.startHour,
         elapsedTimeRef.current,
       );
       const occupancy = getShelterOccupancy(
@@ -1335,18 +1400,18 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         ctx,
         worldRef.current.shelters,
         worldRef.current.algaeCovers,
-        behavior,
+        currentBehavior,
         healthySources,
         diseaseSources,
       );
 
       agentsRef.current.forEach((agent) => {
-        agent.state = determineState(agent, globalTimeHour, behavior);
+        agent.state = determineState(agent, globalTimeHour, currentBehavior);
       });
-      buildQueueAssignments(agentsRef.current, behavior);
+      buildQueueAssignments(agentsRef.current, currentBehavior);
 
       agentsRef.current.forEach((agent, index) => {
-        if (!isPaused) {
+        if (!currentIsPaused) {
           updateAgent({
             agent,
             agents: agentsRef.current,
@@ -1357,7 +1422,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             healthySources,
             diseaseSources,
             globalTimeHour,
-            behavior,
+            behavior: currentBehavior,
             dt,
             width,
             height,
@@ -1418,7 +1483,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     return () => {
       window.cancelAnimationFrame(animationFrameRef.current);
     };
-  }, [behavior, isPaused]);
+  }, []);
 
   return (
     <canvas

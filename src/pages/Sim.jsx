@@ -1,5 +1,8 @@
 import React from "react";
 import "../styles/Sim.css";
+import { animals } from "../behaviors/animalData";
+import SpriteAtlas from "../components/SpriteAtlas.jsx";
+import { HOME_SPRITE_ATLASES } from "../data/spriteAtlases";
 
 const animalNames = {
   starling: "흰점찌르레기",
@@ -15,7 +18,12 @@ const animalNames = {
   krill: "남극크릴",
 };
 
-const DETAIL_PAGE_DISABLED = true;
+const DETAIL_PAGE_DISABLED = false;
+
+const animalDockItems = animals.map((animal) => ({
+  id: animal.id,
+  label: animalNames[animal.id] || animal.name,
+}));
 
 const FIREFLY_SIM_THEME = {
   background: "oklch(0.14 0.015 91.51)",
@@ -70,12 +78,51 @@ const generateSwarmModules = () => {
 
 const swarmModules = generateSwarmModules();
 
+function AnimalDockItem({ animal, atlas, isActive, onAnimalSelect }) {
+  const [isAnimated, setIsAnimated] = React.useState(false);
+
+  return (
+    <button
+      type="button"
+      className={[
+        "sim-animal-dock__item",
+        isActive ? "is-active" : "",
+      ].join(" ")}
+      data-animal-id={animal.id}
+      onClick={() => onAnimalSelect?.(animal.id)}
+      onMouseEnter={() => setIsAnimated(true)}
+      onMouseLeave={() => setIsAnimated(false)}
+      onFocus={() => setIsAnimated(true)}
+      onBlur={() => setIsAnimated(false)}
+      aria-label={`${animal.label} 시뮬레이션으로 이동`}
+      aria-pressed={isActive}
+    >
+      <span className="sim-animal-dock__sprite" aria-hidden="true">
+        {atlas ? (
+          <SpriteAtlas
+            atlas={atlas}
+            stage={atlas.defaultStage}
+            baseClassName={atlas.baseClassName}
+            animated={isAnimated}
+            style={{
+              width: "100%",
+              height: "auto",
+            }}
+          />
+        ) : null}
+      </span>
+      <span className="sim-animal-dock__label">{animal.label}</span>
+    </button>
+  );
+}
+
 // 캔버스 렌더링 컴포넌트
 function SwarmCanvas({
   animalId,
   animalLabel,
   onBackClick,
   onDetailClick,
+  onAnimalSelect,
   isPaused,
 }) {
   const [SwarmComponent, setSwarmComponent] = React.useState(null);
@@ -319,7 +366,8 @@ function SwarmCanvas({
             : undefined
         }
       >
-        자세히 보기
+        <span className="info_btn__eyebrow">Encyclopedia</span>
+        <span className="info_btn__title">{animalLabel || "상세 보기"}</span>
       </button>
       {gpuError ? (
         <div className="sim-gpu-error sim-overlay-panel">{gpuError}</div>
@@ -483,12 +531,33 @@ function SwarmCanvas({
           </div>
         </div>
       ) : null}
+      <nav className="sim-animal-dock" aria-label="동물 시뮬레이션 이동">
+        {animalDockItems.map((animal) => {
+          const atlas = HOME_SPRITE_ATLASES[animal.id];
+
+          return (
+            <AnimalDockItem
+              key={animal.id}
+              animal={animal}
+              atlas={atlas}
+              isActive={animal.id === animalId}
+              onAnimalSelect={onAnimalSelect}
+            />
+          );
+        })}
+      </nav>
     </div>
   );
 }
 
 function Sim(props) {
-  const { selectedAnimal, onBackClick, onDetailClick, isPaused } = props;
+  const {
+    selectedAnimal,
+    onBackClick,
+    onDetailClick,
+    onAnimalSelect,
+    isPaused,
+  } = props;
   const animalLabel = selectedAnimal ? animalNames[selectedAnimal] : "";
   const simStyle = selectedAnimal === "firefly" ? FIREFLY_SIM_THEME : undefined;
 
@@ -501,6 +570,7 @@ function Sim(props) {
           animalLabel={animalLabel}
           onBackClick={onBackClick}
           onDetailClick={onDetailClick}
+          onAnimalSelect={onAnimalSelect}
           isPaused={isPaused}
         />
       )}

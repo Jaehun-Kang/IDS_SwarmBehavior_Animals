@@ -4,6 +4,7 @@ import {
   resolveAtlasAspectRatio,
   resolveStageFrameSequence,
 } from "../utils/spriteAtlas";
+import paperTextureUrl from "../assets/texture/white-paper-texture-seamless.webp";
 
 const getObservedStageName = (element, atlas) => {
   if (!element || !atlas?.stages) {
@@ -146,6 +147,18 @@ function SpriteAtlas({
     ...getAtlasFrameStyle({ atlas, imageSize, frame: activeFrame }),
   };
 
+  const textureStyle = {
+    backgroundImage: `url(${paperTextureUrl})`,
+    maskImage: `url("${atlas.src}")`,
+    maskRepeat: "no-repeat",
+    maskSize: innerStyle.backgroundSize,
+    maskPosition: innerStyle.backgroundPosition,
+    WebkitMaskImage: `url("${atlas.src}")`,
+    WebkitMaskRepeat: "no-repeat",
+    WebkitMaskSize: innerStyle.backgroundSize,
+    WebkitMaskPosition: innerStyle.backgroundPosition,
+  };
+
   return (
     <div
       ref={containerRef}
@@ -156,6 +169,11 @@ function SpriteAtlas({
       style={outerStyle}
     >
       <div aria-hidden="true" style={innerStyle} />
+      <div
+        aria-hidden="true"
+        className="sprite-atlas__paper-texture"
+        style={textureStyle}
+      />
     </div>
   );
 }

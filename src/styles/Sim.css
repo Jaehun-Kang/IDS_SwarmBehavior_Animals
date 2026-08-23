@@ -71,11 +71,72 @@
   align-self: flex-start;
 }
 .sim .info_btn {
+  display: none;
   position: absolute;
-  left: 50%;
-  bottom: 2.5rem;
+  right: 1.75rem;
+  bottom: 6rem;
   z-index: 120;
-  transform: translateX(-50%);
+  width: 8.25rem;
+  height: 5.5rem;
+  padding: 1rem 1rem 0.8rem 1.35rem;
+  border: 0.0625rem solid rgba(52, 35, 20, 0.48);
+  border-radius: 0.25rem 0.5rem 0.45rem 0.18rem;
+  background: url("../assets/texture/white-paper-texture-seamless.webp"), linear-gradient(105deg, rgb(95, 59, 31) 0 14%, rgb(122, 79, 38) 15% 17%, rgb(57, 38, 24) 18% 100%), rgb(64, 45, 28);
+  color: rgb(255, 247, 226);
+  background-size: 18rem 18rem, 100% 100%, 100% 100%;
+  box-shadow: 0 0.85rem 1.5rem rgba(0, 0, 0, 0.26), 0.35rem 0.35rem 0 rgb(232, 220, 190), 0.45rem 0.45rem 0 rgb(178, 158, 120), inset 0.18rem 0 0 rgba(46, 31, 20, 0.42), inset -0.45rem 0 1.2rem rgba(0, 0, 0, 0.16);
+  font-family: var(--theme-title-font);
+  line-height: 1.25;
+  transform: perspective(36rem) rotateX(4deg) rotateY(-12deg) rotateZ(-4deg);
+  transform-origin: right bottom;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+.sim .info_btn::before {
+  content: "";
+  position: absolute;
+  inset: 0.55rem auto 0.55rem 0.62rem;
+  width: 0.16rem;
+  border-radius: 99rem;
+  background: rgba(231, 190, 112, 0.58);
+  box-shadow: 0.32rem 0 0 rgba(42, 29, 19, 0.28), 6.95rem 0.18rem 0 -0.02rem rgb(232, 220, 190);
+}
+.sim .info_btn::after {
+  content: "";
+  position: absolute;
+  right: -0.45rem;
+  bottom: -0.45rem;
+  width: calc(100% - 0.3rem);
+  height: 0.58rem;
+  border-radius: 0 0 0.35rem 0.2rem;
+  background: repeating-linear-gradient(0deg, rgb(145, 126, 92) 0 0.04rem, rgb(239, 230, 204) 0.04rem 0.11rem);
+  transform: skewX(34deg);
+  transform-origin: left top;
+}
+.sim .info_btn:hover {
+  transform: perspective(36rem) translateY(-0.5rem) rotateX(5deg) rotateY(-8deg) rotateZ(-3deg);
+  box-shadow: 0 1.2rem 2.1rem rgba(0, 0, 0, 0.3), 0.35rem 0.35rem 0 rgb(232, 220, 190), 0.45rem 0.45rem 0 rgb(178, 158, 120), inset 0.18rem 0 0 rgba(46, 31, 20, 0.42), inset -0.45rem 0 1.2rem rgba(0, 0, 0, 0.14);
+}
+.sim .info_btn__eyebrow, .sim .info_btn__title {
+  position: relative;
+  z-index: 1;
+  display: block;
+  pointer-events: none;
+}
+.sim .info_btn__eyebrow {
+  margin-bottom: 0.45rem;
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(222, 194, 132);
+}
+.sim .info_btn__title {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.95rem;
+  font-weight: 700;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 .sim .sim-gpu-error {
   position: absolute;
@@ -273,4 +334,122 @@
   border-radius: 50%;
   background: var(--theme-text-strong);
   box-shadow: 0 0.125rem 0.5rem rgba(37, 33, 27, 0.15);
+}
+.sim .sim-animal-dock {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  z-index: 130;
+  width: min(58rem, 100vw - 3rem);
+  height: 5.75rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0 0.75rem;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+.sim .sim-animal-dock__item {
+  --dock-sprite-width: 4rem;
+  --dock-sprite-bottom: -0.7rem;
+  position: relative;
+  width: clamp(3.25rem, 7vw, 5rem);
+  height: 4.75rem;
+  border: 0;
+  padding: 0;
+  overflow: visible;
+  color: var(--theme-text-soft);
+  background: transparent;
+  cursor: pointer;
+  transition: color 160ms ease, transform 180ms ease;
+}
+.sim .sim-animal-dock__item:hover, .sim .sim-animal-dock__item.is-active {
+  color: var(--theme-text-strong);
+  transform: translateY(-0.375rem);
+}
+.sim .sim-animal-dock__item.is-active::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0.25rem;
+  width: 1.75rem;
+  height: 0.125rem;
+  border-radius: 99rem;
+  background: currentColor;
+  transform: translateX(-50%);
+  opacity: 0.7;
+}
+.sim .sim-animal-dock__item[data-animal-id=starling] {
+  --dock-sprite-width: 4.15rem;
+  --dock-sprite-bottom: -0.55rem;
+}
+.sim .sim-animal-dock__item[data-animal-id=sardine] {
+  --dock-sprite-width: 5rem;
+  --dock-sprite-bottom: -0.48rem;
+}
+.sim .sim-animal-dock__item[data-animal-id=grasshopper] {
+  --dock-sprite-width: 4.35rem;
+  --dock-sprite-bottom: -0.52rem;
+}
+.sim .sim-animal-dock__item[data-animal-id=ant] {
+  --dock-sprite-width: 4.2rem;
+  --dock-sprite-bottom: -0.58rem;
+}
+.sim .sim-animal-dock__item[data-animal-id=bat] {
+  --dock-sprite-width: 4.5rem;
+  --dock-sprite-bottom: -0.5rem;
+}
+.sim .sim-animal-dock__item[data-animal-id=sheep] {
+  --dock-sprite-width: 4.1rem;
+  --dock-sprite-bottom: -0.66rem;
+}
+.sim .sim-animal-dock__item[data-animal-id=penguin] {
+  --dock-sprite-width: 3rem;
+  --dock-sprite-bottom: -0.72rem;
+}
+.sim .sim-animal-dock__item[data-animal-id=bee] {
+  --dock-sprite-width: 4rem;
+  --dock-sprite-bottom: -0.48rem;
+}
+.sim .sim-animal-dock__item[data-animal-id=firefly] {
+  --dock-sprite-width: 4rem;
+  --dock-sprite-bottom: -0.5rem;
+}
+.sim .sim-animal-dock__item[data-animal-id=spiny_lobster] {
+  --dock-sprite-width: 4.45rem;
+  --dock-sprite-bottom: -0.52rem;
+}
+.sim .sim-animal-dock__item[data-animal-id=krill] {
+  --dock-sprite-width: 4.75rem;
+  --dock-sprite-bottom: -0.5rem;
+}
+.sim .sim-animal-dock__sprite {
+  position: absolute;
+  left: 50%;
+  bottom: var(--dock-sprite-bottom);
+  width: var(--dock-sprite-width);
+  height: auto;
+  display: block;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 0.375rem 0.625rem rgba(0, 0, 0, 0.18));
+}
+.sim .sim-animal-dock__label {
+  position: absolute;
+  left: 50%;
+  bottom: 0.625rem;
+  max-width: 100%;
+  color: currentColor;
+  font-family: var(--theme-ui-font);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 160ms ease;
+  pointer-events: none;
+}
+.sim .sim-animal-dock__item:hover .sim-animal-dock__label, .sim .sim-animal-dock__item.is-active .sim-animal-dock__label {
+  opacity: 1;
 }

@@ -53,3 +53,13 @@ h4,
 p {
   user-select: none;
 }
+
+.sprite-atlas__paper-texture {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-repeat: repeat;
+  background-size: 12rem 12rem;
+  mix-blend-mode: multiply;
+  opacity: 0.16;
+}

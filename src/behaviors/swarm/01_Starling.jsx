@@ -51,6 +51,7 @@ const PARAMS = {
   PREDATOR_ESCAPE_BOOST: 1.55,
   PREDATOR_TURN_BOOST: 2.2,
   PREDATOR_SPEED_BOOST: 1.14,
+  COUNT_TRANSITION_SPEED_MULTIPLIER: 2.15,
   SCREEN_MARGIN: 0,
   EDGE_AVOID_ZONE: 320,
   VISIBLE_DEPTH_MIN: -245,
@@ -83,13 +84,13 @@ const CONTROL_FIELDS = [
   },
   {
     key: "IS_PREDATOR_ACTIVE",
-    label: "포식자 반응",
+    label: "포식자 위협",
     type: "toggle",
     formatValue: (value) => (value ? "켜짐" : "꺼짐"),
   },
   {
     key: "NEIGHBOR_COUNT",
-    label: "최근접 이웃 수",
+    label: "이웃 인식 수",
     min: 3,
     max: 12,
     step: 1,
@@ -97,7 +98,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "DISTANCE_SCALE",
-    label: "거리 스케일",
+    label: "개체 간 거리",
     min: 0.35,
     max: 1.2,
     step: 0.01,
@@ -105,7 +106,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "TARGET_SPEED_MIN_MULTIPLIER",
-    label: "최저 속도",
+    label: "최소 비행 속도",
     min: 0.8,
     max: 5,
     step: 0.1,
@@ -113,7 +114,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "TARGET_SPEED_MAX_MULTIPLIER",
-    label: "최고 속도",
+    label: "최대 비행 속도",
     min: 1.2,
     max: 8,
     step: 0.1,
@@ -121,7 +122,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "REACTION_MEAN",
-    label: "반응 지연",
+    label: "반응 지연 시간",
     min: 0.03,
     max: 0.16,
     step: 0.001,
@@ -129,7 +130,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "REFERENCE_LOCK_DURATION",
-    label: "참조 고정 시간",
+    label: "이웃 기준 유지 시간",
     min: 0.5,
     max: 6,
     step: 0.1,
@@ -831,6 +832,23 @@ const destroyRenderer = (gl, renderer) => {
 };
 
 const drawBoidsWithWebGL = (gl, renderer, width, height, pixelRatio, boids) => {
+  if (renderer.renderOrder.length !== boids.length) {
+    renderer.renderOrder = Array.from(
+      { length: boids.length },
+      (_, index) => index,
+    );
+    renderer.arrays = {
+      positions: new Float32Array(boids.length * 2),
+      sizes: new Float32Array(boids.length),
+      angles: new Float32Array(boids.length),
+      flipsX: new Float32Array(boids.length),
+      banks: new Float32Array(boids.length),
+      glows: new Float32Array(boids.length),
+      frames: new Float32Array(boids.length),
+      colors: new Float32Array(boids.length * 4),
+    };
+  }
+
   const { renderOrder, arrays } = renderer;
   const { positions, sizes, angles, flipsX, banks, glows, frames, colors } =
     arrays;
@@ -1134,6 +1152,102 @@ const createBoid = (id, center, dimensions) => {
   };
 };
 
+const getOutsideScreenPoint = (width, height, margin = 120) => {
+  const side = Math.floor(Math.random() * 4);
+
+  if (side === 0) {
+    return { x: -margin, y: randomBetween(0, height) };
+  }
+  if (side === 1) {
+    return { x: width + margin, y: randomBetween(0, height) };
+  }
+  if (side === 2) {
+    return { x: randomBetween(0, width), y: -margin };
+  }
+
+  return { x: randomBetween(0, width), y: height + margin };
+};
+
+const createEnteringBoid = (id, center, dimensions, width, height) => {
+  const boid = createBoid(id, center, dimensions);
+  const screenPoint = getOutsideScreenPoint(width, height);
+  const depth = randomBetween(
+    PARAMS.VISIBLE_DEPTH_MIN * 0.55,
+    PARAMS.VISIBLE_DEPTH_MAX * 0.55,
+  );
+
+  boid.position = getWorldPointOnPointerRay(
+    screenPoint.x,
+    screenPoint.y,
+    depth,
+    width,
+    height,
+  );
+  boid.direction = normalize3D(subtract3D(center, boid.position), boid.direction);
+  boid.isEntering = true;
+  boid.history = [];
+
+  return boid;
+};
+
+const getExitScreenTarget = (boid, width, height, margin = 190) => {
+  const projected = projectBoid(boid, width, height);
+  const fromCenterX = projected.x - width * 0.5;
+  const fromCenterY = projected.y - height * 0.5;
+  const absX = Math.abs(fromCenterX);
+  const absY = Math.abs(fromCenterY);
+
+  if (absX < 1 && absY < 1) {
+    return getOutsideScreenPoint(width, height, margin);
+  }
+
+  if (absX > absY) {
+    return {
+      x: fromCenterX < 0 ? -margin : width + margin,
+      y: clamp(projected.y + fromCenterY * 0.28, -margin, height + margin),
+    };
+  }
+
+  return {
+    x: clamp(projected.x + fromCenterX * 0.28, -margin, width + margin),
+    y: fromCenterY < 0 ? -margin : height + margin,
+  };
+};
+
+const startBoidExit = (boid, width, height) => {
+  boid.isExiting = true;
+  boid.isEntering = false;
+  boid.referenceLock = null;
+  boid.turnSignal = null;
+  boid.agitation = null;
+  boid.exitDepth = boid.position.z;
+  boid.exitScreenTarget = getExitScreenTarget(boid, width, height);
+  boid.exitDirection = normalize3D(
+    subtract3D(
+      getWorldPointOnPointerRay(
+        boid.exitScreenTarget.x,
+        boid.exitScreenTarget.y,
+        boid.exitDepth,
+        width,
+        height,
+      ),
+      boid.position,
+    ),
+    boid.direction,
+  );
+};
+
+const isBoidOutsideScreen = (boid, width, height, margin = 150) => {
+  const projected = projectBoid(boid, width, height);
+
+  return (
+    projected.x < -margin ||
+    projected.x > width + margin ||
+    projected.y < -margin ||
+    projected.y > height + margin
+  );
+};
+
 const getReferencedNeighbor = (
   boidIndex,
   boid,
@@ -1311,6 +1425,49 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
     const boids = Array.from({ length: PARAMS.BOID_COUNT }, (_, index) =>
       createBoid(index, flockCenter, flockDimensions),
     );
+    let nextBoidId = boids.length;
+
+    const reconcileBoidCount = (width, height) => {
+      const targetCount = Math.max(1, Math.round(PARAMS.BOID_COUNT));
+      const activeCount = boids.filter((boid) => !boid.isExiting).length;
+
+      if (activeCount < targetCount) {
+        const addCount = targetCount - activeCount;
+
+        for (let index = 0; index < addCount; index += 1) {
+          boids.push(
+            createEnteringBoid(
+              nextBoidId,
+              flockCenter,
+              flockDimensions,
+              width,
+              height,
+            ),
+          );
+          nextBoidId += 1;
+        }
+        return;
+      }
+
+      if (activeCount > targetCount) {
+        let remainingExitCount = activeCount - targetCount;
+
+        for (
+          let index = boids.length - 1;
+          index >= 0 && remainingExitCount > 0;
+          index -= 1
+        ) {
+          const boid = boids[index];
+
+          if (boid.isExiting) {
+            continue;
+          }
+
+          startBoidExit(boid, width, height);
+          remainingExitCount -= 1;
+        }
+      }
+    };
 
     const resizeCanvas = () => {
       const width = window.innerWidth;
@@ -1357,13 +1514,20 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
         nextTurnTime = now + randomBetween(4.5, 7.5);
       }
 
-      const centerOfMass = boids.reduce(
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      reconcileBoidCount(width, height);
+
+      const centerBoids = boids.filter((boid) => !boid.isExiting);
+      const centerOfMass = centerBoids.reduce(
         (sum, boid) => add3D(sum, boid.position),
         { x: 0, y: 0, z: 0 },
       );
-      flockCenter.x = centerOfMass.x / boids.length;
-      flockCenter.y = centerOfMass.y / boids.length;
-      flockCenter.z = centerOfMass.z / boids.length;
+      const centerCount = Math.max(1, centerBoids.length);
+      flockCenter.x = centerOfMass.x / centerCount;
+      flockCenter.y = centerOfMass.y / centerCount;
+      flockCenter.z = centerOfMass.z / centerCount;
 
       boids.forEach((boid) => {
         boid.speed = lerp(
@@ -1371,6 +1535,9 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
           PARAMS.TARGET_SPEED_MAX,
           boid.speedRatio,
         );
+        if (boid.isEntering) {
+          boid.speed *= PARAMS.COUNT_TRANSITION_SPEED_MULTIPLIER;
+        }
         boid.reactionDelay = clamp(
           PARAMS.REACTION_MEAN + boid.reactionJitter,
           0.05,
@@ -1382,6 +1549,50 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
       const spatialGrid = buildSpatialGrid(delayedStates);
 
       boids.forEach((boid, boidIndex) => {
+        if (boid.isExiting) {
+          const exitTarget = getWorldPointOnPointerRay(
+            boid.exitScreenTarget?.x ?? width + 190,
+            boid.exitScreenTarget?.y ?? height * 0.5,
+            boid.exitDepth ?? boid.position.z,
+            width,
+            height,
+          );
+          boid.exitDirection = normalize3D(
+            subtract3D(exitTarget, boid.position),
+            boid.exitDirection || boid.direction,
+          );
+          boid.speed = lerp(
+            PARAMS.TARGET_SPEED_MIN,
+            PARAMS.TARGET_SPEED_MAX,
+            boid.speedRatio,
+          ) * PARAMS.COUNT_TRANSITION_SPEED_MULTIPLIER;
+          boid.direction = rotateTowards(
+            boid.direction,
+            boid.exitDirection || boid.direction,
+            (boid.speed / PARAMS.TURN_RADIUS) * dt * 1.45,
+          );
+          boid.bank = lerp(boid.bank, clamp(boid.direction.x * 0.45, -0.65, 0.65), 0.06);
+          boid.position = add3D(
+            boid.position,
+            scale3D(
+              {
+                x: boid.direction.x,
+                y: boid.direction.y,
+                z: boid.direction.z * 0.08,
+              },
+              boid.speed * dt,
+            ),
+          );
+          boid.position.z = lerp(
+            boid.position.z,
+            boid.exitDepth ?? boid.position.z,
+            0.18,
+          );
+          updateSpriteBranch(boid, width, height);
+          updateSpriteFrame(boid, now);
+          return;
+        }
+
         const neighbors = collectNeighborStates(
           boidIndex,
           boid,
@@ -1457,8 +1668,8 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
         );
         const predatorInfluence = getPredatorInfluence(
           boid,
-          window.innerWidth,
-          window.innerHeight,
+          width,
+          height,
           pointerRef.current,
         );
         boid.speed *= lerp(
@@ -1586,13 +1797,14 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
 
         const visibleAvoidance = getVisibleAvoidance(
           boid,
-          window.innerWidth,
-          window.innerHeight,
+          width,
+          height,
         );
+        const shouldAvoidVisibleEdge = !boid.isEntering;
         desiredDirection = normalize3D({
-          x: desiredDirection.x + visibleAvoidance.x,
-          y: desiredDirection.y + visibleAvoidance.y,
-          z: desiredDirection.z + visibleAvoidance.z,
+          x: desiredDirection.x + (shouldAvoidVisibleEdge ? visibleAvoidance.x : 0),
+          y: desiredDirection.y + (shouldAvoidVisibleEdge ? visibleAvoidance.y : 0),
+          z: desiredDirection.z + (shouldAvoidVisibleEdge ? visibleAvoidance.z : 0),
         });
         turnInfluence += visibleAvoidance.bankBias;
 
@@ -1624,7 +1836,13 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
             boid.speed * dt,
           ),
         );
-        keepBoidVisible(boid, window.innerWidth, window.innerHeight);
+        if (boid.isEntering && !isBoidOutsideScreen(boid, width, height, 12)) {
+          boid.isEntering = false;
+        }
+
+        if (!boid.isEntering) {
+          keepBoidVisible(boid, width, height);
+        }
 
         boid.history.push({
           time: now,
@@ -1650,15 +1868,23 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
           boid.agitation = null;
         }
 
-        updateSpriteBranch(boid, window.innerWidth, window.innerHeight);
+        updateSpriteBranch(boid, width, height);
         updateSpriteFrame(boid, now);
       });
+
+      for (let index = boids.length - 1; index >= 0; index -= 1) {
+        const boid = boids[index];
+
+        if (boid.isExiting && isBoidOutsideScreen(boid, width, height)) {
+          boids.splice(index, 1);
+        }
+      }
 
       drawBoidsWithWebGL(
         gl,
         renderer,
-        window.innerWidth,
-        window.innerHeight,
+        width,
+        height,
         window.devicePixelRatio || 1,
         boids,
       );
@@ -1697,7 +1923,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
       destroyRenderer(gl, renderer);
       onGpuErrorChange?.("");
     };
-  }, [onGpuErrorChange, resolvedControls.BOID_COUNT, isPaused]);
+  }, [onGpuErrorChange, isPaused]);
 
   return (
     <div

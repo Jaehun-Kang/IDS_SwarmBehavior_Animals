@@ -21,6 +21,16 @@ import soilPaperTextureUrl from "../assets/texture/soil-paper-texture-seamless.w
 import whiteStickyNoteTextureUrl from "../assets/texture/white-sticky-note-texture-seamless.webp";
 import yellowStickyNoteTextureUrl from "../assets/texture/yellow-sticky-note-texture-seamless.webp";
 
+const textureModules = import.meta.glob("../assets/texture/*.webp", {
+  eager: true,
+  import: "default",
+});
+
+const PRELOAD_TEXTURE_URLS = [
+  ...new Set(Object.values(textureModules).filter(Boolean)),
+];
+const preloadedTextureUrls = new Set();
+
 const animalNames = {
   starling: "흰점찌르레기",
   sardine: "태평양정어리",
@@ -859,6 +869,78 @@ function Sim(props) {
   ]
     .filter(Boolean)
     .join(" ");
+
+  React.useEffect(() => {
+    if (PRELOAD_TEXTURE_URLS.length === 0) {
+      return undefined;
+    }
+
+    let isCancelled = false;
+    let idleCallbackId = null;
+    let timeoutId = null;
+    const scheduleIdle =
+      typeof window.requestIdleCallback === "function"
+        ? window.requestIdleCallback
+        : (callback) =>
+            window.setTimeout(
+              () =>
+                callback({
+                  didTimeout: false,
+                  timeRemaining: () => 8,
+                }),
+              120,
+            );
+    const cancelIdle =
+      typeof window.cancelIdleCallback === "function"
+        ? window.cancelIdleCallback
+        : window.clearTimeout;
+
+    const preloadNextTexture = (index = 0) => {
+      if (isCancelled || index >= PRELOAD_TEXTURE_URLS.length) {
+        return;
+      }
+
+      const textureUrl = PRELOAD_TEXTURE_URLS[index];
+      if (preloadedTextureUrls.has(textureUrl)) {
+        preloadNextTexture(index + 1);
+        return;
+      }
+
+      preloadedTextureUrls.add(textureUrl);
+      const image = new Image();
+      image.decoding = "async";
+      image.src = textureUrl;
+
+      const continuePreloading = () => {
+        if (isCancelled) {
+          return;
+        }
+
+        timeoutId = window.setTimeout(() => {
+          idleCallbackId = scheduleIdle(() => preloadNextTexture(index + 1));
+        }, 24);
+      };
+
+      if (typeof image.decode === "function") {
+        image.decode().then(continuePreloading, continuePreloading);
+      } else {
+        image.onload = continuePreloading;
+        image.onerror = continuePreloading;
+      }
+    };
+
+    idleCallbackId = scheduleIdle(() => preloadNextTexture());
+
+    return () => {
+      isCancelled = true;
+      if (idleCallbackId !== null) {
+        cancelIdle(idleCallbackId);
+      }
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, []);
 
   return (
     <div className={simClassName} style={simStyle}>

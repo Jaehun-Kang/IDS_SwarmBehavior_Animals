@@ -50,11 +50,13 @@
   cursor: pointer;
   transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
+
 .theme-button:hover {
   background: var(--theme-panel-hover);
   border-color: var(--theme-text-soft);
   box-shadow: var(--theme-shadow-soft);
 }
+
 .theme-button:active {
   transform: scale(0.98);
 }

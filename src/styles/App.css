@@ -4,7 +4,10 @@
   --theme-bg-rgb: 250 248 245;
   --theme-bg-soft: oklch(0.978 0.01 91.51);
   --theme-title-font: "Playfair", serif;
+  --theme-sim-title-font: "Griun Gowoon", serif;
   --theme-ui-font: "Playfair", serif;
+  --theme-ui-title-font: "Kyobo 2025", serif;
+  --theme-parameter-title-font: "Kyobo 2025", serif;
   --theme-title-spacing: -0.03em;
   --theme-text-strong: oklch(0.4777 0.0208 81.25);
   --theme-text: rgb(46 43 38 / 0.88);
@@ -72,7 +75,7 @@
 
 .theme-panel-title {
   color: var(--theme-text-strong);
-  font-family: var(--theme-title-font);
+  font-family: var(--theme-sim-title-font);
   font-optical-sizing: auto;
   font-weight: 700;
   letter-spacing: -0.02em;

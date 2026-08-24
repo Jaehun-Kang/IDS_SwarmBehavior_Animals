@@ -403,6 +403,35 @@ const createAgents = (count, width, height, behavior, shelters, algaeCovers) =>
     createAgent(index, width, height, behavior, shelters, algaeCovers),
   );
 
+const findNearestShelter = (agent, shelters) =>
+  shelters.reduce((best, shelter) => {
+    const distance = magnitude(shelter.x - agent.x, shelter.y - agent.y);
+    if (!best || distance < best.distance) {
+      return { shelter, distance };
+    }
+    return best;
+  }, null)?.shelter || shelters[0];
+
+const markAgentForShelterExit = (agent, shelters) => {
+  const targetShelter = findNearestShelter(agent, shelters);
+  agent.isRetiring = true;
+  agent.inQueue = false;
+  agent.queueLeaderId = null;
+  agent.queueLength = 1;
+  agent.currentShelterId = null;
+  agent.retireShelterId = targetShelter?.id || agent.shelterId;
+  if (targetShelter?.id) {
+    agent.shelterId = targetShelter.id;
+    agent.spatialMemory = [
+      targetShelter.id,
+      ...shelters
+        .map((shelter) => shelter.id)
+        .filter((shelterId) => shelterId !== targetShelter.id),
+    ];
+  }
+  agent.state = STATES.SEEKING_SHELTER;
+};
+
 const reconcileAgents = (
   agents,
   count,
@@ -412,18 +441,27 @@ const reconcileAgents = (
   shelters,
   algaeCovers,
 ) => {
-  if (agents.length === count) {
+  const activeAgents = agents.filter((agent) => !agent.isRetiring);
+
+  if (activeAgents.length > count) {
+    const retireCount = activeAgents.length - count;
+    activeAgents
+      .slice(-retireCount)
+      .forEach((agent) => markAgentForShelterExit(agent, shelters));
     return agents;
   }
 
-  if (agents.length > count) {
-    return agents.slice(0, count);
+  if (activeAgents.length === count) {
+    return agents;
   }
 
   const nextAgents = [...agents];
-  for (let index = agents.length; index < count; index += 1) {
+  const nextId =
+    agents.reduce((maxId, agent) => Math.max(maxId, Number(agent.id) || 0), -1) +
+    1;
+  for (let index = 0; index < count - activeAgents.length; index += 1) {
     nextAgents.push(
-      createAgent(index, width, height, behavior, shelters, algaeCovers),
+      createAgent(nextId + index, width, height, behavior, shelters, algaeCovers),
     );
   }
 
@@ -779,6 +817,9 @@ const resolveGlobalTimeHours = (startHour, elapsedSeconds) => {
 };
 
 const determineState = (agent, globalTimeHour, behavior) => {
+  if (agent.isRetiring) {
+    return STATES.SEEKING_SHELTER;
+  }
   if (agent.isDiseaseAvoiding) {
     return STATES.SEEKING_SHELTER;
   }
@@ -851,7 +892,25 @@ const updateAgent = ({
   agent.ax = 0;
   agent.ay = 0;
 
-  if (agent.isDiseaseAvoiding && diseaseChem.strongestSource) {
+  if (agent.isRetiring) {
+    const targetShelter =
+      shelters.find((entry) => entry.id === agent.retireShelterId) ||
+      findNearestShelter(agent, shelters);
+    if (targetShelter) {
+      const steer = steerTowardPoint(
+        agent,
+        targetShelter.x,
+        targetShelter.y,
+        PARAMS.SEEK_SHELTER_SPEED_CM_S,
+      );
+      applyForce(agent, steer.x, steer.y, 1.35);
+      agent.targetSpeed = PARAMS.SEEK_SHELTER_SPEED_CM_S;
+      if (steer.distance < targetShelter.radius * 0.72) {
+        agent.currentShelterId = targetShelter.id;
+        reserveShelterSlot(targetShelter.id, shelterReservations);
+      }
+    }
+  } else if (agent.isDiseaseAvoiding && diseaseChem.strongestSource) {
     deprioritizeShelterMemory(agent, diseaseChem.strongestSource.shelterId);
     const memoryShelter = getBestShelterFromMemory(
       agent,
@@ -1453,6 +1512,10 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         );
         ctx.restore();
       });
+
+      agentsRef.current = agentsRef.current.filter(
+        (agent) => !(agent.isRetiring && agent.currentShelterId),
+      );
 
       animationFrameRef.current = window.requestAnimationFrame(render);
     };

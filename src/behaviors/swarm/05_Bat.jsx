@@ -832,14 +832,11 @@ const activeAgentCount = (agents) =>
   );
 
 const sendAgentToEntranceForRemoval = (agent, width, height) => {
-  const environment = getEnvironment(width, height);
-  const isInsideEntrance = isInsideEntranceZone(agent, environment);
-
   agent.populationRetiring = true;
   agent.populationRetireDurationS = PARAMS.ENTERING_DURATION_S;
   agent.isEmergingMode = false;
 
-  if (agent.phase === BAT_PHASES.INSIDE || isInsideEntrance) {
+  if (agent.phase === BAT_PHASES.INSIDE) {
     agent.phase = BAT_PHASES.ENTERING;
     agent.phaseTimerS = PARAMS.ENTERING_DURATION_S;
   } else if (
@@ -860,6 +857,50 @@ const sendAgentToEntranceForRemoval = (agent, width, height) => {
   agent.evasionTimerS = 0;
   agent.protestCallActive = false;
   agent.previousScreenPosition = null;
+};
+
+const cancelPopulationRetirement = (agent, width, height, isEmerging) => {
+  const environment = getEnvironment(width, height);
+  const wasInsideEntrance = isInsideEntranceZone(agent, environment);
+
+  agent.populationRetiring = false;
+  agent.populationRetireDurationS = undefined;
+  agent.isEmergingMode = isEmerging;
+  agent.currentShelterId = undefined;
+  agent.collisionCooldownS = 0;
+  agent.evasionTimerS = 0;
+  agent.protestCallActive = false;
+
+  if (isEmerging) {
+    if (agent.phase === BAT_PHASES.INSIDE || wasInsideEntrance) {
+      const exitPlan = createExitPlan(agent, width, height);
+      agent.phase = exitPlan.phase;
+      agent.phaseTimerS = exitPlan.phaseTimerS;
+      agent.heading = exitPlan.heading;
+      agent.speedMps = exitPlan.speedMps;
+      agent.exitTargetX = exitPlan.exitTargetX;
+      agent.exitTargetY = exitPlan.exitTargetY;
+    } else {
+      agent.phase = BAT_PHASES.OUTSIDE;
+      agent.phaseTimerS = sampleOutsideRoamDuration();
+      agent.outsideRoamDurationS = agent.phaseTimerS;
+      agent.speedMps = Math.max(agent.speedMps, PARAMS.SPEED_MIN_MPS);
+    }
+    return;
+  }
+
+  if (
+    agent.phase === BAT_PHASES.OUTSIDE ||
+    agent.phase === BAT_PHASES.EMERGING ||
+    agent.phase === BAT_PHASES.EXITING
+  ) {
+    agent.phase = BAT_PHASES.LOITERING;
+    agent.phaseTimerS = sampleOutsideRoamDuration();
+    agent.outsideRoamDurationS = agent.phaseTimerS;
+  } else if (wasInsideEntrance) {
+    agent.phase = BAT_PHASES.ENTERING;
+    agent.phaseTimerS = PARAMS.ENTERING_DURATION_S;
+  }
 };
 
 const resizeAgents = (
@@ -886,9 +927,7 @@ const resizeAgents = (
   while (activeAgentCount(agents) < targetCount) {
     const retiringAgent = agents.find((agent) => agent.populationRetiring);
     if (retiringAgent) {
-      retiringAgent.populationRetiring = false;
-      retiringAgent.isEmergingMode = isEmerging;
-      resetAgentAtEntrance(retiringAgent, width, height, timeS, isEmerging);
+      cancelPopulationRetirement(retiringAgent, width, height, isEmerging);
       continue;
     }
 

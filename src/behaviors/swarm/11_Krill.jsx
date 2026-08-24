@@ -44,6 +44,8 @@ const INFERRED_PARAMS = {
   NIGHT_COHESION_MULTIPLIER: 0.82,
   CREPUSCULAR_SEPARATION_MULTIPLIER: 0.72,
   BOUNDARY_RETURN_WEIGHT: 0.9,
+  SWARM_CENTER_PULL_WEIGHT: 0.34,
+  SWARM_COMFORT_RADIUS_RATIO: 0.16,
   OFFSCREEN_ALLOWANCE_PX: 120,
   SCREEN_REENTRY_START_RATIO: 0.88,
   SCREEN_REENTRY_FORCE: 1.65,
@@ -331,13 +333,13 @@ const createAgent = (index, width, height, config) => {
   const timeFlags = resolveTimeFlags(config.startHour);
   const targetDepth = resolveTargetDepthY(height, timeFlags);
   const spawnRadiusX = lerp(
-    width * 0.34,
-    width * 0.16,
+    width * 0.22,
+    width * 0.1,
     config.countDensityRatio,
   );
   const spawnRadiusY = lerp(
-    height * 0.14,
-    height * 0.06,
+    height * 0.1,
+    height * 0.045,
     config.countDensityRatio,
   );
   const spawnAngle = randomBetween(-Math.PI, Math.PI);
@@ -542,6 +544,41 @@ const calculateBoundaryForce = (agent, width, height) => {
   };
 };
 
+const calculateSwarmCenterForce = (agent, swarmCenter, width, height) => {
+  if (!swarmCenter) {
+    return { x: 0, y: 0 };
+  }
+
+  const dx = swarmCenter.x - agent.x;
+  const dy = swarmCenter.y - agent.y;
+  const distance = magnitude(dx, dy);
+  const comfortRadius =
+    Math.min(width, height) * PARAMS.SWARM_COMFORT_RADIUS_RATIO;
+
+  if (distance < comfortRadius || distance < 1e-4) {
+    return { x: 0, y: 0 };
+  }
+
+  const pullRatio = inverseLerp(
+    distance,
+    comfortRadius,
+    Math.max(width, height) * 0.42,
+  );
+
+  return {
+    x:
+      (dx / distance) *
+      PARAMS.OPTIMAL_SPEED_PX_S *
+      PARAMS.SWARM_CENTER_PULL_WEIGHT *
+      pullRatio,
+    y:
+      (dy / distance) *
+      PARAMS.OPTIMAL_SPEED_PX_S *
+      PARAMS.SWARM_CENTER_PULL_WEIGHT *
+      pullRatio,
+  };
+};
+
 const calculateScreenReentryForce = (agent, width, height) => {
   const minX = 0;
   const maxX = width;
@@ -656,8 +693,28 @@ const gatherNeighbors = (agents, agentIndex) => {
   return neighbors;
 };
 
+const calculateSwarmCenter = (agents) => {
+  if (agents.length === 0) {
+    return null;
+  }
+
+  const total = agents.reduce(
+    (accumulator, agent) => ({
+      x: accumulator.x + agent.x,
+      y: accumulator.y + agent.y,
+    }),
+    { x: 0, y: 0 },
+  );
+
+  return {
+    x: total.x / agents.length,
+    y: total.y / agents.length,
+  };
+};
+
 const advanceAgent = (agent, index, agents, context) => {
-  const { dt, width, height, elapsedS, simHour, foodField, config } = context;
+  const { dt, width, height, elapsedS, simHour, foodField, config, swarmCenter } =
+    context;
   const timeFlags = resolveTimeFlags(simHour);
   const food = sampleFood(foodField, agent.x, agent.y, elapsedS, config);
   updateStomach(agent, food, dt);
@@ -721,6 +778,12 @@ const advanceAgent = (agent, index, agents, context) => {
     );
     const dvm = calculateDvmForce(agent, targetDepthY, height);
     const boundary = calculateBoundaryForce(agent, width, height);
+    const swarmCenterForce = calculateSwarmCenterForce(
+      agent,
+      swarmCenter,
+      width,
+      height,
+    );
 
     const jitterBlend = exponentialBlend(PARAMS.JITTER_BLEND_PER_S, dt);
     const jitterTarget = randomBetween(-1, 1) * food;
@@ -733,6 +796,7 @@ const advanceAgent = (agent, index, agents, context) => {
         cohesion.x * cohesionMultiplier +
         dvm.x +
         boundary.x +
+        swarmCenterForce.x +
         reentry.x,
       currentDirection.y * targetSpeed +
         separation.y +
@@ -740,6 +804,7 @@ const advanceAgent = (agent, index, agents, context) => {
         cohesion.y * cohesionMultiplier +
         dvm.y +
         boundary.y +
+        swarmCenterForce.y +
         reentry.y,
       PARAMS.MAX_SPEED_PX_S,
     );
@@ -931,6 +996,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           simHour,
           foodField: foodFieldRef.current,
           config: behaviorConfig,
+          swarmCenter: calculateSwarmCenter(agentsRef.current),
         };
 
         agentsRef.current.forEach((agent, index) => {

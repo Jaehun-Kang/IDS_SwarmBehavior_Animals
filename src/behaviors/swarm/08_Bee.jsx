@@ -76,7 +76,8 @@ const PARAMS = {
   LOCAL_DEFENSE_COMMIT_PER_S: 5.4,
   ABDOMEN_SHAKE_RATE_HZ: 9,
   ABDOMEN_SHAKE_ROTATION_RAD: 0.14,
-  HEAT_BALL_SENSE_RADIUS_CM: 7.2,
+  HEAT_BALL_SENSE_RADIUS_CM: 3.2,
+  HEAT_BALL_INTERCEPT_RADIUS_CM: 3.8,
   HEAT_BALL_ATTACH_RADIUS_CM: 2.5,
   HEAT_BALL_TRIGGER_RADIUS_CM: 2.6,
   HEAT_BALL_RING_GAP_CM: 0.3,
@@ -135,6 +136,8 @@ const PARAMS = {
   THROWN_OFF_LAND_MAX_SPEED_CM_S: 26,
   TAKEOFF_WINGBEAT_HZ: 306,
   TAKEOFF_REQUIRED_WINGBEATS: 15,
+  TAKEOFF_VISUAL_PREP_MIN_S: 0.18,
+  TAKEOFF_VISUAL_PREP_MAX_S: 0.34,
   FORAGE_PAUSE_MIN_S: 1.2,
   FORAGE_PAUSE_MAX_S: 2.8,
   INITIAL_SCOUT_FORAGE_MIN_S: 2.8,
@@ -156,7 +159,7 @@ const PARAMS = {
   GRID_CELL_CM: 5,
   VISUAL_BOB_PX: 0.9,
   CURTAIN_RADIUS_RATIO: 0.072,
-  CURTAIN_COUNT_RADIUS_SCALE: 1.25,
+  CURTAIN_COUNT_RADIUS_SCALE: 0.9,
   CURTAIN_MAX_RADIUS_SCALE: 1.85,
   CURTAIN_COMFORT_RATIO: 0.84,
   SPRITE_ROTATION_BLEND: 0.16,
@@ -189,12 +192,12 @@ const PARAMS = {
   FLOWER_REACH_RADIUS_CM: 3.1,
   FLOWER_PERCH_OFFSET_CM: 0.82,
   FLOWER_HEAD_OFFSET_CM: 0.56,
-  FLOWER_LANDING_SPEED_CM_S: 13.5,
+  FLOWER_LANDING_SPEED_CM_S: 11.5,
   FLOWER_APPROACH_RADIUS_CM: 2.4,
   FLOWER_APPROACH_LOCK_RADIUS_CM: 1.2,
   FLOWER_COLLECTION_SETTLE_RADIUS_CM: 0.16,
   FLOWER_MAX_BEES_PER_FLOWER: 1,
-  FLOWER_COLLECTION_DAMPING: 0.58,
+  FLOWER_COLLECTION_DAMPING: 0.5,
   FLOWER_SCENT_RADIUS_CM: 24,
   FLOWER_SCENT_RETARGET_RADIUS_CM: 34,
   SCOUT_FLOWER_TARGET_BLEND_PER_S: 2.4,
@@ -204,6 +207,8 @@ const PARAMS = {
   FLOWER_RETRY_ESCAPE_SPEED_SCALE: 0.82,
   FLOWER_RETARGET_ESCAPE_SPEED_SCALE: 0.74,
   FLOWER_RETURN_ESCAPE_SPEED_SCALE: 0.84,
+  RECRUITED_FORAGE_SEARCH_RETRIES: 3,
+  RECRUITED_FORAGE_SEARCH_RADIUS_CM: 7.4,
   SHARED_FORAGE_MEMORY_S: 18,
   SHARED_FORAGE_RECRUITS_MIN: 6,
   SHARED_FORAGE_RECRUITS_MAX: 14,
@@ -251,14 +256,6 @@ const CONTROL_FIELDS = [
     max: 360,
     step: 1,
     formatValue: (value) => `${Math.round(value)}°`,
-  },
-  {
-    key: "TARGET_DISTANCE_M",
-    label: "먹이 거리",
-    min: 100,
-    max: 3400,
-    step: 100,
-    formatValue: (value) => `${Math.round(value)} m`,
   },
 ];
 
@@ -309,7 +306,13 @@ const randomBetween = (min, max) => min + Math.random() * (max - min);
 const cmToPx = (cm) => cm * PARAMS.PIXELS_PER_CM;
 const speedCmToPx = (cmPerSecond) => cmToPx(cmPerSecond);
 const getTakeoffDelayS = () =>
-  PARAMS.TAKEOFF_REQUIRED_WINGBEATS / PARAMS.TAKEOFF_WINGBEAT_HZ;
+  Math.max(
+    PARAMS.TAKEOFF_REQUIRED_WINGBEATS / PARAMS.TAKEOFF_WINGBEAT_HZ,
+    randomBetween(
+      PARAMS.TAKEOFF_VISUAL_PREP_MIN_S,
+      PARAMS.TAKEOFF_VISUAL_PREP_MAX_S,
+    ),
+  );
 
 const shortestAngleDelta = (from, to) => {
   let delta = to - from;
@@ -356,9 +359,9 @@ const getTemperaturePackingProfile = (temperatureC) => {
 const getCurtainRadiusAtAngle = (env, angle) => {
   const ripple =
     1 +
-    Math.sin(angle * 3 + 0.4) * 0.08 +
-    Math.sin(angle * 5 - 1.1) * 0.05 +
-    Math.sin(angle * 2 + 2.2) * 0.04;
+    Math.sin(angle * 3 + 0.4) * 0.022 +
+    Math.sin(angle * 5 - 1.1) * 0.014 +
+    Math.sin(angle * 2 + 2.2) * 0.01;
   return env.curtain.radius * ripple;
 };
 
@@ -464,10 +467,14 @@ const chooseFlowerTarget = (agent, env) => {
     (flower) =>
       Math.hypot(agent.x - flower.x, agent.y - flower.y) <= scentRadius,
   );
-  const candidateFlowers = scentedFlowers.length ? scentedFlowers : env.flowers;
-  const availableFlowers = candidateFlowers.filter((flower) =>
+  const nearbyAvailableFlowers = scentedFlowers.filter((flower) =>
     hasFlowerCapacity(flower, env, agent, timeS),
   );
+  const availableFlowers = nearbyAvailableFlowers.length
+    ? nearbyAvailableFlowers
+    : env.flowers.filter((flower) =>
+        hasFlowerCapacity(flower, env, agent, timeS),
+      );
   if (!availableFlowers.length) {
     return null;
   }
@@ -686,6 +693,46 @@ const setFlowerTarget = (agent, flower, timeS = 0, jitterPx = 0) => {
 
 const clearFlowerTarget = (agent) => {
   agent.targetFlowerId = null;
+};
+
+const clearStaleForageMemory = (agent) => {
+  agent.staleForageMemoryX = null;
+  agent.staleForageMemoryY = null;
+  agent.staleForageVisitPending = false;
+};
+
+const setRecruitmentSearchTarget = (agent, env) => {
+  if (
+    !agent.recruitedByDance ||
+    (agent.recruitedSearchRetriesLeft || 0) <= 0 ||
+    agent.forageMemoryX == null ||
+    agent.forageMemoryY == null
+  ) {
+    return false;
+  }
+
+  const searchRadius = cmToPx(PARAMS.RECRUITED_FORAGE_SEARCH_RADIUS_CM);
+  const angle = randomBetween(0, Math.PI * 2);
+  const radius = randomBetween(searchRadius * 0.28, searchRadius);
+  agent.recruitedSearchRetriesLeft = Math.max(
+    0,
+    (agent.recruitedSearchRetriesLeft || 0) - 1,
+  );
+  agent.targetX = clamp(
+    agent.forageMemoryX + Math.cos(angle) * radius,
+    cmToPx(PARAMS.EDGE_MARGIN_CM),
+    env.width - cmToPx(PARAMS.EDGE_MARGIN_CM),
+  );
+  agent.targetY = clamp(
+    agent.forageMemoryY + Math.sin(angle) * radius,
+    cmToPx(PARAMS.EDGE_MARGIN_CM),
+    env.height - cmToPx(PARAMS.EDGE_MARGIN_CM),
+  );
+  clearFlowerTarget(agent);
+  clearFlowerCollectionState(agent);
+  agent.foragePauseTimer = 0;
+  agent.foragePauseStarted = false;
+  return true;
 };
 
 const getTargetFlower = (agent, env) => {
@@ -944,19 +991,20 @@ const buildAnchorSlots = (env, count, temperatureC) => {
     ) {
       const offsetY = row * rowStep;
       const y = env.curtain.y + offsetY;
-      const xOffset = row % 2 === 0 ? 0 : spacing * 0.5;
-      const normalizedY = Math.abs(offsetY) / Math.max(rowStep, radius);
-      const widthScale = clamp(1 - normalizedY * normalizedY * 0.78, 0.22, 1);
-      const rowHalfWidth = radius * widthScale;
+      const rowHalfWidth =
+        Math.sqrt(Math.max(radius * radius - offsetY * offsetY, 0)) * 0.985;
+      const rowOffset = row % 2 === 0 ? 0 : spacing * 0.5;
+      const startX = env.curtain.x - rowHalfWidth + rowOffset;
+      const rowJitter = Math.sin(row * 1.618) * spacing * 0.04;
       let column = 0;
       for (
-        let x = env.curtain.x - rowHalfWidth;
+        let x = startX;
         x <= env.curtain.x + rowHalfWidth;
         x += spacing
       ) {
-        const px = x + xOffset;
+        const px = x + rowJitter;
         const py = y;
-        if (!pointInsideCurtain(env, px, py, 0.92)) {
+        if (!pointInsideCurtain(env, px, py, 0.965)) {
           column += 1;
           continue;
         }
@@ -991,6 +1039,25 @@ const takeClosestSlots = (available, count, target, scoreFn = null) => {
   };
 };
 
+const getSlotNeighborCount = (slot, slots) => {
+  const neighborRadius = cmToPx(PARAMS.ANCHOR_SPACING_CM) * 1.18;
+  let neighborCount = 0;
+  slots.forEach((candidate) => {
+    if (
+      candidate !== slot &&
+      Math.hypot(candidate.x - slot.x, candidate.y - slot.y) <= neighborRadius
+    ) {
+      neighborCount += 1;
+    }
+  });
+  return neighborCount;
+};
+
+const getSlotFillNoise = (slot) => {
+  const seed = Math.sin(slot.x * 12.9898 + slot.y * 78.233) * 43758.5453;
+  return seed - Math.floor(seed);
+};
+
 const buildAnchorLayout = (
   width,
   height,
@@ -1005,6 +1072,7 @@ const buildAnchorLayout = (
   );
   const defenderLimit = Math.max(8, Math.round(count * 0.16));
   const slots = buildAnchorSlots(env, count + 24, controls.TEMPERATURE_C);
+  const threatActive = getThreatType(controls) !== THREAT_TYPES.NONE;
 
   const scoutSelection = takeClosestSlots(
     slots,
@@ -1015,19 +1083,44 @@ const buildAnchorLayout = (
       Math.abs(slot.y - scoutBandY) * 0.55 +
       Math.abs(slot.x - env.curtain.x) * 0.06,
   );
-  const defenderSelection = takeClosestSlots(
-    scoutSelection.remaining,
-    defenderLimit,
-    env.entrance,
-    (slot) =>
-      Math.abs(slot.x - env.entrance.x) * 0.35 +
-      Math.max(0, slot.y - env.entrance.y) * 2.4,
-  );
+  const defenderSelection = threatActive
+    ? takeClosestSlots(
+        scoutSelection.remaining,
+        defenderLimit,
+        env.curtain,
+        (slot) => {
+          const neighborCount = getSlotNeighborCount(slot, slots);
+          const exposedSurfaceScore = (6 - neighborCount) * cmToPx(3.2);
+          const upperSurfaceBias = Math.max(0, env.curtain.y - slot.y) * 0.22;
+          const horizontalSpreadBias = Math.abs(slot.x - env.curtain.x) * 0.04;
+          return (
+            -exposedSurfaceScore -
+            upperSurfaceBias -
+            horizontalSpreadBias +
+            getSlotFillNoise(slot) * cmToPx(0.8)
+          );
+        },
+      )
+    : takeClosestSlots(
+        scoutSelection.remaining,
+        defenderLimit,
+        env.entrance,
+        (slot) =>
+          Math.abs(slot.x - env.entrance.x) * 0.35 +
+          Math.max(0, slot.y - env.entrance.y) * 2.4,
+      );
   const workerSlots = defenderSelection.remaining.sort((left, right) => {
-    if (left.y !== right.y) {
-      return left.y - right.y;
+    const leftRadius = Math.hypot(left.x - env.curtain.x, left.y - env.curtain.y);
+    const rightRadius = Math.hypot(
+      right.x - env.curtain.x,
+      right.y - env.curtain.y,
+    );
+    const leftBand = Math.round((leftRadius / env.curtain.radius) * 8);
+    const rightBand = Math.round((rightRadius / env.curtain.radius) * 8);
+    if (leftBand !== rightBand) {
+      return leftBand - rightBand;
     }
-    return left.x - right.x;
+    return getSlotFillNoise(left) - getSlotFillNoise(right);
   });
 
   return {
@@ -1040,24 +1133,53 @@ const buildAnchorLayout = (
   };
 };
 
+const takeNearestSlot = (availableSlots, agent, centerBias = 0) => {
+  if (!availableSlots.length) {
+    return null;
+  }
+
+  let bestIndex = 0;
+  let bestScore = Infinity;
+  availableSlots.forEach((slot, index) => {
+    const movementCost = Math.hypot(slot.x - agent.x, slot.y - agent.y);
+    const centerCost =
+      centerBias > 0
+        ? Math.hypot(slot.x - agent.desiredAnchorX, slot.y - agent.desiredAnchorY) *
+          centerBias
+        : 0;
+    const score = movementCost + centerCost;
+    if (score < bestScore) {
+      bestScore = score;
+      bestIndex = index;
+    }
+  });
+
+  return availableSlots.splice(bestIndex, 1)[0];
+};
+
 const applyLayoutToExistingAgents = (agents, layout) => {
-  const roleSlotCounts = {
-    [ROLES.SCOUT]: 0,
-    [ROLES.DEFENDER]: 0,
-    [ROLES.WORKER]: 0,
+  const slotsByRole = {
+    [ROLES.SCOUT]: [...layout.scoutSlots],
+    [ROLES.DEFENDER]: [...layout.defenderSlots],
+    [ROLES.WORKER]: [...layout.workerSlots],
   };
 
-  agents.forEach((agent) => {
-    const role = agent.role;
-    const slotIndex = roleSlotCounts[role];
-    roleSlotCounts[role] += 1;
+  const sortedAgents = [...agents].sort((left, right) => {
+    if (left.role !== right.role) {
+      return left.role.localeCompare(right.role);
+    }
+    const leftMoving = left.isAnchored ? 0 : 1;
+    const rightMoving = right.isAnchored ? 0 : 1;
+    return leftMoving - rightMoving;
+  });
 
-    const nextSlot =
-      role === ROLES.SCOUT
-        ? layout.scoutSlots[slotIndex % layout.scoutSlots.length]
-        : role === ROLES.DEFENDER
-          ? layout.defenderSlots[slotIndex % layout.defenderSlots.length]
-          : layout.workerSlots[slotIndex % layout.workerSlots.length];
+  sortedAgents.forEach((agent) => {
+    const roleSlots = slotsByRole[agent.role] || slotsByRole[ROLES.WORKER];
+    const nextSlot = takeNearestSlot(
+      roleSlots,
+      agent,
+      agent.role === ROLES.WORKER ? 0.16 : 0.08,
+    );
 
     if (!nextSlot) {
       return;
@@ -1067,26 +1189,10 @@ const applyLayoutToExistingAgents = (agents, layout) => {
     agent.desiredAnchorX = nextSlot.x;
     agent.desiredAnchorY = nextSlot.y;
 
-    if (role === ROLES.SCOUT) {
-      agent.homeSlotId = nextSlot.id;
-      agent.anchorX = nextSlot.x;
-      agent.anchorY = nextSlot.y;
+    if (agent.role === ROLES.SCOUT) {
       agent.danceOriginX = nextSlot.x;
       agent.danceOriginY = nextSlot.y;
-      if (agent.isAnchored) {
-        agent.x = nextSlot.x;
-        agent.y = nextSlot.y;
-      }
-      return;
     }
-
-    if (agent.isAnchored && agent.activityState === ACTIVITY_STATES.IDLE) {
-      return;
-    }
-
-    agent.homeSlotId = nextSlot.id;
-    agent.anchorX = nextSlot.x;
-    agent.anchorY = nextSlot.y;
   });
 };
 
@@ -1119,11 +1225,12 @@ const createAgent = (width, height, index, count, layout, options = {}) => {
   const slotIndex = options.roleSlotIndex ?? inferredSlotIndex;
 
   const anchorSlot =
-    role === ROLES.SCOUT
+    options.anchorSlot ||
+    (role === ROLES.SCOUT
       ? layout.scoutSlots[slotIndex % layout.scoutSlots.length]
       : role === ROLES.DEFENDER
         ? layout.defenderSlots[slotIndex % layout.defenderSlots.length]
-        : layout.workerSlots[slotIndex % layout.workerSlots.length];
+        : layout.workerSlots[slotIndex % layout.workerSlots.length]);
   const scoutRoostCount = Math.max(
     1,
     Math.round(layout.workerSlots.length * 0.18),
@@ -1257,10 +1364,14 @@ const createAgent = (width, height, index, count, layout, options = {}) => {
     collectingFacingAngle: null,
     forageMemoryX: null,
     forageMemoryY: null,
+    staleForageMemoryX: null,
+    staleForageMemoryY: null,
+    staleForageVisitPending: false,
     hasForageMemory: false,
     pollenLoaded: false,
     shouldRemove: false,
     recruitedByDance: false,
+    recruitedSearchRetriesLeft: 0,
     workerPostForageRestTimer: 0,
     workerResumeForagePending: false,
     heatBallTimer: 0,
@@ -1288,7 +1399,9 @@ const getAgentReservedSlotId = (agent) => {
     return agent.settlingSlotId ?? null;
   }
 
-  return agent.currentSlotId ?? null;
+  return (
+    agent.desiredHomeSlotId ?? agent.currentSlotId ?? agent.homeSlotId ?? null
+  );
 };
 
 const syncCanvasSize = (canvas, ctx) => {
@@ -1603,11 +1716,7 @@ const launchToHeatBall = (agent, options = {}) => {
 };
 
 const canAgentLaunchToHeatBall = (agent, env) => {
-  if (agent.role === ROLES.DEFENDER) {
-    return true;
-  }
-
-  if (agent.activityState !== ACTIVITY_STATES.DEFENDING) {
+  if (agent.role !== ROLES.DEFENDER) {
     return false;
   }
 
@@ -2247,37 +2356,6 @@ const updateSurfaceWandering = (
   agent.surfaceWanderTimer -= dt;
   const safeTarget = prepareSurfaceTarget(env, target);
 
-  if (
-    agent.role === ROLES.WORKER &&
-    getThreatType(env.controls || DEFAULT_CONTROL_STATE) !== THREAT_TYPES.NONE
-  ) {
-    const localDefenderSlot = findNearbyVacantSlot(
-      agent,
-      env.layout?.defenderSlots,
-      occupiedSlotIds,
-      PARAMS.LOCAL_SLOT_SENSE_RADIUS_CM,
-      (slot) => Math.max(0, slot.y - env.entrance.y) * 0.8,
-    );
-
-    if (
-      localDefenderSlot &&
-      Math.random() < PARAMS.LOCAL_SLOT_CAPTURE_PER_S * dt
-    ) {
-      occupiedSlotIds.delete(agent.currentSlotId);
-      occupiedSlotIds.add(localDefenderSlot.id);
-      beginSettling(
-        agent,
-        {
-          slotId: localDefenderSlot.id,
-          x: localDefenderSlot.x,
-          y: localDefenderSlot.y,
-        },
-        ACTIVITY_STATES.IDLE,
-      );
-      return;
-    }
-  }
-
   const remainingDistance = moveAlongSurface(agent, safeTarget, dt);
 
   const arrived = remainingDistance < cmToPx(PARAMS.SURFACE_ARRIVE_RADIUS_CM);
@@ -2334,6 +2412,18 @@ const updateSettling = (agent, env, dt) => {
   snapToAnchor(agent);
   agent.activityState = nextState;
   if (agent.role === ROLES.SCOUT && agent.scoutLaunchPending) {
+    if (
+      getThreatType(env.controls || DEFAULT_CONTROL_STATE) !==
+      THREAT_TYPES.NONE
+    ) {
+      agent.scoutLaunchPending = false;
+      agent.phaseTimer = randomBetween(
+        PARAMS.SCOUT_FORAGE_MIN_S,
+        PARAMS.SCOUT_FORAGE_MAX_S,
+      );
+      clearFlowerTarget(agent);
+      return;
+    }
     agent.scoutLaunchPending = false;
     beginTakeoff(agent, ACTIVITY_STATES.FORAGING, {
       x: agent.targetX,
@@ -2495,7 +2585,11 @@ const updateAnchoredIdle = (
     return;
   }
 
-  if (agent.role === ROLES.WORKER && agent.workerResumeForagePending) {
+  if (
+    agent.role === ROLES.WORKER &&
+    agent.workerResumeForagePending &&
+    !threatActive
+  ) {
     if (agent.workerPostForageRestTimer > 0) {
       agent.workerPostForageRestTimer = Math.max(
         0,
@@ -2505,7 +2599,17 @@ const updateAnchoredIdle = (
     }
 
     let didScheduleForage = false;
-    if (agent.forageMemoryX != null && agent.forageMemoryY != null) {
+    if (
+      agent.staleForageVisitPending &&
+      agent.staleForageMemoryX != null &&
+      agent.staleForageMemoryY != null
+    ) {
+      agent.targetX = agent.staleForageMemoryX;
+      agent.targetY = agent.staleForageMemoryY;
+      clearFlowerTarget(agent);
+      clearStaleForageMemory(agent);
+      didScheduleForage = true;
+    } else if (agent.forageMemoryX != null && agent.forageMemoryY != null) {
       agent.targetX = agent.forageMemoryX;
       agent.targetY = agent.forageMemoryY;
       clearFlowerTarget(agent);
@@ -2521,6 +2625,7 @@ const updateAnchoredIdle = (
     if (didScheduleForage) {
       agent.workerResumeForagePending = false;
       agent.recruitedByDance = false;
+      agent.recruitedSearchRetriesLeft = 0;
       agent.foragePauseTimer = 0;
       agent.foragePauseStarted = false;
       beginTakeoff(agent, ACTIVITY_STATES.FORAGING, {
@@ -2535,6 +2640,7 @@ const updateAnchoredIdle = (
 
   if (
     agent.role === ROLES.WORKER &&
+    !threatActive &&
     env.sharedForage?.active &&
     (env.sharedForage.recruitsRemaining || 0) > 0 &&
     Math.random() < PARAMS.WORKER_FORAGE_COMMIT_PER_S * dt
@@ -2544,10 +2650,12 @@ const updateAnchoredIdle = (
       (env.sharedForage.recruitsRemaining || 0) - 1,
     );
     agent.recruitedByDance = true;
+    agent.recruitedSearchRetriesLeft = PARAMS.RECRUITED_FORAGE_SEARCH_RETRIES;
     agent.targetX = env.sharedForage.x;
     agent.targetY = env.sharedForage.y;
     agent.forageMemoryX = env.sharedForage.x;
     agent.forageMemoryY = env.sharedForage.y;
+    clearStaleForageMemory(agent);
     agent.foragePauseTimer = 0;
     agent.foragePauseStarted = false;
     clearFlowerTarget(agent);
@@ -2600,12 +2708,13 @@ const updateAnchoredIdle = (
   }
 
   if (
-    agent.role === ROLES.WORKER &&
+    (agent.role === ROLES.WORKER || agent.role === ROLES.DEFENDER) &&
     agent.desiredHomeSlotId &&
     agent.desiredHomeSlotId !== agent.homeSlotId &&
     Math.hypot(agent.x - agent.desiredAnchorX, agent.y - agent.desiredAnchorY) >
       cmToPx(0.35) &&
-    !occupiedSlotIds.has(agent.desiredHomeSlotId) &&
+    (!occupiedSlotIds.has(agent.desiredHomeSlotId) ||
+      getAgentReservedSlotId(agent) === agent.desiredHomeSlotId) &&
     Math.random() < PARAMS.LAYOUT_DRIFT_TRIGGER_PER_S * dt
   ) {
     occupiedSlotIds.delete(agent.currentSlotId);
@@ -2620,37 +2729,6 @@ const updateAnchoredIdle = (
       ACTIVITY_STATES.IDLE,
     );
     return;
-  }
-
-  if (
-    agent.role === ROLES.WORKER &&
-    getThreatType(env.controls || DEFAULT_CONTROL_STATE) !== THREAT_TYPES.NONE
-  ) {
-    const localDefenderSlot = findNearbyVacantSlot(
-      agent,
-      env.layout?.defenderSlots,
-      occupiedSlotIds,
-      PARAMS.LOCAL_SLOT_SENSE_RADIUS_CM,
-      (slot) => Math.max(0, slot.y - env.entrance.y) * 0.8,
-    );
-
-    if (
-      localDefenderSlot &&
-      Math.random() < PARAMS.LOCAL_SLOT_CAPTURE_PER_S * dt
-    ) {
-      occupiedSlotIds.delete(agent.currentSlotId);
-      occupiedSlotIds.add(localDefenderSlot.id);
-      beginSurfaceMove(
-        agent,
-        {
-          slotId: localDefenderSlot.id,
-          x: localDefenderSlot.x,
-          y: localDefenderSlot.y,
-        },
-        ACTIVITY_STATES.IDLE,
-      );
-      return;
-    }
   }
 
   if (
@@ -2699,13 +2777,26 @@ const updateScoutState = (agent, neighbors, env, controls, dt) => {
     }
     agent.phaseTimer -= dt;
     if (agent.phaseTimer <= 0) {
-      const scoutTarget = chooseScoutTarget(agent, env);
+      const staleTarget =
+        agent.staleForageVisitPending &&
+        agent.staleForageMemoryX != null &&
+        agent.staleForageMemoryY != null
+          ? {
+              x: agent.staleForageMemoryX,
+              y: agent.staleForageMemoryY,
+              flower: null,
+            }
+          : null;
+      const scoutTarget = staleTarget || chooseScoutTarget(agent, env);
       agent.targetX = scoutTarget.x;
       agent.targetY = scoutTarget.y;
       if (scoutTarget.flower) {
         agent.targetFlowerId = scoutTarget.flower.id;
       } else {
         clearFlowerTarget(agent);
+      }
+      if (staleTarget) {
+        clearStaleForageMemory(agent);
       }
       if (!scoutTarget.flower) {
         agent.hasForageMemory = false;
@@ -2749,6 +2840,7 @@ const updateScoutState = (agent, neighbors, env, controls, dt) => {
 
   agent.isAnchored = false;
   if (agent.activityState === ACTIVITY_STATES.FORAGING) {
+    agent.phaseTimer -= dt;
     const hadTrackedFlower = agent.collectingFlowerId != null;
     const trackedFlower = getTrackedFlower(agent, env);
     const targetFlower = getTargetFlower(agent, env);
@@ -2790,6 +2882,7 @@ const updateScoutState = (agent, neighbors, env, controls, dt) => {
       agent.targetY = blossom.y;
       agent.forageMemoryX = reachedFlower.x;
       agent.forageMemoryY = reachedFlower.y;
+      clearStaleForageMemory(agent);
       agent.hasForageMemory = true;
       agent.pollenLoaded = true;
     }
@@ -2797,6 +2890,10 @@ const updateScoutState = (agent, neighbors, env, controls, dt) => {
       const replacementTarget = chooseFlowerTarget(agent, env);
       if (replacementTarget) {
         setFlowerTarget(agent, replacementTarget, env.timeS);
+      } else if (agent.phaseTimer <= 0) {
+        agent.activityState = ACTIVITY_STATES.RETURNING;
+        agent.targetX = env.entrance.x;
+        agent.targetY = env.entrance.y;
       }
     }
     if (!reachedFlower) {
@@ -2818,15 +2915,26 @@ const updateScoutState = (agent, neighbors, env, controls, dt) => {
     ) {
       clearFlowerCollectionState(agent);
       clearFlowerTarget(agent);
-      const explorationTarget = chooseExplorationTarget(agent, env);
-      agent.targetX = explorationTarget.x;
-      agent.targetY = explorationTarget.y;
+      const alternateFlower = chooseFlowerTarget(agent, env);
+      if (alternateFlower) {
+        setFlowerTarget(agent, alternateFlower, env.timeS);
+      } else if (agent.phaseTimer <= 0) {
+        agent.activityState = ACTIVITY_STATES.RETURNING;
+        agent.targetX = env.entrance.x;
+        agent.targetY = env.entrance.y;
+      } else {
+        const explorationTarget = chooseExplorationTarget(agent, env);
+        agent.targetX = explorationTarget.x;
+        agent.targetY = explorationTarget.y;
+      }
       applyFreeFlight(
         agent,
         { x: agent.targetX, y: agent.targetY },
         neighbors,
         dt,
-        PARAMS.FLOWER_RETRY_ESCAPE_SPEED_SCALE,
+        agent.activityState === ACTIVITY_STATES.RETURNING
+          ? PARAMS.FLOWER_RETURN_ESCAPE_SPEED_SCALE
+          : PARAMS.FLOWER_RETRY_ESCAPE_SPEED_SCALE,
       );
       return;
     }
@@ -3152,6 +3260,15 @@ const updateDefenseTask = (agent, env, controls, neighbors) => {
       1,
     ) *
       0.45;
+  if (
+    canAgentLaunchToHeatBall(agent, env) &&
+    seesPredator &&
+    distanceToPredator <= cmToPx(PARAMS.HEAT_BALL_INTERCEPT_RADIUS_CM)
+  ) {
+    launchToHeatBall(agent);
+    return;
+  }
+
   if (!isLocalShimmerZone && !hasRelay) {
     return;
   }
@@ -3192,13 +3309,8 @@ const updateDefenseTask = (agent, env, controls, neighbors) => {
     }
   });
 
-  const distanceToEntrance = Math.hypot(
-    env.predator.x - env.entrance.x,
-    env.predator.y - env.entrance.y,
-  );
   if (
     canAgentLaunchToHeatBall(agent, env) &&
-    distanceToEntrance <= cmToPx(PARAMS.HEAT_BALL_TRIGGER_RADIUS_CM) &&
     distanceToPredator <= cmToPx(PARAMS.HEAT_BALL_SENSE_RADIUS_CM)
   ) {
     launchToHeatBall(agent);
@@ -3583,6 +3695,7 @@ const updateAgents = (agents, env, controls, dt) => {
   }
   const spatial = buildSpatialGrid(liveAgents);
   updateSharedForageMemory(env.sharedForage, dt);
+  const threatActive = getThreatType(controls) !== THREAT_TYPES.NONE;
   const colonyActivity =
     liveAgents.reduce((sum, agent) => sum + agent.activityLevel, 0) /
     Math.max(1, liveAgents.length);
@@ -3703,6 +3816,25 @@ const updateAgents = (agents, env, controls, dt) => {
     }
 
     if (agent.activityState === ACTIVITY_STATES.FORAGING) {
+      if (threatActive) {
+        clearFlowerCollectionState(agent);
+        clearFlowerTarget(agent);
+        agent.pollenLoaded = false;
+        agent.recruitedByDance = false;
+        agent.recruitedSearchRetriesLeft = 0;
+        agent.workerResumeForagePending = false;
+        agent.activityState = ACTIVITY_STATES.RETURNING;
+        agent.targetX = agent.anchorX;
+        agent.targetY = agent.anchorY;
+        applyFreeFlight(
+          agent,
+          { x: agent.targetX, y: agent.targetY },
+          neighbors,
+          dt,
+          PARAMS.FLOWER_RETURN_ESCAPE_SPEED_SCALE,
+        );
+        return;
+      }
       const hadTrackedFlower = agent.collectingFlowerId != null;
       const trackedFlower = getTrackedFlower(agent, env);
       const targetFlower = getTargetFlower(agent, env);
@@ -3715,7 +3847,11 @@ const updateAgents = (agents, env, controls, dt) => {
         const alternateFlower = chooseFlowerTarget(agent, env);
         if (alternateFlower) {
           setFlowerTarget(agent, alternateFlower, env.timeS);
+        } else if (setRecruitmentSearchTarget(agent, env)) {
+          agent.activityState = ACTIVITY_STATES.FORAGING;
         } else {
+          agent.recruitedByDance = false;
+          agent.recruitedSearchRetriesLeft = 0;
           agent.activityState = ACTIVITY_STATES.RETURNING;
           agent.targetX = agent.anchorX;
           agent.targetY = agent.anchorY;
@@ -3753,7 +3889,9 @@ const updateAgents = (agents, env, controls, dt) => {
         agent.targetY = blossom.y;
         agent.forageMemoryX = reachedFlower.x;
         agent.forageMemoryY = reachedFlower.y;
+        clearStaleForageMemory(agent);
         agent.pollenLoaded = true;
+        agent.recruitedSearchRetriesLeft = 0;
       }
       if (!reachedFlower && hadTrackedFlower && trackedFlower == null) {
         const alternateFlower = chooseFlowerTarget(agent, env);
@@ -3773,8 +3911,12 @@ const updateAgents = (agents, env, controls, dt) => {
         const alternateFlower = chooseFlowerTarget(agent, env);
         if (alternateFlower) {
           setFlowerTarget(agent, alternateFlower, env.timeS);
+        } else if (setRecruitmentSearchTarget(agent, env)) {
+          agent.activityState = ACTIVITY_STATES.FORAGING;
         } else {
           clearFlowerTarget(agent);
+          agent.recruitedByDance = false;
+          agent.recruitedSearchRetriesLeft = 0;
           agent.activityState = ACTIVITY_STATES.RETURNING;
           agent.targetX = agent.anchorX;
           agent.targetY = agent.anchorY;
@@ -3826,6 +3968,8 @@ const updateAgents = (agents, env, controls, dt) => {
         agent.foragePauseTimer = 0;
         agent.foragePauseStarted = false;
         clearFlowerTarget(agent);
+        agent.recruitedByDance = false;
+        agent.recruitedSearchRetriesLeft = 0;
         agent.activityState = ACTIVITY_STATES.RETURNING;
         agent.targetX = agent.anchorX;
         agent.targetY = agent.anchorY;
@@ -4116,6 +4260,24 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     };
   }, []);
 
+  const markCurrentForageMemoriesStale = React.useCallback((x, y) => {
+    const samePatchRadius = cmToPx(PARAMS.FLOWER_SCENT_RADIUS_CM * 0.55);
+    agentsRef.current.forEach((agent) => {
+      if (
+        agent.forageMemoryX == null ||
+        agent.forageMemoryY == null ||
+        Math.hypot(agent.forageMemoryX - x, agent.forageMemoryY - y) <=
+          samePatchRadius
+      ) {
+        return;
+      }
+
+      agent.staleForageMemoryX = agent.forageMemoryX;
+      agent.staleForageMemoryY = agent.forageMemoryY;
+      agent.staleForageVisitPending = true;
+    });
+  }, []);
+
   React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) {
@@ -4137,6 +4299,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       const layoutKey = [
         nextCount,
         nextControls.TEMPERATURE_C,
+        nextControls.IS_THREAT_ACTIVE ? "threat" : "calm",
         Math.round(width),
         Math.round(height),
       ].join(":");
@@ -4203,6 +4366,11 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       }
 
       applyLayoutToExistingAgents(nextActiveAgents, nextLayout);
+      const reservedSlotIds = new Set(
+        nextActiveAgents
+          .map((agent) => agent.desiredHomeSlotId || agent.homeSlotId)
+          .filter((slotId) => slotId != null),
+      );
 
       while (nextActiveAgents.length < nextCount) {
         const role =
@@ -4211,6 +4379,15 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             : roleCounts[ROLES.DEFENDER] < roleTargets[ROLES.DEFENDER]
               ? ROLES.DEFENDER
               : ROLES.WORKER;
+        const roleSlots =
+          role === ROLES.SCOUT
+            ? nextLayout.scoutSlots
+            : role === ROLES.DEFENDER
+              ? nextLayout.defenderSlots
+              : nextLayout.workerSlots;
+        const anchorSlot =
+          roleSlots.find((slot) => !reservedSlotIds.has(slot.id)) ||
+          roleSlots[roleCounts[role] % Math.max(1, roleSlots.length)];
         const agent = createAgent(
           width,
           height,
@@ -4220,10 +4397,12 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           {
             role,
             roleSlotIndex: roleCounts[role],
+            anchorSlot,
             spawnFromNest: true,
           },
         );
         roleCounts[role] += 1;
+        reservedSlotIds.add(agent.homeSlotId);
         nextActiveAgents.push(agent);
         agentsRef.current.push(agent);
       }
@@ -4503,6 +4682,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
       const nextPatch = createFlowerPatch(x, y);
+      markCurrentForageMemoriesStale(x, y);
       flowerDragRef.current = {
         active: true,
         lastX: x,
@@ -4512,7 +4692,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         -PARAMS.FLOWER_MAX_COUNT * PARAMS.FLOWER_PATCH_MAX_COUNT,
       );
     },
-    [controls],
+    [controls, markCurrentForageMemoriesStale],
   );
 
   const handlePointerUp = React.useCallback(() => {

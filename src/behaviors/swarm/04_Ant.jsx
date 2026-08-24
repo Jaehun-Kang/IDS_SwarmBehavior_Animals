@@ -121,7 +121,7 @@ const MILL_FOLLOWER_MAX_PER_STEP = 3;
 const MILL_LEADER_TRIGGER_MIN_SIGNAL = 0.018;
 const MILL_LEADER_TRIGGER_CONTACT_CUE = 0.3;
 const MILL_LEADER_TRIGGER_MIN_DISTANCE_BODY_LENGTHS = 8;
-const MILL_LEADER_TRIGGER_MIN_FOOD_DISTANCE_BODY_LENGTHS = 8;
+const MILL_LEADER_TRIGGER_MIN_FOOD_DISTANCE_BODY_LENGTHS = 14;
 const FOOD_CUE_RADIUS_BODY_LENGTHS = 64;
 const FOOD_CUE_SIGNAL_GAIN = 0.9;
 const FOOD_CUE_COMMIT_SIGNAL = 0.12;
@@ -145,7 +145,7 @@ const RECRUITMENT_MARKER_RADIUS_BODY_LENGTHS = 5.5;
 const RECRUITMENT_MARKER_LIMIT = 260;
 const RECRUITMENT_MARKER_SIGNAL_GAIN = 1.15;
 const RECRUITMENT_MARKER_DIRECTION_WEIGHT = 1.15;
-const RECRUITMENT_MARKER_RESPONSE_THRESHOLD = 0.075;
+const RECRUITMENT_MARKER_RESPONSE_THRESHOLD = 0.062;
 const ANT_TRAIL_TYPES = Object.freeze({
   EXPLORING: "exploring",
   FOOD_TRAIL_FOLLOWING: "food-trail-following",
@@ -238,7 +238,7 @@ const RECRUITMENT_NOISE_CUTOFF_RATIO = 0.0015;
 const RECRUITMENT_ACTIVE_CUTOFF_RATIO = 0.01;
 const RESERVE_RELEASE_INTERVAL_S = 0.05;
 const RECRUITMENT_RESERVE_RELEASE_INTERVAL_S = 0.018;
-const RECRUITMENT_RESERVE_ACTIVE_RATIO_BOOST = 0.22;
+const RECRUITMENT_RESERVE_ACTIVE_RATIO_BOOST = 0;
 const RECRUITMENT_RESERVE_RELEASE_NOISE_RAD = 0.18;
 const RECRUITMENT_NEAR_COLONY_JOIN_RADIUS = 2.45;
 const RECRUITMENT_NEAR_COLONY_JOIN_RATE_PER_S = 0;
@@ -2193,9 +2193,7 @@ const releaseReserveAnts = (world, controls) => {
     return;
   }
 
-  const releaseInterval = recruitmentMobilization.active
-    ? RECRUITMENT_RESERVE_RELEASE_INTERVAL_S
-    : RESERVE_RELEASE_INTERVAL_S;
+  const releaseInterval = RESERVE_RELEASE_INTERVAL_S;
   while (
     world.reserveReleaseAccumulator >= releaseInterval &&
     activeRaiders < desiredActive
@@ -2967,7 +2965,7 @@ const shouldEnterMill = (
   markerSignal,
 ) => {
   if (
-    controls.ENABLE_MILL ||
+    !controls.ENABLE_MILL ||
     world.millBias <= 0 ||
     ant.state === "mill" ||
     ant.role !== "outbound" ||
@@ -3000,24 +2998,22 @@ const shouldEnterMill = (
 
   const lowGradientMillZone = localGradientRatio <= MILL_LOW_GRADIENT_RATIO;
   ant.lastRcN = computePathReinforcementIndex(ant, ants, world);
-  const activeTrailZone =
-    localConcentrationRatio >= MILL_ACTIVE_TRAIL_RATIO ||
+  const activeFoodTrailZone =
     localRecruitmentRatio >= MILL_RECRUITMENT_ACTIVE_RATIO ||
-    markerSignal >
-      RECRUITMENT_MARKER_RESPONSE_THRESHOLD * MILL_MARKER_ACTIVE_RATIO ||
-    ant.lastRcN >= controls.RC_N_THRESHOLD;
+    markerSignal >=
+      RECRUITMENT_MARKER_RESPONSE_THRESHOLD * MILL_MARKER_ACTIVE_RATIO;
 
-  if (!lowGradientMillZone || !activeTrailZone) {
+  if (!lowGradientMillZone || !activeFoodTrailZone) {
     return false;
   }
 
   const effectiveRcN =
     ant.lastRcN +
     Math.min(localCrowding, 4) * MILL_CROWDING_RC_BONUS +
-    (localConcentrationRatio >= MILL_ACTIVE_TRAIL_RATIO
+    (localRecruitmentRatio >= MILL_RECRUITMENT_ACTIVE_RATIO
       ? MILL_TRAIL_RC_BONUS
       : 0) +
-    (markerSignal >
+    (markerSignal >=
     RECRUITMENT_MARKER_RESPONSE_THRESHOLD * MILL_MARKER_ACTIVE_RATIO
       ? MILL_MARKER_RC_BONUS
       : 0) +
@@ -3096,12 +3092,17 @@ const enterMillFromTrailConfusion = (
   holdS = MILL_OUTBREAK_HOLD_S,
   trailId = null,
   entryRadiusPx = null,
+  forcedTurnDirection = null,
 ) => {
   const entryHeading = ant.heading;
   const entryDir = angleToVector(entryHeading);
   const requestedTangent = normalize(tangentDir, entryDir);
   const turnDirection =
-    dot(requestedTangent, rotate(entryDir, Math.PI * 0.5)) >= 0 ? 1 : -1;
+    forcedTurnDirection != null
+      ? Math.sign(forcedTurnDirection) || 1
+      : dot(requestedTangent, rotate(entryDir, Math.PI * 0.5)) >= 0
+        ? 1
+        : -1;
   const targetRadiusPx = Math.max(entryRadiusPx ?? 0, 1);
   const providedAnchorOffset = subtract(ant.position, anchor);
   const naturalRadialDir = rotate(
@@ -3269,7 +3270,10 @@ const spreadMillToFollowers = (world, dt) => {
 
       const anchorOffset = subtract(other.position, anchor);
       const radialDir = normalize(anchorOffset, angleToVector(other.heading));
-      const tangentDir = rotate(radialDir, Math.PI * 0.5);
+      const tangentDir = rotate(
+        radialDir,
+        millAnt.millDirection >= 0 ? Math.PI * 0.5 : -Math.PI * 0.5,
+      );
       enterMillFromTrailConfusion(
         other,
         anchor,
@@ -3279,6 +3283,7 @@ const spreadMillToFollowers = (world, dt) => {
         world.metrics.bodyLengthsToPx(
           MILL_VISIBLE_RING_BODY_LENGTHS * MILL_RING_TARGET_RATIO,
         ),
+        millAnt.millDirection,
       );
       converted += 1;
     });
@@ -3311,7 +3316,11 @@ const updateMillOutbreak = (world, controls, dt) => {
     }
 
     const trailSignal = resolveMillTrailSignal(world, ant);
-    if (foodTrailExists && trailSignal < MILL_TRAIL_CANDIDATE_SIGNAL * 0.45) {
+    if (
+      !controls.ENABLE_MILL &&
+      foodTrailExists &&
+      trailSignal < MILL_TRAIL_CANDIDATE_SIGNAL * 0.45
+    ) {
       releaseOffTrailMillAnt(ant);
       return;
     }
@@ -3466,7 +3475,10 @@ const updateMillAnt = (ant, ants, world, controls, dt) => {
     neighborFlow,
     MILL_NEIGHBOR_FLOW_WEIGHT * (0.35 + millTurnRatio * 0.65),
   );
-  const fieldForce = scale(sensors.tropotaxisDir, MILL_FIELD_WEIGHT);
+  const fieldForce = scale(
+    sensors.tropotaxisDir,
+    MILL_FIELD_WEIGHT * (controls.ENABLE_MILL ? 0.16 : 1),
+  );
   const memoryForce = scale(
     angleToVector(ant.memoryHeading),
     MILL_MEMORY_WEIGHT + entryBlendRatio * MILL_ENTRY_LINE_MEMORY_WEIGHT,
@@ -3696,9 +3708,9 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
   const earlyRecruitmentContact =
     ant.role === "outbound" &&
     ant.trailMode === "exploratory" &&
-    (localRecruitmentRatio > RECRUITMENT_MARKER_RESPONSE_THRESHOLD ||
+    (localRecruitmentRatio >= RECRUITMENT_MARKER_RESPONSE_THRESHOLD ||
       distalTactileRecruitmentContact ||
-      markerCue.signal > RECRUITMENT_MARKER_RESPONSE_THRESHOLD);
+      markerCue.signal >= RECRUITMENT_MARKER_RESPONSE_THRESHOLD);
   if (earlyRecruitmentContact) {
     setAntTrailType(ant, ANT_TRAIL_TYPES.FOOD_TRAIL_FOLLOWING);
     ant.arousalTime = Math.max(
@@ -4344,7 +4356,7 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
               scale(
                 markerCue.direction || goalDir,
                 ant.role === "outbound" &&
-                  markerCue.signal > RECRUITMENT_MARKER_RESPONSE_THRESHOLD
+                  markerCue.signal >= RECRUITMENT_MARKER_RESPONSE_THRESHOLD
                   ? markerCue.signal * RECRUITMENT_MARKER_DIRECTION_WEIGHT
                   : 0,
               ),
@@ -4636,25 +4648,6 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
       ? ant.separatedTime + dt
       : Math.max(0, ant.separatedTime - dt * 2.5);
 
-  if (
-    shouldEnterMill(
-      ant,
-      ants,
-      world,
-      controls,
-      effectiveMillCrowding,
-      localConcentrationRatio,
-      localRecruitmentRatio,
-      localGradientRatio,
-      markerCue.signal,
-    )
-  ) {
-    ant.state = "mill";
-    ant.millTime = 0;
-    ant.millDisableTime = 0;
-    ant.millAnchor = resolveMillAnchor(ant, ants, world);
-    ant.millDirection = ant.millDirection || (Math.random() > 0.5 ? 1 : -1);
-  }
 };
 const updateAnt = (ant, ants, world, controls, dt) => {
   if (isPopulationExiting(ant)) {
@@ -4895,24 +4888,23 @@ const drawPheromoneField = (p5, world) => {
   };
 
   if (world.foodPatches.length === 0) {
-    drawFieldLayer(world.field, 111, 196, 122, 16, 0, 2, 0.04, 0.22);
+    drawFieldLayer(world.field, 238, 180, 62, 16, 0, 2, 0.04, 0.22);
   } else {
-    drawFieldLayer(world.field, 111, 196, 122, 14, 0, 3, 0.035, 0.18);
+    drawFieldLayer(world.field, 238, 180, 62, 14, 0, 3, 0.035, 0.18);
   }
-  drawFieldLayer(world.recruitmentField, 218, 148, 72, 32, 0, 5, 0.006, 0.02);
+  drawFieldLayer(world.recruitmentField, 210, 82, 58, 32, 0, 5, 0.006, 0.02);
 };
 
 const drawBivouac = (p5, world) => {
   p5.push();
-  p5.noFill();
-  p5.strokeWeight(1.25);
-  p5.stroke(76, 88, 92, 64);
+  p5.noStroke();
+  p5.fill(76, 88, 92, 34);
   p5.circle(
     world.trail.colony.x,
     world.trail.colony.y,
     world.trail.bivouacRadiusPx * 2.08,
   );
-  p5.stroke(76, 88, 92, 34);
+  p5.fill(76, 88, 92, 18);
   p5.circle(
     world.trail.colony.x,
     world.trail.colony.y,
@@ -4996,7 +4988,7 @@ const drawWorld = (p5, world, spriteSheet, frameSize) => {
   world.foodPatches.forEach((patch) => {
     p5.push();
     p5.noStroke();
-    p5.fill(242, 196, 72, 170);
+    p5.fill(210, 82, 58, 170);
     p5.circle(patch.position.x, patch.position.y, patch.radiusPx * 2);
     p5.pop();
   });

@@ -3,13 +3,23 @@ import "../styles/Sim.css";
 import { animals } from "../behaviors/animalData";
 import SpriteAtlas from "../components/SpriteAtlas.jsx";
 import { HOME_SPRITE_ATLASES } from "../data/spriteAtlases";
+import refreshIconUrl from "../assets/icons/refresh.svg";
 import blackPaperTextureUrl from "../assets/texture/black-paper-texture-seamless.webp";
+import blackStickyNoteTextureUrl from "../assets/texture/black-sticky-note-texture-seamless.webp";
+import blueStickyNoteTextureUrl from "../assets/texture/blue-sticky-note-texture-seamless.webp";
+import darkBlueStickyNoteTextureUrl from "../assets/texture/dark-blue-sticky-note-texture-seamless.webp";
+import darkYellowStickyNoteTextureUrl from "../assets/texture/dark-yellow-sticky-note-texture-seamless.webp";
 import grassPaperTextureUrl from "../assets/texture/grass-paper-texture-seamless.webp";
+import greenStickyNoteTextureUrl from "../assets/texture/green-sticky-note-texture-seamless.webp";
+import lightYellowStickyNoteTextureUrl from "../assets/texture/light-yellow-sticky-note-texture-seamless.webp";
+import oceanSandPaperTextureUrl from "../assets/texture/ocean-sand-paper-texture-seamless.webp";
 import sandPaperTextureUrl from "../assets/texture/sand-paper-texture-seamless.webp";
 import seaPaperTextureUrl from "../assets/texture/sea-paper-texture-seamless.webp";
 import skyPaperTextureUrl from "../assets/texture/sky-paper-texture-seamless.webp";
 import snowPaperTextureUrl from "../assets/texture/snow-paper-texture-seamless.webp";
 import soilPaperTextureUrl from "../assets/texture/soil-paper-texture-seamless.webp";
+import whiteStickyNoteTextureUrl from "../assets/texture/white-sticky-note-texture-seamless.webp";
+import yellowStickyNoteTextureUrl from "../assets/texture/yellow-sticky-note-texture-seamless.webp";
 
 const animalNames = {
   starling: "흰점찌르레기",
@@ -51,11 +61,93 @@ const SIM_TEXTURES = {
   penguin: snowPaperTextureUrl,
   bee: grassPaperTextureUrl,
   firefly: blackPaperTextureUrl,
-  spiny_lobster: seaPaperTextureUrl,
+  spiny_lobster: oceanSandPaperTextureUrl,
   krill: seaPaperTextureUrl,
 };
 
-const animalsById = Object.fromEntries(animals.map((animal) => [animal.id, animal]));
+const SIM_STICKY_NOTES = {
+  starling: {
+    texture: blueStickyNoteTextureUrl,
+    text: "rgb(33 48 64)",
+    muted: "rgb(54 77 98 / 0.78)",
+    strong: "rgb(19 38 58)",
+    rotate: "-0.22deg",
+  },
+  sardine: {
+    texture: darkBlueStickyNoteTextureUrl,
+    text: "rgb(224 235 238 / 0.92)",
+    muted: "rgb(204 220 226 / 0.72)",
+    strong: "rgb(245 252 252)",
+    rotate: "0.18deg",
+  },
+  grasshopper: {
+    texture: yellowStickyNoteTextureUrl,
+    text: "rgb(82 62 25)",
+    muted: "rgb(105 82 38 / 0.72)",
+    strong: "rgb(64 47 14)",
+    rotate: "0.32deg",
+  },
+  ant: {
+    texture: darkYellowStickyNoteTextureUrl,
+    text: "rgb(69 48 15)",
+    muted: "rgb(86 61 21 / 0.74)",
+    strong: "rgb(53 35 8)",
+    rotate: "-0.16deg",
+  },
+  bat: {
+    texture: blueStickyNoteTextureUrl,
+    text: "rgb(33 48 64)",
+    muted: "rgb(54 77 98 / 0.78)",
+    strong: "rgb(19 38 58)",
+    rotate: "0.24deg",
+  },
+  sheep: {
+    texture: greenStickyNoteTextureUrl,
+    text: "rgb(38 62 35)",
+    muted: "rgb(58 88 51 / 0.74)",
+    strong: "rgb(22 50 23)",
+    rotate: "-0.28deg",
+  },
+  penguin: {
+    texture: whiteStickyNoteTextureUrl,
+    text: "rgb(54 55 52)",
+    muted: "rgb(91 90 84 / 0.72)",
+    strong: "rgb(28 30 29)",
+    rotate: "0.14deg",
+  },
+  bee: {
+    texture: greenStickyNoteTextureUrl,
+    text: "rgb(38 62 35)",
+    muted: "rgb(58 88 51 / 0.74)",
+    strong: "rgb(22 50 23)",
+    rotate: "0.26deg",
+  },
+  firefly: {
+    texture: blackStickyNoteTextureUrl,
+    text: "rgb(232 226 207 / 0.9)",
+    muted: "rgb(204 195 172 / 0.72)",
+    strong: "rgb(255 240 174)",
+    rotate: "-0.18deg",
+  },
+  spiny_lobster: {
+    texture: lightYellowStickyNoteTextureUrl,
+    text: "rgb(79 58 24)",
+    muted: "rgb(102 78 37 / 0.72)",
+    strong: "rgb(62 42 11)",
+    rotate: "0.2deg",
+  },
+  krill: {
+    texture: darkBlueStickyNoteTextureUrl,
+    text: "rgb(224 235 238 / 0.92)",
+    muted: "rgb(204 220 226 / 0.72)",
+    strong: "rgb(245 252 252)",
+    rotate: "-0.24deg",
+  },
+};
+
+const animalsById = Object.fromEntries(
+  animals.map((animal) => [animal.id, animal]),
+);
 
 const animalDockItems = ANIMAL_ORDER.map((id) => {
   const animal = animalsById[id];
@@ -64,6 +156,16 @@ const animalDockItems = ANIMAL_ORDER.map((id) => {
     label: animalNames[id] || animal?.name || id,
   };
 }).filter((animal) => animalsById[animal.id]);
+
+const CANVAS_POINTER_BLOCK_SELECTOR = [
+  ".sim-control-panel",
+  ".sim-animal-title",
+  ".sim-overlay-stack",
+  ".info_btn",
+  ".sim-gpu-error",
+].join(", ");
+
+const CONTROL_RESET_LERP_DURATION_MS = 320;
 
 const FIREFLY_SIM_THEME = {
   "--theme-bg": "oklch(0.14 0.015 91.51)",
@@ -82,6 +184,11 @@ const FIREFLY_SIM_THEME = {
   "--theme-surface-tint": "rgb(212 201 153 / 0.08)",
   "--theme-accent": "rgb(247 220 116 / 0.32)",
   "--theme-accent-strong": "rgb(255 229 126)",
+  "--sim-control-dim": "rgb(255 244 188 / 0.14)",
+  "--sim-control-dim-soft": "rgb(255 244 188 / 0.1)",
+  "--sim-control-dim-active": "rgb(255 244 188 / 0.2)",
+  "--sim-control-reset-filter":
+    "brightness(0) saturate(100%) invert(92%) sepia(17%) saturate(760%) hue-rotate(358deg) brightness(104%) contrast(97%) opacity(0.96)",
 };
 
 // 동적으로 모든 Swarm 모듈 로드
@@ -123,10 +230,9 @@ function AnimalDockItem({ animal, atlas, isActive, onAnimalSelect }) {
   return (
     <button
       type="button"
-      className={[
-        "sim-animal-dock__item",
-        isActive ? "is-active" : "",
-      ].join(" ")}
+      className={["sim-animal-dock__item", isActive ? "is-active" : ""].join(
+        " ",
+      )}
       data-animal-id={animal.id}
       onClick={() => onAnimalSelect?.(animal.id)}
       onMouseEnter={() => setIsAnimated(true)}
@@ -172,10 +278,11 @@ function SwarmCanvas({
   const [gpuError, setGpuError] = React.useState("");
   const [controls, setControls] = React.useState(null);
   const [controlValueTime, setControlValueTime] = React.useState(0);
-  const [isControlPanelOpen, setIsControlPanelOpen] = React.useState(true);
   const [retryCount, setRetryCount] = React.useState(0);
   const containerRef = React.useRef(null);
+  const controlPanelRef = React.useRef(null);
   const timeoutRef = React.useRef(null);
+  const resetAnimationFrameRef = React.useRef(null);
 
   const loadSwarmModule = React.useCallback(
     async (attempt = 0) => {
@@ -207,7 +314,7 @@ function SwarmCanvas({
             : null,
         );
         setGpuError("");
-        setIsControlPanelOpen(true);
+        // setIsControlPanelOpen(true);
         setIsLoading(false);
         setRetryCount(0);
       } catch (err) {
@@ -233,6 +340,11 @@ function SwarmCanvas({
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
+      }
+
+      if (resetAnimationFrameRef.current) {
+        window.cancelAnimationFrame(resetAnimationFrameRef.current);
+        resetAnimationFrameRef.current = null;
       }
 
       // 언마운트 시 제거
@@ -300,6 +412,76 @@ function SwarmCanvas({
     return () => window.clearInterval(intervalId);
   }, [swarmUi]);
 
+  React.useEffect(() => {
+    const panel = controlPanelRef.current;
+    if (!panel) {
+      return undefined;
+    }
+
+    const updatePaperOffset = () => {
+      const height = panel.getBoundingClientRect().height;
+      const offset = Math.max(-24, Math.min(0, (260 - height) * 0.072));
+      panel.style.setProperty("--sim-control-paper-x", `${offset}px`);
+    };
+
+    updatePaperOffset();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updatePaperOffset);
+      return () => window.removeEventListener("resize", updatePaperOffset);
+    }
+
+    const resizeObserver = new ResizeObserver(updatePaperOffset);
+    resizeObserver.observe(panel);
+    window.addEventListener("resize", updatePaperOffset);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updatePaperOffset);
+    };
+  }, [swarmUi]);
+
+  const handleCanvasPointerProxy = React.useCallback((event) => {
+    const targetElement = event.target instanceof Element ? event.target : null;
+    if (targetElement?.closest(CANVAS_POINTER_BLOCK_SELECTOR)) {
+      return;
+    }
+
+    const canvas = containerRef.current?.querySelector("canvas");
+    if (!canvas || canvas === event.target) {
+      return;
+    }
+
+    const nativeEvent = event.nativeEvent;
+    const proxiedEvent = new PointerEvent(event.type, {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      pointerId: nativeEvent.pointerId,
+      pointerType: nativeEvent.pointerType,
+      isPrimary: nativeEvent.isPrimary,
+      width: nativeEvent.width,
+      height: nativeEvent.height,
+      pressure: nativeEvent.pressure,
+      tangentialPressure: nativeEvent.tangentialPressure,
+      tiltX: nativeEvent.tiltX,
+      tiltY: nativeEvent.tiltY,
+      twist: nativeEvent.twist,
+      button: nativeEvent.button,
+      buttons: nativeEvent.buttons,
+      clientX: nativeEvent.clientX,
+      clientY: nativeEvent.clientY,
+      screenX: nativeEvent.screenX,
+      screenY: nativeEvent.screenY,
+      ctrlKey: nativeEvent.ctrlKey,
+      shiftKey: nativeEvent.shiftKey,
+      altKey: nativeEvent.altKey,
+      metaKey: nativeEvent.metaKey,
+    });
+
+    canvas.dispatchEvent(proxiedEvent);
+  }, []);
+
   if (isLoading) {
     return (
       <div className="sim-state sim-state--loading">
@@ -334,6 +516,11 @@ function SwarmCanvas({
     : null;
 
   const handleControlChange = (key, rawValue) => {
+    if (resetAnimationFrameRef.current) {
+      window.cancelAnimationFrame(resetAnimationFrameRef.current);
+      resetAnimationFrameRef.current = null;
+    }
+
     const nextValue =
       typeof rawValue === "boolean"
         ? rawValue
@@ -358,15 +545,72 @@ function SwarmCanvas({
   };
 
   const handleControlReset = (key) => {
-    if (!swarmUi?.defaultControlState) {
+    if (!swarmUi?.defaultControlState || !resolvedControls) {
       return;
     }
 
-    handleControlChange(key, swarmUi.defaultControlState[key]);
+    if (resetAnimationFrameRef.current) {
+      window.cancelAnimationFrame(resetAnimationFrameRef.current);
+      resetAnimationFrameRef.current = null;
+    }
+
+    const fromValue = Number(resolvedControls[key]);
+    const targetValue = Number(swarmUi.defaultControlState[key]);
+
+    if (!Number.isFinite(fromValue) || !Number.isFinite(targetValue)) {
+      handleControlChange(key, swarmUi.defaultControlState[key]);
+      return;
+    }
+
+    if (Math.abs(fromValue - targetValue) < Number.EPSILON) {
+      return;
+    }
+
+    const startedAt = window.performance.now();
+    const animateReset = (now) => {
+      const progress = Math.min(
+        1,
+        (now - startedAt) / CONTROL_RESET_LERP_DURATION_MS,
+      );
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+      const nextValue =
+        progress >= 1
+          ? targetValue
+          : fromValue + (targetValue - fromValue) * easedProgress;
+
+      setControls((current) => {
+        if (!current) {
+          return current;
+        }
+
+        const nextControls = {
+          ...current,
+          [key]: nextValue,
+        };
+
+        return sanitizeControls ? sanitizeControls(nextControls) : nextControls;
+      });
+
+      if (progress < 1) {
+        resetAnimationFrameRef.current =
+          window.requestAnimationFrame(animateReset);
+      } else {
+        resetAnimationFrameRef.current = null;
+      }
+    };
+
+    resetAnimationFrameRef.current = window.requestAnimationFrame(animateReset);
   };
 
   return (
-    <div ref={containerRef} className="sim-canvas">
+    <div
+      ref={containerRef}
+      className="sim-canvas"
+      onPointerDown={handleCanvasPointerProxy}
+      onPointerMove={handleCanvasPointerProxy}
+      onPointerUp={handleCanvasPointerProxy}
+      onPointerCancel={handleCanvasPointerProxy}
+    >
       {SwarmComponent ? (
         <SwarmComponent
           controls={resolvedControls}
@@ -380,10 +624,10 @@ function SwarmCanvas({
       )}
       <div className="sim-overlay-stack">
         <button
-          className="sim-overlay-button theme-button"
+          className="sim-overlay-button sim-back-button"
           onClick={onBackClick}
         >
-          ← 뒤로가기
+          <span>← 처음으로</span>
         </button>
       </div>
       <button
@@ -418,155 +662,145 @@ function SwarmCanvas({
       ) : null}
       {swarmUi?.controlFields && resolvedControls ? (
         <div
-          className={[
-            "sim-control-panel",
-            "sim-overlay-panel",
-            isControlPanelOpen ? "is-open" : "is-collapsed",
-          ].join(" ")}
+          ref={controlPanelRef}
+          className="sim-control-panel sim-overlay-panel"
         >
-          <div className="sim-control-panel__header">
-            <div className="theme-panel-title sim-control-panel__title">
-              Simulation Params
-              {/* 시뮬레이션 옵션 */}
+          <div className="sim-control-panel__content">
+            <div className="sim-control-panel__header">
+              <div className="theme-panel-title sim-control-panel__title">
+                시뮬레이션 옵션
+                {/* Simulation Params */}
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsControlPanelOpen((current) => !current)}
-              className="theme-button theme-button-compact sim-control-toggle"
-              aria-label={isControlPanelOpen ? "패널 접기" : "패널 펼치기"}
-              aria-expanded={isControlPanelOpen}
-            >
-              <svg
-                className={[
-                  "sim-control-toggle__icon",
-                  isControlPanelOpen ? "is-open" : "is-collapsed",
-                ].join(" ")}
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path d="M6 14.5L12 8.5L18 14.5" />
-              </svg>
-            </button>
-          </div>
-          <div
-            className={[
-              "sim-control-panel__body",
-              isControlPanelOpen ? "is-open" : "is-collapsed",
-            ].join(" ")}
-          >
-            {swarmUi.controlFields.map((field) => (
-              <label
-                key={field.key}
-                className={[
-                  "sim-control-field",
-                  field.type === "toggle" || field.type === "binary-toggle"
-                    ? "sim-control-field--toggle"
-                    : "",
-                ].join(" ")}
-              >
-                <div className="sim-control-field__row">
-                  <span>{field.label}</span>
-                  <div className="sim-control-field__value-group">
-                    <span className="sim-control-field__value">
-                      {field.formatValue(
-                        resolvedControls[field.key],
-                        resolvedControls,
-                        controlValueTime,
-                      )}
-                    </span>
-                    {field.type === "toggle" ? (
-                      <button
-                        type="button"
-                        className={[
-                          "sim-control-toggle-switch",
-                          "sim-control-toggle-switch--inline",
-                          resolvedControls[field.key] ? "is-on" : "is-off",
-                        ].join(" ")}
-                        onClick={() =>
-                          handleControlChange(
-                            field.key,
-                            !resolvedControls[field.key],
-                          )
-                        }
-                        aria-pressed={resolvedControls[field.key]}
-                      >
-                        <span className="sim-control-toggle-switch__track">
-                          <span className="sim-control-toggle-switch__thumb" />
-                        </span>
-                      </button>
-                    ) : field.type === "binary-toggle" ? (
-                      <button
-                        type="button"
-                        className={[
-                          "sim-control-toggle-switch",
-                          "sim-control-toggle-switch--inline",
-                          resolvedControls[field.key] === field.onValue
-                            ? "is-on"
-                            : "is-off",
-                        ].join(" ")}
-                        onClick={() =>
-                          handleControlChange(
-                            field.key,
+            <div className="sim-control-panel__body">
+              {swarmUi.controlFields.map((field) => (
+                <div
+                  key={field.key}
+                  className={[
+                    "sim-control-field",
+                    field.type === "toggle" || field.type === "binary-toggle"
+                      ? "sim-control-field--toggle"
+                      : "",
+                  ].join(" ")}
+                >
+                  <div className="sim-control-field__row">
+                    <span>{field.label}</span>
+                    <div className="sim-control-field__value-group">
+                      <span className="sim-control-field__value">
+                        {field.formatValue(
+                          resolvedControls[field.key],
+                          resolvedControls,
+                          controlValueTime,
+                        )}
+                      </span>
+                      {field.type === "toggle" ? (
+                        <button
+                          type="button"
+                          className={[
+                            "sim-control-toggle-switch",
+                            "sim-control-toggle-switch--inline",
+                            resolvedControls[field.key] ? "is-on" : "is-off",
+                          ].join(" ")}
+                          onClick={() =>
+                            handleControlChange(
+                              field.key,
+                              !resolvedControls[field.key],
+                            )
+                          }
+                          aria-pressed={resolvedControls[field.key]}
+                        >
+                          <span className="sim-control-toggle-switch__track">
+                            <span className="sim-control-toggle-switch__thumb" />
+                          </span>
+                        </button>
+                      ) : field.type === "binary-toggle" ? (
+                        <button
+                          type="button"
+                          className={[
+                            "sim-control-toggle-switch",
+                            "sim-control-toggle-switch--inline",
                             resolvedControls[field.key] === field.onValue
-                              ? field.offValue
-                              : field.onValue,
-                          )
-                        }
-                        aria-pressed={
-                          resolvedControls[field.key] === field.onValue
-                        }
-                      >
-                        <span className="sim-control-toggle-switch__track">
-                          <span className="sim-control-toggle-switch__thumb" />
-                        </span>
-                      </button>
-                    ) : field.type === "select" ? (
-                      <select
-                        value={resolvedControls[field.key]}
-                        onChange={(event) =>
-                          handleControlChange(field.key, event.target.value)
-                        }
-                      >
-                        {field.options?.map((option) => {
-                          const optionValue =
-                            typeof option === "string" ? option : option.value;
-                          const optionLabel =
-                            typeof option === "string" ? option : option.label;
-                          return (
-                            <option key={optionValue} value={optionValue}>
-                              {optionLabel}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleControlReset(field.key)}
-                        className="theme-button theme-button-compact sim-control-reset"
-                      >
-                        Reset
-                      </button>
-                    )}
+                              ? "is-on"
+                              : "is-off",
+                          ].join(" ")}
+                          onClick={() =>
+                            handleControlChange(
+                              field.key,
+                              resolvedControls[field.key] === field.onValue
+                                ? field.offValue
+                                : field.onValue,
+                            )
+                          }
+                          aria-pressed={
+                            resolvedControls[field.key] === field.onValue
+                          }
+                        >
+                          <span className="sim-control-toggle-switch__track">
+                            <span className="sim-control-toggle-switch__thumb" />
+                          </span>
+                        </button>
+                      ) : field.type === "select" ? (
+                        <select
+                          value={resolvedControls[field.key]}
+                          onChange={(event) =>
+                            handleControlChange(field.key, event.target.value)
+                          }
+                        >
+                          {field.options?.map((option) => {
+                            const optionValue =
+                              typeof option === "string"
+                                ? option
+                                : option.value;
+                            const optionLabel =
+                              typeof option === "string"
+                                ? option
+                                : option.label;
+                            return (
+                              <option key={optionValue} value={optionValue}>
+                                {optionLabel}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleControlReset(field.key);
+                          }}
+                          className="sim-control-reset"
+                          aria-label={`${field.label} 초기화`}
+                          title={`${field.label} 초기화`}
+                        >
+                          <img
+                            aria-hidden="true"
+                            src={refreshIconUrl}
+                            alt=""
+                            draggable="false"
+                          />
+                        </button>
+                      )}
+                    </div>
                   </div>
+                  {field.type === "toggle" ||
+                  field.type === "binary-toggle" ||
+                  field.type === "select" ? null : (
+                    <input
+                      className="sim-control-slider"
+                      type="range"
+                      min={field.min}
+                      max={field.max}
+                      step={field.step}
+                      value={resolvedControls[field.key]}
+                      onChange={(event) =>
+                        handleControlChange(field.key, event.target.value)
+                      }
+                    />
+                  )}
                 </div>
-                {field.type === "toggle" ||
-                field.type === "binary-toggle" ||
-                field.type === "select" ? null : (
-                  <input
-                    className="sim-control-slider"
-                    type="range"
-                    min={field.min}
-                    max={field.max}
-                    step={field.step}
-                    value={resolvedControls[field.key]}
-                    onChange={(event) =>
-                      handleControlChange(field.key, event.target.value)
-                    }
-                  />
-                )}
-              </label>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       ) : null}
@@ -599,16 +833,26 @@ function Sim(props) {
   } = props;
   const animalLabel = selectedAnimal ? animalNames[selectedAnimal] : "";
   const textureUrl = selectedAnimal ? SIM_TEXTURES[selectedAnimal] : null;
+  const stickyNote = selectedAnimal ? SIM_STICKY_NOTES[selectedAnimal] : null;
   const simTextureStyle = textureUrl
     ? {
         "--sim-paper-texture": `url(${textureUrl})`,
         "--sim-black-paper-texture": `url(${textureUrl})`,
       }
     : null;
+  const stickyNoteStyle = stickyNote
+    ? {
+        "--sim-sticky-texture": `url(${stickyNote.texture})`,
+        "--sim-sticky-text": stickyNote.text,
+        "--sim-sticky-muted": stickyNote.muted,
+        "--sim-sticky-strong": stickyNote.strong,
+        "--sim-sticky-rotate": stickyNote.rotate,
+      }
+    : null;
   const simStyle =
     selectedAnimal === "firefly"
-      ? { ...FIREFLY_SIM_THEME, ...simTextureStyle }
-      : simTextureStyle || undefined;
+      ? { ...FIREFLY_SIM_THEME, ...simTextureStyle, ...stickyNoteStyle }
+      : { ...simTextureStyle, ...stickyNoteStyle };
   const simClassName = [
     "sim",
     selectedAnimal === "firefly" ? "sim--firefly" : "",

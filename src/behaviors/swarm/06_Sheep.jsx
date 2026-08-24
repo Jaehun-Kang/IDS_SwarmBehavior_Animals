@@ -286,21 +286,10 @@ const getCanvasRelativePoint = (canvas, clientX, clientY) => {
 };
 
 const createAgent = (index, width, height) => {
-  const radiusPx = PARAMS.GROUP_RADIUS_M * PARAMS.PIXELS_PER_METER;
-  const angle = randomBetween(0, Math.PI * 2);
-  const radial = Math.sqrt((index + 0.5) / Math.max(PARAMS.DEFAULT_COUNT, 1));
-  const centerX = width * 0.45;
-  const centerY = height * 0.55;
-  const pastureRadiusX = Math.min(width * 0.34, radiusPx * 2.15);
-  const pastureRadiusY = Math.min(height * 0.28, radiusPx * 1.55);
-  const x =
-    centerX +
-    Math.cos(angle) * pastureRadiusX * radial +
-    randomBetween(-28, 28);
-  const y =
-    centerY +
-    Math.sin(angle) * pastureRadiusY * radial +
-    randomBetween(-22, 22);
+  const insetX = Math.min(width * 0.16, PARAMS.GROUP_RADIUS_M * PARAMS.PIXELS_PER_METER);
+  const insetY = Math.min(height * 0.18, PARAMS.GROUP_RADIUS_M * PARAMS.PIXELS_PER_METER);
+  const x = randomBetween(insetX, Math.max(insetX, width - insetX));
+  const y = randomBetween(insetY, Math.max(insetY, height - insetY));
   const heading = randomBetween(0, Math.PI * 2);
   const initialState = Math.random() < 0.62 ? SHEEP_STATES.STATIONARY : SHEEP_STATES.WALKING;
   const speed = resolveStateSpeedPx(initialState) * randomBetween(0.85, 1.15);
@@ -1601,10 +1590,27 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           return;
         }
 
+        const actualSpeedPx = Math.hypot(agent.vx, agent.vy);
+        const walkSpeedPx = resolveStateSpeedPx(SHEEP_STATES.WALKING);
+        const runSpeedPx = resolveStateSpeedPx(SHEEP_STATES.RUNNING);
+        const motionRatio =
+          agent.state === SHEEP_STATES.STATIONARY
+            ? 0
+            : clamp(
+                (actualSpeedPx - walkSpeedPx * 0.12) /
+                  Math.max(runSpeedPx - walkSpeedPx * 0.12, 1),
+                0,
+                1,
+              );
+        const renderVelocity =
+          motionRatio <= 0.03
+            ? { x: 0, y: 0 }
+            : { x: agent.vx, y: agent.vy };
+
         const sprite = resolveCanvasAtlasSprite(ATLAS, {
           space: agent.spriteSpace || "2d",
           position: agent.spritePosition || { x: agent.x, y: agent.y },
-          velocity: { x: agent.vx, y: agent.vy },
+          velocity: renderVelocity,
           previousScreenPosition: agent.previousScreenPosition,
           maxDt: dt,
           width: size.width,
@@ -1621,6 +1627,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             : agent.state === SHEEP_STATES.WALKING
               ? PARAMS.BOB_WALK_AMPLITUDE
               : 0;
+        const speedScaledBobAmplitude =
+          bobAmplitude * Math.pow(motionRatio, 0.85);
         const grazeRotation =
           agent.state === SHEEP_STATES.STATIONARY
             ? Math.sin(simTime * PARAMS.GRAZE_SWAY_RATE + agent.grazePhase) *
@@ -1628,7 +1636,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             : 0;
         const bobOffset =
           Math.sin(simTime * PARAMS.BOB_RATE + agent.bobOffset + index * 0.21) *
-          bobAmplitude;
+          speedScaledBobAmplitude;
         agent.previousScreenPosition = sprite.pose.screenPosition;
 
         ctx.save();

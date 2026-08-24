@@ -9,8 +9,32 @@ const DETAIL_ENTER_DURATION = 400;
 const INACTIVITY_TIMEOUT_MS = 6000000;
 
 const ANIMAL_IDS = new Set(animals.map((animal) => animal.id));
-const animalIdToSlug = (animalId) => animalId?.replace(/_/g, "-") ?? "";
-const animalSlugToId = (slug) => slug?.replace(/-/g, "_") ?? "";
+const ANIMAL_ROUTE_SLUGS = {
+  starling: "Starling",
+  sardine: "PacificSardine",
+  grasshopper: "DesertLocust",
+  ant: "ArmyAnt",
+  bat: "MexicanFreeTailedBat",
+  sheep: "Merino",
+  penguin: "EmperorPenguin",
+  bee: "EasternHoneyBee",
+  firefly: "SynchronousFirefly",
+  spiny_lobster: "CaribbeanSpinyLobster",
+  krill: "AntarcticKrill",
+};
+const ANIMAL_ROUTE_ALIASES = new Map(
+  Object.entries(ANIMAL_ROUTE_SLUGS).flatMap(([animalId, slug]) => [
+    [slug.toLowerCase(), animalId],
+    [animalId.toLowerCase(), animalId],
+    [animalId.replace(/_/g, "-").toLowerCase(), animalId],
+  ]),
+);
+const animalIdToSlug = (animalId) =>
+  animalId ? (ANIMAL_ROUTE_SLUGS[animalId] ?? animalId) : "";
+const animalSlugToId = (slug) =>
+  ANIMAL_ROUTE_ALIASES.get((slug || "").replace(/[\s_-]+/g, "").toLowerCase()) ??
+  ANIMAL_ROUTE_ALIASES.get((slug || "").toLowerCase()) ??
+  "";
 const normalizeBasePath = (baseUrl) => {
   const trimmedBase = (baseUrl || "/").replace(/\/+$/, "");
   return trimmedBase === "" ? "" : trimmedBase;

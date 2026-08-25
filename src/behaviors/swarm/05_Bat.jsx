@@ -19,6 +19,8 @@ const PARAMS = {
   DEFAULT_ACOUSTIC_GAIN: 1,
   DEFAULT_EXIT_PULL: 0.52,
   DEFAULT_RECOVERY_ACCEL_MPS2: 5,
+  DEFAULT_INTERACTION_MODE: "predator",
+  DEFAULT_SHOW_ULTRASOUND: true,
   METERS_TO_PIXELS: 54,
   SPRITE_SCALE: 0.18,
   BASE_SPEED_MPS: 9,
@@ -32,15 +34,12 @@ const PARAMS = {
   BAT_LENGTH_M: 0.09,
   ALIGN_RADIUS_M: 3,
   ACOUSTIC_RADIUS_M: 2,
-  MAX_NEIGHBOR_QUERY_RADIUS_M: 4,
   FRONT_HALF_ANGLE_RAD: Math.PI / 4,
   ACOUSTIC_HALF_ANGLE_RAD: Math.PI / 2,
   TARGET_DISTANCE_MIN_M: 0.47,
   TARGET_DISTANCE_MAX_M: 0.9,
-  CRITICAL_DISTANCE_M: 0.13,
   LIGHT_LOW_LUX: 1.4,
   LIGHT_HIGH_LUX: 350,
-  RECOVERY_DURATION_S: 1.5,
   MIN_ALIGNMENT_DELAY_S: 0.08,
   MAX_ALIGNMENT_DELAY_S: 0.5,
   HISTORY_INTERVAL_S: 0.03,
@@ -54,17 +53,26 @@ const PARAMS = {
   ENTRANCE_JITTER_M: 1.35,
   INITIAL_HEADING_JITTER_RAD: 0.28,
   EMERGENCE_TRANSITION_DISTANCE_M: 2.8,
-  RETURN_CAPTURE_RADIUS_M: 3.2,
   RETURN_DELAY_MIN_S: 1.2,
   RETURN_DELAY_MAX_S: 5.6,
   ENTERING_DURATION_S: 0.22,
+  POPULATION_RETIRE_ENTERING_DURATION_S: 0.52,
   EXITING_DURATION_S: 0.26,
   EMERGENCE_RELEASE_WINDOW_S: 2.6,
+  POPULATION_GROWTH_PROTECTION_S: 2.4,
   OUTSIDE_ROAM_MIN_S: 6,
   OUTSIDE_ROAM_MAX_S: 12,
+  RETURN_LOITER_RADIUS_INNER_M: 8,
+  RETURN_LOITER_RADIUS_OUTER_M: 15,
+  RETURN_LOITER_ORBIT_WEIGHT: 1.25,
+  RETURN_LOITER_RADIAL_WEIGHT: 0.92,
+  RETURN_LOITER_WANDER_WEIGHT: 0.12,
   POST_EMERGENCE_COHESION_S: 3.8,
   POST_EMERGENCE_FORWARD_WEIGHT: 0.52,
   POST_EMERGENCE_ALIGNMENT_MULTIPLIER: 1.45,
+  PREDATOR_ALIGNMENT_MULTIPLIER: 1.9,
+  PREDATOR_COHESION_WEIGHT: 1.65,
+  FLASHLIGHT_REPULSION_MULTIPLIER: 3.2,
   POST_EMERGENCE_CENTER_BOOST: 0.22,
   POST_EMERGENCE_ORBIT_DAMPING: 0.12,
   POST_EMERGENCE_WANDER_DAMPING: 0.06,
@@ -100,6 +108,27 @@ const PARAMS = {
   EVASION_BRAKE_RATIO: 0.72,
   EVASION_LATERAL_WEIGHT: 1.4,
   VISUAL_BOB_PX: 2.6,
+  FLASHLIGHT_RADIUS_PX: 224,
+  FLASHLIGHT_HOTSPOT_RATIO: 0.18,
+  FLASHLIGHT_FALLOFF_RATIO: 0.68,
+  FLASHLIGHT_BLOOM_RADIUS_PX: 336,
+  FLASHLIGHT_BLOOM_ALPHA: 0.082,
+  FLASHLIGHT_DUST_ALPHA: 0.072,
+  FLASHLIGHT_DIRECTIONAL_ALPHA: 0.052,
+  FLASHLIGHT_DIRECTIONAL_LENGTH_SCALE: 1.36,
+  FLASHLIGHT_DIRECTIONAL_WIDTH_SCALE: 0.78,
+  FLASHLIGHT_SOURCE_OFFSET_Y_PX: 110,
+  FLASHLIGHT_STEER_WEIGHT: 1.45,
+  FLASHLIGHT_BRAKE_RATIO: 0.9,
+  PREDATOR_RADIUS_M: 5.2,
+  PREDATOR_CORE_RADIUS_M: 1.4,
+  PREDATOR_STEER_WEIGHT: 2.15,
+  PREDATOR_BRAKE_RATIO: 0.78,
+  POINTER_EVASION_DURATION_S: 0.32,
+  ULTRASOUND_MAX_RINGS: 34,
+  ULTRASOUND_RING_INTERVAL_S: 0.42,
+  ULTRASOUND_RING_SPEED_MPS: 7.2,
+  ULTRASOUND_RING_WIDTH_M: 0.025,
 };
 
 const CONTROL_FIELDS = [
@@ -111,7 +140,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "COUNT",
-    label: "개체 수",
+    label: "무리 크기",
     min: 40,
     max: 320,
     step: 4,
@@ -119,35 +148,25 @@ const CONTROL_FIELDS = [
   },
   {
     key: "LIGHT_INTENSITY_LUX",
-    label: "출구 조도",
+    label: "하늘 밝기",
     min: 0,
     max: 400,
     step: 0.1,
     formatValue: (value) => `${Number(value).toFixed(1)} lx`,
   },
   {
-    key: "ACOUSTIC_GAIN",
-    label: "음향 회피 민감도",
-    min: 0,
-    max: 2,
-    step: 0.05,
-    formatValue: (value) => value.toFixed(2),
+    key: "INTERACTION_MODE",
+    label: "마우스 도구",
+    type: "binary-toggle",
+    onValue: "predator",
+    offValue: "flashlight",
+    formatValue: (value) => (value === "predator" ? "포식자" : "손전등"),
   },
   {
-    key: "EXIT_PULL",
-    label: "통로 유인 강도",
-    min: 0,
-    max: 1,
-    step: 0.02,
-    formatValue: (value) => value.toFixed(2),
-  },
-  {
-    key: "RECOVERY_ACCEL_MPS2",
-    label: "전환 가속",
-    min: 2,
-    max: 8,
-    step: 0.1,
-    formatValue: (value) => `${value.toFixed(1)} m/s²`,
+    key: "SHOW_ULTRASOUND",
+    label: "초음파 표시",
+    type: "toggle",
+    formatValue: (value) => (value ? "ON" : "OFF"),
   },
 ];
 
@@ -158,6 +177,8 @@ const DEFAULT_CONTROL_STATE = {
   ACOUSTIC_GAIN: PARAMS.DEFAULT_ACOUSTIC_GAIN,
   EXIT_PULL: PARAMS.DEFAULT_EXIT_PULL,
   RECOVERY_ACCEL_MPS2: PARAMS.DEFAULT_RECOVERY_ACCEL_MPS2,
+  INTERACTION_MODE: PARAMS.DEFAULT_INTERACTION_MODE,
+  SHOW_ULTRASOUND: PARAMS.DEFAULT_SHOW_ULTRASOUND,
 };
 
 const BAT_PHASES = {
@@ -178,6 +199,45 @@ const lerp = (start, end, amount) => start + (end - start) * amount;
 const randomBetween = (min, max) => min + Math.random() * (max - min);
 const metersToPx = (meters) => meters * PARAMS.METERS_TO_PIXELS;
 const pxToMeters = (pixels) => pixels / PARAMS.METERS_TO_PIXELS;
+const getNeighborQueryRadiusM = () =>
+  Math.max(PARAMS.ALIGN_RADIUS_M, PARAMS.ACOUSTIC_RADIUS_M) * 1.35;
+const smoothstep = (edge0, edge1, value) => {
+  const t = clamp((value - edge0) / Math.max(edge1 - edge0, 1e-6), 0, 1);
+  return t * t * (3 - 2 * t);
+};
+
+const resolveFlashlightIntensity = (x, y, pointerState) => {
+  if (!pointerState?.active) {
+    return 0;
+  }
+
+  const dx = x - pointerState.x;
+  const dy = y - pointerState.y;
+  const distance = Math.hypot(dx, dy);
+  const normalizedDistance = distance / PARAMS.FLASHLIGHT_RADIUS_PX;
+
+  if (normalizedDistance >= 1) {
+    return 0;
+  }
+
+  const hotspot = PARAMS.FLASHLIGHT_HOTSPOT_RATIO;
+  const falloff = PARAMS.FLASHLIGHT_FALLOFF_RATIO;
+
+  if (normalizedDistance <= hotspot) {
+    return 1;
+  }
+
+  const t = clamp(
+    (normalizedDistance - hotspot) / Math.max(falloff - hotspot, 1e-6),
+    0,
+    1,
+  );
+  const eased = 1 - t * t * (3 - 2 * t);
+  return normalizedDistance <= falloff
+    ? eased
+    : eased *
+        (1 - (normalizedDistance - falloff) / Math.max(1 - falloff, 1e-6));
+};
 
 const wrapAngle = (angle) => {
   let nextAngle = angle;
@@ -221,10 +281,10 @@ const projectPointOnLine = (point, origin, direction) => {
 };
 
 const getEnvironment = (width, height) => {
-  const entrance = { x: width * 0.5, y: height * 0.9 };
-  const skyCenter = { x: width * 0.5, y: height * 0.4 };
-  const exit = { x: width * 0.5, y: height * 0.68 };
-  const light = { x: width * 0.84, y: height * 0.12 };
+  const entrance = { x: width * 0.12, y: height * 0.82 };
+  const skyCenter = { x: width * 0.58, y: height * 0.34 };
+  const exit = { x: width * 0.28, y: height * 0.62 };
+  const light = { x: width * 0.72, y: height * 0.18 };
   return {
     entrance,
     skyCenter,
@@ -235,7 +295,7 @@ const getEnvironment = (width, height) => {
 };
 
 const getEntranceZone = (environment) => {
-  const radiusX = metersToPx(PARAMS.RETURN_CAPTURE_RADIUS_M);
+  const radiusX = metersToPx(PARAMS.ENTRANCE_RADIUS_M);
   return {
     centerX: environment.entrance.x,
     centerY: environment.entrance.y,
@@ -261,13 +321,241 @@ const isInsideEntranceZone = (point, environment) => {
   );
 };
 
+const resolvePointerInteraction = (agent, pointerState, controls) => {
+  if (!pointerState?.active) {
+    return {
+      steerX: 0,
+      steerY: 0,
+      intensity: 0,
+      brakeRatio: 1,
+      pulse: false,
+    };
+  }
+
+  const dx = agent.x - pointerState.x;
+  const dy = agent.y - pointerState.y;
+  const distancePx = Math.hypot(dx, dy);
+  const fallback = angleToVector(agent.heading + Math.PI);
+  const away = normalize2D(dx, dy, fallback);
+  const mode =
+    controls.INTERACTION_MODE === "predator" ? "predator" : "flashlight";
+  const radiusPx =
+    mode === "predator"
+      ? metersToPx(PARAMS.PREDATOR_RADIUS_M)
+      : PARAMS.FLASHLIGHT_RADIUS_PX;
+
+  if (distancePx >= radiusPx) {
+    return {
+      steerX: 0,
+      steerY: 0,
+      intensity: 0,
+      brakeRatio: 1,
+      pulse: false,
+    };
+  }
+
+  const proximity = 1 - distancePx / Math.max(radiusPx, 1);
+  const intensity =
+    mode === "predator"
+      ? smoothstep(0, 1, proximity) * (pointerState.down ? 1 : 0.62)
+      : resolveFlashlightIntensity(agent.x, agent.y, pointerState);
+  const coreRatio =
+    mode === "predator"
+      ? 1 -
+        clamp(
+          distancePx / Math.max(metersToPx(PARAMS.PREDATOR_CORE_RADIUS_M), 1),
+          0,
+          1,
+        )
+      : 0;
+  const lateral = {
+    x: -away.y * (pointerState.turnSide || 1),
+    y: away.x * (pointerState.turnSide || 1),
+  };
+  const steerWeight =
+    mode === "predator"
+      ? PARAMS.PREDATOR_STEER_WEIGHT
+      : PARAMS.FLASHLIGHT_STEER_WEIGHT;
+  const lateralWeight = mode === "predator" ? 0.42 + coreRatio * 0.42 : 0.16;
+
+  return {
+    steerX: (away.x + lateral.x * lateralWeight) * intensity * steerWeight,
+    steerY: (away.y + lateral.y * lateralWeight) * intensity * steerWeight,
+    intensity,
+    brakeRatio: lerp(
+      1,
+      mode === "predator"
+        ? PARAMS.PREDATOR_BRAKE_RATIO
+        : PARAMS.FLASHLIGHT_BRAKE_RATIO,
+      intensity,
+    ),
+    pulse: intensity > 0.18,
+  };
+};
+
+const drawPointerInteraction = (ctx, pointerState, controls, width, height) => {
+  if (
+    !pointerState?.active ||
+    controls.INTERACTION_MODE === "predator"
+  ) {
+    return;
+  }
+
+  const radius = PARAMS.FLASHLIGHT_RADIUS_PX;
+  const bloomRadius = PARAMS.FLASHLIGHT_BLOOM_RADIUS_PX;
+  const sourceX = width * 0.5;
+  const sourceY = height + PARAMS.FLASHLIGHT_SOURCE_OFFSET_Y_PX;
+  const driftX = Math.min(
+    28,
+    Math.max(-28, (pointerState.x - width * 0.5) * 0.07),
+  );
+  const driftY = Math.min(
+    24,
+    Math.max(-24, (pointerState.y - height * 0.5) * 0.05),
+  );
+  const beamAngle = Math.atan2(
+    pointerState.y - sourceY,
+    pointerState.x - sourceX,
+  );
+
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  ctx.globalAlpha = 0.82;
+
+  const atmosphere = ctx.createRadialGradient(
+    pointerState.x + driftX * 0.45,
+    pointerState.y + driftY * 0.35,
+    radius * 0.14,
+    pointerState.x + driftX,
+    pointerState.y + driftY,
+    bloomRadius,
+  );
+  atmosphere.addColorStop(
+    0,
+    `rgba(255, 247, 226, ${PARAMS.FLASHLIGHT_BLOOM_ALPHA})`,
+  );
+  atmosphere.addColorStop(0.24, "rgba(218, 212, 171, 0.02)");
+  atmosphere.addColorStop(0.68, "rgba(112, 118, 84, 0.008)");
+  atmosphere.addColorStop(1, "rgba(20, 24, 16, 0)");
+  ctx.fillStyle = atmosphere;
+  ctx.beginPath();
+  ctx.arc(
+    pointerState.x + driftX,
+    pointerState.y + driftY,
+    bloomRadius,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+
+  const spill = ctx.createRadialGradient(
+    pointerState.x + driftX * 0.15,
+    pointerState.y + driftY * 0.12,
+    radius * 0.18,
+    pointerState.x + driftX * 0.35,
+    pointerState.y + driftY * 0.28,
+    radius,
+  );
+  spill.addColorStop(0, `rgba(238, 232, 194, ${PARAMS.FLASHLIGHT_DUST_ALPHA})`);
+  spill.addColorStop(0.2, "rgba(201, 196, 154, 0.018)");
+  spill.addColorStop(0.5, "rgba(138, 144, 104, 0.009)");
+  spill.addColorStop(0.78, "rgba(82, 88, 63, 0.003)");
+  spill.addColorStop(1, "rgba(24, 28, 18, 0)");
+  ctx.fillStyle = spill;
+  ctx.beginPath();
+  ctx.arc(
+    pointerState.x + driftX * 0.25,
+    pointerState.y + driftY * 0.2,
+    radius,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+
+  ctx.save();
+  ctx.translate(pointerState.x + driftX * 0.4, pointerState.y + driftY * 0.3);
+  ctx.rotate(beamAngle);
+  ctx.scale(
+    PARAMS.FLASHLIGHT_DIRECTIONAL_LENGTH_SCALE,
+    PARAMS.FLASHLIGHT_DIRECTIONAL_WIDTH_SCALE,
+  );
+
+  const directionalDust = ctx.createRadialGradient(
+    radius * 0.08,
+    0,
+    radius * 0.06,
+    radius * 0.18,
+    0,
+    radius,
+  );
+  directionalDust.addColorStop(
+    0,
+    `rgba(224, 217, 181, ${PARAMS.FLASHLIGHT_DIRECTIONAL_ALPHA})`,
+  );
+  directionalDust.addColorStop(0.36, "rgba(162, 162, 125, 0.01)");
+  directionalDust.addColorStop(0.78, "rgba(88, 96, 68, 0.003)");
+  directionalDust.addColorStop(1, "rgba(24, 28, 18, 0)");
+  ctx.fillStyle = directionalDust;
+  ctx.beginPath();
+  ctx.arc(radius * 0.18, 0, radius * 0.76, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.restore();
+};
+
+const drawUltrasoundRings = (ctx, agents, controls, timeS) => {
+  if (!controls.SHOW_ULTRASOUND) {
+    return;
+  }
+
+  let drawn = 0;
+  const maxRings = PARAMS.ULTRASOUND_MAX_RINGS;
+  const ringSpeedPx = metersToPx(PARAMS.ULTRASOUND_RING_SPEED_MPS);
+  const ringWidthPx = Math.max(1, metersToPx(PARAMS.ULTRASOUND_RING_WIDTH_M));
+
+  ctx.save();
+  ctx.lineWidth = ringWidthPx;
+  agents.forEach((agent, index) => {
+    if (
+      drawn >= maxRings ||
+      agent.phase === BAT_PHASES.INSIDE ||
+      (!agent.protestCallActive && agent.evasionTimerS <= 0)
+    ) {
+      return;
+    }
+
+    if (index % 2 !== 0 && !agent.protestCallActive) {
+      return;
+    }
+
+    const pulsePhase =
+      ((timeS + agent.stageOffset * 0.001) % PARAMS.ULTRASOUND_RING_INTERVAL_S) /
+      PARAMS.ULTRASOUND_RING_INTERVAL_S;
+    const radius = pulsePhase * ringSpeedPx * PARAMS.ULTRASOUND_RING_INTERVAL_S;
+    const alpha = (1 - pulsePhase) * (agent.protestCallActive ? 0.28 : 0.16);
+
+    ctx.strokeStyle = `rgba(170, 210, 235, ${alpha})`;
+    ctx.beginPath();
+    ctx.arc(agent.x, agent.y, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    drawn += 1;
+  });
+  ctx.restore();
+};
+
 const drawEntranceOpening = (ctx, entranceZone) => {
   const { centerX, centerY, radiusX, radiusY } = entranceZone;
-  const openingRadius = Math.min(radiusX, radiusY) * 0.92;
+  const openingRadius = Math.min(radiusX, radiusY) * 0.68;
 
   ctx.save();
 
-  ctx.fillStyle = "rgba(3, 4, 7, 0.60)";
+  ctx.fillStyle = "rgba(35, 40, 45, 0.86)";
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, openingRadius * 1.14, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(2, 3, 6, 0.96)";
   ctx.beginPath();
   ctx.arc(centerX, centerY, openingRadius, 0, Math.PI * 2);
   ctx.fill();
@@ -301,6 +589,9 @@ const sampleInboundSpawn = (width, height) => {
 
 const sampleOutsideRoamDuration = () =>
   randomBetween(PARAMS.OUTSIDE_ROAM_MIN_S, PARAMS.OUTSIDE_ROAM_MAX_S);
+
+const sampleReturnLoiterDuration = () =>
+  randomBetween(PARAMS.RETURN_DELAY_MIN_S, PARAMS.RETURN_DELAY_MAX_S);
 
 const getPostEmergenceCohesionRatio = (agent, controls) => {
   if (!controls.IS_EMERGING || agent.phase !== BAT_PHASES.OUTSIDE) {
@@ -377,28 +668,30 @@ const getPlumeContainmentSteer = (
 
 const getOffscreenReturnSteer = (agent, width, height) => {
   const marginPx = metersToPx(PARAMS.BOUNDARY_MARGIN_M);
-  const targetX = clamp(agent.x, width * 0.12, width * 0.88);
-  const targetY = clamp(agent.y, height * 0.12, height * 0.88);
-  const overshootX =
-    agent.x < 0 ? -agent.x : agent.x > width ? agent.x - width : 0;
-  const overshootY =
-    agent.y < 0 ? -agent.y : agent.y > height ? agent.y - height : 0;
+  const leftBound = marginPx;
+  const rightBound = width - marginPx;
+  const topBound = marginPx;
+  const bottomBound = height - marginPx;
   let steerX = 0;
   let steerY = 0;
 
-  if (overshootX > 0) {
-    const pullX = clamp(overshootX / Math.max(marginPx, 1), 0, 1);
-    steerX =
-      normalize2D(targetX - agent.x, 0, { x: 0, y: 0 }).x *
-      pullX *
+  if (agent.x < leftBound) {
+    steerX +=
+      clamp((leftBound - agent.x) / Math.max(marginPx, 1), 0, 1) *
+      PARAMS.BOUNDARY_PULL_WEIGHT;
+  } else if (agent.x > rightBound) {
+    steerX -=
+      clamp((agent.x - rightBound) / Math.max(marginPx, 1), 0, 1) *
       PARAMS.BOUNDARY_PULL_WEIGHT;
   }
 
-  if (overshootY > 0) {
-    const pullY = clamp(overshootY / Math.max(marginPx, 1), 0, 1);
-    steerY =
-      normalize2D(0, targetY - agent.y, { x: 0, y: 0 }).y *
-      pullY *
+  if (agent.y < topBound) {
+    steerY +=
+      clamp((topBound - agent.y) / Math.max(marginPx, 1), 0, 1) *
+      PARAMS.BOUNDARY_PULL_WEIGHT;
+  } else if (agent.y > bottomBound) {
+    steerY -=
+      clamp((agent.y - bottomBound) / Math.max(marginPx, 1), 0, 1) *
       PARAMS.BOUNDARY_PULL_WEIGHT;
   }
 
@@ -447,6 +740,51 @@ const getOutsideRoamSteer = (agent, environment, width, height, timeS) => {
   };
 };
 
+const getReturnLoiterSteer = (agent, environment, width, height, timeS) => {
+  const offsetX = agent.x - environment.entrance.x;
+  const offsetY = agent.y - environment.entrance.y;
+  const distancePx = Math.hypot(offsetX, offsetY);
+  const radialOut =
+    distancePx > 1e-4
+      ? { x: offsetX / distancePx, y: offsetY / distancePx }
+      : { x: environment.tangent.x, y: environment.tangent.y };
+  const orbit = {
+    x: -radialOut.y * agent.orbitDirection,
+    y: radialOut.x * agent.orbitDirection,
+  };
+  const innerPx = metersToPx(PARAMS.RETURN_LOITER_RADIUS_INNER_M);
+  const outerPx = metersToPx(PARAMS.RETURN_LOITER_RADIUS_OUTER_M);
+  const targetRadiusPx = lerp(
+    innerPx,
+    outerPx,
+    0.5 + Math.sin(agent.wanderPhase) * 0.22,
+  );
+  const radialError =
+    (targetRadiusPx - distancePx) / Math.max(outerPx - innerPx, 1);
+  const radial = {
+    x: radialOut.x * clamp(radialError, -1, 1),
+    y: radialOut.y * clamp(radialError, -1, 1),
+  };
+  const wander = {
+    x: Math.cos(agent.wanderPhase + timeS * 0.43),
+    y: Math.sin(agent.wanderPhase + timeS * 0.39),
+  };
+  const offscreenReturn = getOffscreenReturnSteer(agent, width, height);
+
+  return {
+    x:
+      orbit.x * PARAMS.RETURN_LOITER_ORBIT_WEIGHT +
+      radial.x * PARAMS.RETURN_LOITER_RADIAL_WEIGHT +
+      wander.x * PARAMS.RETURN_LOITER_WANDER_WEIGHT +
+      offscreenReturn.x,
+    y:
+      orbit.y * PARAMS.RETURN_LOITER_ORBIT_WEIGHT +
+      radial.y * PARAMS.RETURN_LOITER_RADIAL_WEIGHT +
+      wander.y * PARAMS.RETURN_LOITER_WANDER_WEIGHT +
+      offscreenReturn.y,
+  };
+};
+
 const getEntranceAcousticSteer = (agent, environment, phase, controls) => {
   const distanceToEntrancePx = Math.hypot(
     agent.x - environment.entrance.x,
@@ -475,9 +813,7 @@ const getEntranceAcousticSteer = (agent, environment, phase, controls) => {
     1,
   );
   const isReturning =
-    !controls.IS_EMERGING ||
-    phase === BAT_PHASES.RETURNING ||
-    phase === BAT_PHASES.ENTERING;
+    phase === BAT_PHASES.RETURNING || phase === BAT_PHASES.ENTERING;
   const flowDirection = isReturning
     ? { x: -environment.tangent.x, y: -environment.tangent.y }
     : environment.tangent;
@@ -544,7 +880,7 @@ const syncAgentMode = (agent, controls, environment) => {
     agent.phase === BAT_PHASES.EXITING
   ) {
     agent.phase = BAT_PHASES.LOITERING;
-    agent.phaseTimerS = sampleOutsideRoamDuration();
+    agent.phaseTimerS = sampleReturnLoiterDuration();
   } else if (!isInsideEntrance && agent.phase !== BAT_PHASES.LOITERING) {
     agent.phase = BAT_PHASES.RETURNING;
     agent.phaseTimerS = 0;
@@ -574,6 +910,9 @@ const sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => {
   next.ACOUSTIC_GAIN = clamp(next.ACOUSTIC_GAIN, 0, 2);
   next.EXIT_PULL = clamp(next.EXIT_PULL, 0, 1);
   next.RECOVERY_ACCEL_MPS2 = clamp(next.RECOVERY_ACCEL_MPS2, 2, 8);
+  next.INTERACTION_MODE =
+    next.INTERACTION_MODE === "predator" ? "predator" : "flashlight";
+  next.SHOW_ULTRASOUND = Boolean(next.SHOW_ULTRASOUND);
 
   return next;
 };
@@ -819,6 +1158,7 @@ const createAgent = (width, height, timeS = 0, isEmerging = true) => {
     orbitDirection: 1,
     wanderPhase: 0,
     dynamicFrontalAngle: PARAMS.FRONT_HALF_ANGLE_RAD,
+    populationProtectedUntilS: 0,
   };
 
   resetAgentAtEntrance(agent, width, height, timeS, isEmerging);
@@ -833,19 +1173,18 @@ const activeAgentCount = (agents) =>
 
 const sendAgentToEntranceForRemoval = (agent, width, height) => {
   agent.populationRetiring = true;
-  agent.populationRetireDurationS = PARAMS.ENTERING_DURATION_S;
+  agent.populationRetireDurationS = PARAMS.POPULATION_RETIRE_ENTERING_DURATION_S;
   agent.isEmergingMode = false;
 
   if (agent.phase === BAT_PHASES.INSIDE) {
-    agent.phase = BAT_PHASES.ENTERING;
-    agent.phaseTimerS = PARAMS.ENTERING_DURATION_S;
+    agent.phaseTimerS = 0;
   } else if (
     agent.phase === BAT_PHASES.OUTSIDE ||
     agent.phase === BAT_PHASES.EMERGING ||
     agent.phase === BAT_PHASES.EXITING
   ) {
     agent.phase = BAT_PHASES.LOITERING;
-    agent.phaseTimerS = sampleOutsideRoamDuration();
+    agent.phaseTimerS = sampleReturnLoiterDuration();
     agent.outsideRoamDurationS = agent.phaseTimerS;
   } else if (agent.phase !== BAT_PHASES.LOITERING) {
     agent.phase = BAT_PHASES.RETURNING;
@@ -857,50 +1196,6 @@ const sendAgentToEntranceForRemoval = (agent, width, height) => {
   agent.evasionTimerS = 0;
   agent.protestCallActive = false;
   agent.previousScreenPosition = null;
-};
-
-const cancelPopulationRetirement = (agent, width, height, isEmerging) => {
-  const environment = getEnvironment(width, height);
-  const wasInsideEntrance = isInsideEntranceZone(agent, environment);
-
-  agent.populationRetiring = false;
-  agent.populationRetireDurationS = undefined;
-  agent.isEmergingMode = isEmerging;
-  agent.currentShelterId = undefined;
-  agent.collisionCooldownS = 0;
-  agent.evasionTimerS = 0;
-  agent.protestCallActive = false;
-
-  if (isEmerging) {
-    if (agent.phase === BAT_PHASES.INSIDE || wasInsideEntrance) {
-      const exitPlan = createExitPlan(agent, width, height);
-      agent.phase = exitPlan.phase;
-      agent.phaseTimerS = exitPlan.phaseTimerS;
-      agent.heading = exitPlan.heading;
-      agent.speedMps = exitPlan.speedMps;
-      agent.exitTargetX = exitPlan.exitTargetX;
-      agent.exitTargetY = exitPlan.exitTargetY;
-    } else {
-      agent.phase = BAT_PHASES.OUTSIDE;
-      agent.phaseTimerS = sampleOutsideRoamDuration();
-      agent.outsideRoamDurationS = agent.phaseTimerS;
-      agent.speedMps = Math.max(agent.speedMps, PARAMS.SPEED_MIN_MPS);
-    }
-    return;
-  }
-
-  if (
-    agent.phase === BAT_PHASES.OUTSIDE ||
-    agent.phase === BAT_PHASES.EMERGING ||
-    agent.phase === BAT_PHASES.EXITING
-  ) {
-    agent.phase = BAT_PHASES.LOITERING;
-    agent.phaseTimerS = sampleOutsideRoamDuration();
-    agent.outsideRoamDurationS = agent.phaseTimerS;
-  } else if (wasInsideEntrance) {
-    agent.phase = BAT_PHASES.ENTERING;
-    agent.phaseTimerS = PARAMS.ENTERING_DURATION_S;
-  }
 };
 
 const resizeAgents = (
@@ -925,13 +1220,9 @@ const resizeAgents = (
   }
 
   while (activeAgentCount(agents) < targetCount) {
-    const retiringAgent = agents.find((agent) => agent.populationRetiring);
-    if (retiringAgent) {
-      cancelPopulationRetirement(retiringAgent, width, height, isEmerging);
-      continue;
-    }
-
     const agent = createAgent(width, height, timeS, isEmerging);
+    agent.populationProtectedUntilS =
+      timeS + PARAMS.POPULATION_GROWTH_PROTECTION_S;
     if (!isEmerging) {
       setAgentInside(agent, width, height);
     } else if (isInitialFill) {
@@ -951,31 +1242,66 @@ const resizeAgents = (
     agents
       .filter((agent) => !agent.populationRetiring)
       .sort(
-        (left, right) =>
-          Math.hypot(
-            right.x - environment.entrance.x,
-            right.y - environment.entrance.y,
-          ) -
-          Math.hypot(
-            left.x - environment.entrance.x,
-            left.y - environment.entrance.y,
-          ),
+        (left, right) => {
+          const phasePriority = (agent) => {
+            if (agent.populationProtectedUntilS > timeS) {
+              return 4;
+            }
+            if (agent.phase === BAT_PHASES.OUTSIDE) {
+              return 0;
+            }
+            if (agent.phase === BAT_PHASES.LOITERING) {
+              return 1;
+            }
+            if (agent.phase === BAT_PHASES.EMERGING) {
+              return 2;
+            }
+            if (agent.phase === BAT_PHASES.EXITING) {
+              return 3;
+            }
+            return 5;
+          };
+          const priorityDelta = phasePriority(left) - phasePriority(right);
+          if (priorityDelta !== 0) {
+            return priorityDelta;
+          }
+
+          return (
+            Math.hypot(
+              right.x - environment.entrance.x,
+              right.y - environment.entrance.y,
+            ) -
+            Math.hypot(
+              left.x - environment.entrance.x,
+              left.y - environment.entrance.y,
+            )
+          );
+        },
       )
       .slice(0, excess)
       .forEach((agent) => sendAgentToEntranceForRemoval(agent, width, height));
   }
 };
 
-const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
+const updateBatAgents = (
+  agents,
+  controls,
+  width,
+  height,
+  dt,
+  timeS,
+  pointerState,
+) => {
   const environment = getEnvironment(width, height);
   const acousticRadiusPx = metersToPx(PARAMS.ACOUSTIC_RADIUS_M);
   const alignmentRadiusPx = metersToPx(PARAMS.ALIGN_RADIUS_M);
-  const criticalDistancePx = metersToPx(PARAMS.CRITICAL_DISTANCE_M);
+  const criticalDistancePx = metersToPx(PARAMS.HALF_WINGSPAN_M);
   const emergenceTransitionPx = metersToPx(
     PARAMS.EMERGENCE_TRANSITION_DISTANCE_M,
   );
   const targetDistanceMinPx = metersToPx(PARAMS.TARGET_DISTANCE_MIN_M);
-  const cellSizePx = metersToPx(PARAMS.MAX_NEIGHBOR_QUERY_RADIUS_M);
+  const neighborQueryRadiusPx = metersToPx(getNeighborQueryRadiusM());
+  const cellSizePx = neighborQueryRadiusPx;
 
   agents.forEach((agent) => {
     if (agent.populationRetiring) {
@@ -1149,7 +1475,7 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
       agent,
       grid,
       cellSizePx,
-      metersToPx(PARAMS.MAX_NEIGHBOR_QUERY_RADIUS_M),
+      neighborQueryRadiusPx,
     );
 
     let leftEarLevel = 0;
@@ -1165,6 +1491,9 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
     let separationX = 0;
     let separationY = 0;
     let separationWeightSum = 0;
+    let neighborCenterX = 0;
+    let neighborCenterY = 0;
+    let neighborCenterWeight = 0;
     const densityRatio = clamp((candidates.length - 5) / 25, 0, 1);
     const dynamicFrontalAngle = lerp(
       PARAMS.FRONT_HALF_ANGLE_RAD,
@@ -1185,7 +1514,7 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
 
       if (
         distancePx < 1e-4 ||
-        distancePx > metersToPx(PARAMS.MAX_NEIGHBOR_QUERY_RADIUS_M)
+        distancePx > neighborQueryRadiusPx
       ) {
         return;
       }
@@ -1220,6 +1549,13 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
           x: offsetX / distancePx,
           y: offsetY / distancePx,
         };
+      }
+
+      if (distancePx <= alignmentRadiusPx * 1.45) {
+        const cohesionWeight = 1 / Math.max(distancePx, 1);
+        neighborCenterX += other.x * cohesionWeight;
+        neighborCenterY += other.y * cohesionWeight;
+        neighborCenterWeight += cohesionWeight;
       }
 
       if (distancePx < targetDistanceMinPx) {
@@ -1295,6 +1631,15 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
       phase,
       movementControls,
     );
+    const pointerInteraction = resolvePointerInteraction(
+      agent,
+      pointerState,
+      controls,
+    );
+    const isPredatorInteraction =
+      controls.INTERACTION_MODE === "predator" && pointerInteraction.intensity > 0;
+    const isFlashlightInteraction =
+      controls.INTERACTION_MODE !== "predator" && pointerInteraction.intensity > 0;
 
     if (acousticLevelSum > 1e-4) {
       const turnStrength =
@@ -1348,7 +1693,7 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
           movementControls,
         );
         const alignmentWeightMultiplier =
-          phase === BAT_PHASES.OUTSIDE
+          (phase === BAT_PHASES.OUTSIDE
             ? lerp(
                 PARAMS.OUTSIDE_ALIGNMENT_MULTIPLIER,
                 PARAMS.POST_EMERGENCE_ALIGNMENT_MULTIPLIER,
@@ -1356,7 +1701,14 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
               )
             : phase === BAT_PHASES.LOITERING
               ? PARAMS.OUTSIDE_ALIGNMENT_MULTIPLIER
-              : PARAMS.TRANSIT_ALIGNMENT_MULTIPLIER;
+              : PARAMS.TRANSIT_ALIGNMENT_MULTIPLIER) *
+          (isPredatorInteraction
+            ? lerp(
+                1,
+                PARAMS.PREDATOR_ALIGNMENT_MULTIPLIER,
+                pointerInteraction.intensity,
+              )
+            : 1);
         desiredX +=
           (alignmentX / weightSum) *
           PARAMS.ALIGNMENT_WEIGHT *
@@ -1380,14 +1732,15 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
       desiredX += plumeContainment.x;
       desiredY += plumeContainment.y;
     } else if (phase === BAT_PHASES.OUTSIDE) {
-      const outsideTransit = getOutsideTransitSteer(
+      const outsideRoam = getOutsideRoamSteer(
         agent,
         environment,
         width,
         height,
+        timeS,
       );
-      desiredX += outsideTransit.x;
-      desiredY += outsideTransit.y;
+      desiredX += outsideRoam.x;
+      desiredY += outsideRoam.y;
     } else if (!movementControls.IS_EMERGING && phase === BAT_PHASES.RETURNING) {
       const toEntrance = normalize2D(
         environment.entrance.x - agent.x,
@@ -1405,15 +1758,11 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
       desiredX += funnelContainment.x;
       desiredY += funnelContainment.y;
     } else if (phase === BAT_PHASES.LOITERING) {
-      const outsideRoam = getOutsideRoamSteer(
-        agent,
-        environment,
-        width,
-        height,
-        timeS,
-      );
-      desiredX += outsideRoam.x;
-      desiredY += outsideRoam.y;
+      const loiterSteer = movementControls.IS_EMERGING
+        ? getOutsideRoamSteer(agent, environment, width, height, timeS)
+        : getReturnLoiterSteer(agent, environment, width, height, timeS);
+      desiredX += loiterSteer.x;
+      desiredY += loiterSteer.y;
     }
 
     desiredX += offscreenReturnSteer.x;
@@ -1455,11 +1804,42 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
         -lightVector.y * repulsionRatio * PARAMS.BRIGHT_LIGHT_REPULSION_WEIGHT;
     }
 
+    const pointerSteerScale = isFlashlightInteraction
+      ? PARAMS.FLASHLIGHT_REPULSION_MULTIPLIER
+      : 1;
+    visualSteerX += pointerInteraction.steerX * pointerSteerScale;
+    visualSteerY += pointerInteraction.steerY * pointerSteerScale;
+
+    if (isPredatorInteraction && neighborCenterWeight > 0) {
+      const centerX = neighborCenterX / neighborCenterWeight;
+      const centerY = neighborCenterY / neighborCenterWeight;
+      const toLocalGroup = normalize2D(centerX - agent.x, centerY - agent.y, {
+        x: 0,
+        y: 0,
+      });
+      visualSteerX +=
+        toLocalGroup.x *
+        PARAMS.PREDATOR_COHESION_WEIGHT *
+        pointerInteraction.intensity;
+      visualSteerY +=
+        toLocalGroup.y *
+        PARAMS.PREDATOR_COHESION_WEIGHT *
+        pointerInteraction.intensity;
+    }
+
     let evasionTimerS = Math.max(0, agent.evasionTimerS - dt);
     let protestCallActive = false;
 
     if (closestThreat && closestThreatDistancePx < criticalDistancePx) {
       evasionTimerS = PARAMS.EVASION_DURATION_S;
+      protestCallActive = true;
+    }
+
+    if (pointerInteraction.pulse) {
+      evasionTimerS = Math.max(
+        evasionTimerS,
+        PARAMS.POINTER_EVASION_DURATION_S * pointerInteraction.intensity,
+      );
       protestCallActive = true;
     }
 
@@ -1540,8 +1920,8 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
         const brakeRatio =
           1 -
           clamp(
-            (nearestFrontDistanceM - PARAMS.CRITICAL_DISTANCE_M) /
-              (PARAMS.TARGET_DISTANCE_MAX_M - PARAMS.CRITICAL_DISTANCE_M),
+            (nearestFrontDistanceM - PARAMS.HALF_WINGSPAN_M) /
+              (PARAMS.TARGET_DISTANCE_MAX_M - PARAMS.HALF_WINGSPAN_M),
             0,
             1,
           );
@@ -1574,6 +1954,10 @@ const updateBatAgents = (agents, controls, width, height, dt, timeS) => {
         targetBaseSpeedMps * 0.72,
         nextSpeedMps * Math.max(PARAMS.EVASION_BRAKE_RATIO, 0.88),
       );
+    }
+
+    if (pointerInteraction.intensity > 0) {
+      nextSpeedMps *= pointerInteraction.brakeRatio;
     }
 
     nextSpeedMps = clamp(
@@ -1653,6 +2037,15 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const rasterCanvasRef = React.useRef(null);
   const animationFrameRef = React.useRef(0);
   const agentsRef = React.useRef([]);
+  const flashlightToggleRef = React.useRef(false);
+  const pointerRef = React.useRef({
+    active: false,
+    down: false,
+    x: 0,
+    y: 0,
+    timeS: -Infinity,
+    turnSide: 1,
+  });
   const frameSizeRef = React.useRef(
     resolveAtlasFrameSize(ATLAS, { width: 64, height: 64 }),
   );
@@ -1685,6 +2078,93 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       rasterCanvasRef.current = null;
     };
   }, []);
+
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return undefined;
+    }
+
+    const getInteractionMode = () =>
+      resolvedControls.INTERACTION_MODE === "predator"
+        ? "predator"
+        : "flashlight";
+
+    flashlightToggleRef.current = getInteractionMode() === "flashlight";
+    pointerRef.current = {
+      ...pointerRef.current,
+      active:
+        getInteractionMode() === "flashlight"
+          ? flashlightToggleRef.current && pointerRef.current.active
+          : pointerRef.current.active,
+      down: false,
+    };
+
+    const updatePointer = (event, down = pointerRef.current.down) => {
+      const rect = canvas.getBoundingClientRect();
+      const nextX = event.clientX - rect.left;
+      const nextY = event.clientY - rect.top;
+      const previous = pointerRef.current;
+      const movementX = nextX - previous.x;
+      const movementY = nextY - previous.y;
+      const turnSide =
+        Math.abs(movementX) + Math.abs(movementY) > 0.8
+          ? Math.sign(movementX || -movementY) || 1
+          : previous.turnSide || 1;
+      const mode = getInteractionMode();
+
+      pointerRef.current = {
+        active:
+          mode === "flashlight" ? flashlightToggleRef.current : true,
+        down,
+        x: nextX,
+        y: nextY,
+        timeS: window.performance.now() * 0.001,
+        turnSide,
+      };
+    };
+
+    const handlePointerEnter = (event) => updatePointer(event, false);
+    const handlePointerMove = (event) =>
+      updatePointer(event, pointerRef.current.down);
+    const handlePointerDown = (event) => {
+      const mode = getInteractionMode();
+      if (mode === "flashlight") {
+        flashlightToggleRef.current = !flashlightToggleRef.current;
+        updatePointer(event, false);
+        return;
+      }
+
+      updatePointer(event, true);
+    };
+    const handlePointerUp = (event) => {
+      updatePointer(event, false);
+    };
+    const handlePointerLeave = () => {
+      pointerRef.current = {
+        ...pointerRef.current,
+        active: false,
+        down: false,
+        timeS: -Infinity,
+      };
+    };
+
+    canvas.addEventListener("pointerenter", handlePointerEnter);
+    canvas.addEventListener("pointermove", handlePointerMove);
+    canvas.addEventListener("pointerdown", handlePointerDown);
+    canvas.addEventListener("pointerup", handlePointerUp);
+    canvas.addEventListener("pointercancel", handlePointerLeave);
+    canvas.addEventListener("pointerleave", handlePointerLeave);
+
+    return () => {
+      canvas.removeEventListener("pointerenter", handlePointerEnter);
+      canvas.removeEventListener("pointermove", handlePointerMove);
+      canvas.removeEventListener("pointerdown", handlePointerDown);
+      canvas.removeEventListener("pointerup", handlePointerUp);
+      canvas.removeEventListener("pointercancel", handlePointerLeave);
+      canvas.removeEventListener("pointerleave", handlePointerLeave);
+    };
+  }, [resolvedControls.INTERACTION_MODE]);
 
   React.useEffect(() => {
     const canvas = canvasRef.current;
@@ -1725,6 +2205,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           size.height,
           dt,
           now,
+          pointerRef.current,
         );
       }
 
@@ -1734,6 +2215,14 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       const entranceZone = getEntranceZone(environment);
 
       drawEntranceOpening(ctx, entranceZone);
+      drawPointerInteraction(
+        ctx,
+        pointerRef.current,
+        resolvedControls,
+        size.width,
+        size.height,
+      );
+      drawUltrasoundRings(ctx, agentsRef.current, resolvedControls, now);
 
       const image = rasterCanvasRef.current || imageRef.current;
       if (!image) {
@@ -1859,7 +2348,12 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   return (
     <canvas
       ref={canvasRef}
-      style={{ width: "100%", height: "100%", display: "block" }}
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "block",
+        cursor: "default",
+      }}
     />
   );
 }

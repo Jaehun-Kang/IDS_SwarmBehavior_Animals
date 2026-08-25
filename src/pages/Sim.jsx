@@ -66,7 +66,7 @@ const SIM_TEXTURES = {
   sardine: seaPaperTextureUrl,
   grasshopper: sandPaperTextureUrl,
   ant: soilPaperTextureUrl,
-  bat: skyPaperTextureUrl,
+  bat: blackPaperTextureUrl,
   sheep: grassPaperTextureUrl,
   penguin: snowPaperTextureUrl,
   bee: grassPaperTextureUrl,
@@ -105,10 +105,10 @@ const SIM_STICKY_NOTES = {
     rotate: "-0.16deg",
   },
   bat: {
-    texture: blueStickyNoteTextureUrl,
-    text: "rgb(33 48 64)",
-    muted: "rgb(54 77 98 / 0.78)",
-    strong: "rgb(19 38 58)",
+    texture: blackStickyNoteTextureUrl,
+    text: "rgb(232 226 207 / 0.9)",
+    muted: "rgb(204 195 172 / 0.72)",
+    strong: "rgb(255, 247, 214)",
     rotate: "0.24deg",
   },
   sheep: {
@@ -136,7 +136,7 @@ const SIM_STICKY_NOTES = {
     texture: blackStickyNoteTextureUrl,
     text: "rgb(232 226 207 / 0.9)",
     muted: "rgb(204 195 172 / 0.72)",
-    strong: "rgb(255 240 174)",
+    strong: "rgb(255, 247, 214)",
     rotate: "-0.18deg",
   },
   spiny_lobster: {
@@ -173,6 +173,10 @@ const CANVAS_POINTER_BLOCK_SELECTOR = [
   ".sim-overlay-stack",
   ".info_btn",
   ".sim-gpu-error",
+  ".sim-animal-dock",
+  "button",
+  "input",
+  "select",
 ].join(", ");
 
 const CONTROL_RESET_LERP_DURATION_MS = 320;
@@ -199,6 +203,44 @@ const FIREFLY_SIM_THEME = {
   "--sim-control-dim-active": "rgb(255 244 188 / 0.2)",
   "--sim-control-reset-filter":
     "brightness(0) saturate(100%) invert(92%) sepia(17%) saturate(760%) hue-rotate(358deg) brightness(104%) contrast(97%) opacity(0.96)",
+};
+
+const clamp01 = (value) => Math.max(0, Math.min(1, value));
+
+const mix = (from, to, ratio) => from + (to - from) * ratio;
+
+const smoothstep = (edge0, edge1, value) => {
+  const ratio = clamp01((value - edge0) / (edge1 - edge0));
+  return ratio * ratio * (3 - 2 * ratio);
+};
+
+const mixRgb = (from, to, ratio, alpha = null) => {
+  const easedRatio = clamp01(ratio);
+  const channels = from.map((channel, index) =>
+    Math.round(mix(channel, to[index], easedRatio)),
+  );
+
+  return alpha === null
+    ? `rgb(${channels[0]} ${channels[1]} ${channels[2]})`
+    : `rgb(${channels[0]} ${channels[1]} ${channels[2]} / ${alpha})`;
+};
+
+const shallowEqualObject = (a, b) => {
+  if (a === b) {
+    return true;
+  }
+
+  if (!a || !b) {
+    return false;
+  }
+
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) {
+    return false;
+  }
+
+  return aKeys.every((key) => Object.is(a[key], b[key]));
 };
 
 // 동적으로 모든 Swarm 모듈 로드
@@ -279,6 +321,7 @@ function SwarmCanvas({
   onDetailClick,
   onAnimalSelect,
   isPaused,
+  onControlSnapshot,
 }) {
   const [SwarmComponent, setSwarmComponent] = React.useState(null);
   const [swarmUi, setSwarmUi] = React.useState(null);
@@ -293,6 +336,9 @@ function SwarmCanvas({
   const controlPanelRef = React.useRef(null);
   const timeoutRef = React.useRef(null);
   const resetAnimationFrameRef = React.useRef(null);
+  const lastControlSnapshotRef = React.useRef(null);
+  const controlSnapshotFrameRef = React.useRef(null);
+  const pendingControlSnapshotRef = React.useRef(null);
 
   const loadSwarmModule = React.useCallback(
     async (attempt = 0) => {
@@ -356,6 +402,11 @@ function SwarmCanvas({
         window.cancelAnimationFrame(resetAnimationFrameRef.current);
         resetAnimationFrameRef.current = null;
       }
+      if (controlSnapshotFrameRef.current) {
+        window.cancelAnimationFrame(controlSnapshotFrameRef.current);
+        controlSnapshotFrameRef.current = null;
+      }
+      pendingControlSnapshotRef.current = null;
 
       // 언마운트 시 제거
       setSwarmComponent(null);
@@ -492,6 +543,54 @@ function SwarmCanvas({
     canvas.dispatchEvent(proxiedEvent);
   }, []);
 
+  const resolvedControls = React.useMemo(() => {
+    if (!controls) {
+      return null;
+    }
+
+    return sanitizeControls ? sanitizeControls(controls) : controls;
+  }, [controls, sanitizeControls]);
+
+  const batLightIntensityLux =
+    animalId === "bat" ? Number(resolvedControls?.LIGHT_INTENSITY_LUX) : null;
+
+  const notifyControlSnapshot = React.useCallback(
+    (nextControls) => {
+      if (!onControlSnapshot || animalId !== "bat") {
+        return;
+      }
+
+      const nextLightIntensityLux = Number(nextControls?.LIGHT_INTENSITY_LUX);
+      const snapshotValue = Number.isFinite(nextLightIntensityLux)
+        ? nextLightIntensityLux
+        : null;
+
+      if (Object.is(lastControlSnapshotRef.current, snapshotValue)) {
+        return;
+      }
+
+      pendingControlSnapshotRef.current = snapshotValue;
+
+      if (controlSnapshotFrameRef.current !== null) {
+        return;
+      }
+
+      controlSnapshotFrameRef.current = window.requestAnimationFrame(() => {
+        controlSnapshotFrameRef.current = null;
+        const pendingValue = pendingControlSnapshotRef.current;
+        pendingControlSnapshotRef.current = null;
+
+        if (Object.is(lastControlSnapshotRef.current, pendingValue)) {
+          return;
+        }
+
+        lastControlSnapshotRef.current = pendingValue;
+        onControlSnapshot({ lightIntensityLux: pendingValue });
+      });
+    },
+    [animalId, onControlSnapshot],
+  );
+
   if (isLoading) {
     return (
       <div className="sim-state sim-state--loading">
@@ -519,12 +618,6 @@ function SwarmCanvas({
     );
   }
 
-  const resolvedControls = controls
-    ? sanitizeControls
-      ? sanitizeControls(controls)
-      : controls
-    : null;
-
   const handleControlChange = (key, rawValue) => {
     if (resetAnimationFrameRef.current) {
       window.cancelAnimationFrame(resetAnimationFrameRef.current);
@@ -540,8 +633,24 @@ function SwarmCanvas({
           ? Number(rawValue)
           : rawValue;
 
+    if (animalId === "bat" && key === "LIGHT_INTENSITY_LUX") {
+      const nextPreviewControls = {
+        ...(resolvedControls ?? controls ?? {}),
+        [key]: nextValue,
+      };
+      notifyControlSnapshot(
+        sanitizeControls
+          ? sanitizeControls(nextPreviewControls)
+          : nextPreviewControls,
+      );
+    }
+
     setControls((current) => {
       if (!current) {
+        return current;
+      }
+
+      if (Object.is(current[key], nextValue)) {
         return current;
       }
 
@@ -550,7 +659,12 @@ function SwarmCanvas({
         [key]: nextValue,
       };
 
-      return sanitizeControls ? sanitizeControls(nextControls) : nextControls;
+      const sanitizedControls = sanitizeControls
+        ? sanitizeControls(nextControls)
+        : nextControls;
+      return shallowEqualObject(current, sanitizedControls)
+        ? current
+        : sanitizedControls;
     });
   };
 
@@ -588,6 +702,18 @@ function SwarmCanvas({
           ? targetValue
           : fromValue + (targetValue - fromValue) * easedProgress;
 
+      if (animalId === "bat" && key === "LIGHT_INTENSITY_LUX") {
+        const nextPreviewControls = {
+          ...(resolvedControls ?? controls ?? {}),
+          [key]: nextValue,
+        };
+        notifyControlSnapshot(
+          sanitizeControls
+            ? sanitizeControls(nextPreviewControls)
+            : nextPreviewControls,
+        );
+      }
+
       setControls((current) => {
         if (!current) {
           return current;
@@ -598,7 +724,12 @@ function SwarmCanvas({
           [key]: nextValue,
         };
 
-        return sanitizeControls ? sanitizeControls(nextControls) : nextControls;
+        const sanitizedControls = sanitizeControls
+          ? sanitizeControls(nextControls)
+          : nextControls;
+        return shallowEqualObject(current, sanitizedControls)
+          ? current
+          : sanitizedControls;
       });
 
       if (progress < 1) {
@@ -841,9 +972,75 @@ function Sim(props) {
     onAnimalSelect,
     isPaused,
   } = props;
+  const [batLightIntensityLux, setBatLightIntensityLux] =
+    React.useState(null);
   const animalLabel = selectedAnimal ? animalNames[selectedAnimal] : "";
   const textureUrl = selectedAnimal ? SIM_TEXTURES[selectedAnimal] : null;
   const stickyNote = selectedAnimal ? SIM_STICKY_NOTES[selectedAnimal] : null;
+  const isBat = selectedAnimal === "bat";
+  const batLightProgress = isBat
+    ? clamp01(((batLightIntensityLux ?? 1.4) - 1.4) / (400 - 1.4))
+    : 0;
+  const batNightOpacity = Math.max(0.08, 1 - batLightProgress * 0.86);
+  const batStickyNightOpacity = Math.max(0.04, 1 - batLightProgress * 0.92);
+  const batSurfaceLightProgress = smoothstep(
+    0.46,
+    0.7,
+    1 - batNightOpacity,
+  );
+  const batControlDimProgress = smoothstep(0.62, 0.86, 1 - batNightOpacity);
+  const batBrightnessStyle = isBat
+    ? {
+        "--sim-bright-paper-texture": `url(${skyPaperTextureUrl})`,
+        "--sim-bright-sticky-texture": `url(${blueStickyNoteTextureUrl})`,
+        "--sim-night-background-opacity": String(batNightOpacity.toFixed(3)),
+        "--sim-night-sticky-opacity": String(
+          batStickyNightOpacity.toFixed(3),
+        ),
+        "--sim-paper-grain-opacity": String(
+          (0.2 + batNightOpacity * 0.52).toFixed(3),
+        ),
+        "--sim-sticky-text": mixRgb(
+          [232, 226, 207],
+          [33, 48, 64],
+          batSurfaceLightProgress,
+          (0.96 + batSurfaceLightProgress * 0.04).toFixed(3),
+        ),
+        "--sim-sticky-muted": mixRgb(
+          [204, 195, 172],
+          [54, 77, 98],
+          batSurfaceLightProgress,
+          (0.78 + batSurfaceLightProgress * 0.04).toFixed(3),
+        ),
+        "--sim-sticky-strong": mixRgb(
+          [255, 247, 214],
+          [19, 38, 58],
+          batSurfaceLightProgress,
+        ),
+        "--sim-control-dim": mixRgb(
+          [255, 247, 214],
+          [8, 20, 31],
+          batControlDimProgress,
+          (0.18 - batControlDimProgress * 0.075).toFixed(3),
+        ),
+        "--sim-control-dim-soft": mixRgb(
+          [255, 247, 214],
+          [8, 20, 31],
+          batControlDimProgress,
+          (0.13 - batControlDimProgress * 0.05).toFixed(3),
+        ),
+        "--sim-control-dim-active": mixRgb(
+          [255, 247, 214],
+          [8, 20, 31],
+          batControlDimProgress,
+          (0.24 - batControlDimProgress * 0.115).toFixed(3),
+        ),
+        "--sim-control-reset-filter":
+          batSurfaceLightProgress > 0.55
+            ? "brightness(0) saturate(100%) opacity(0.92)"
+            : FIREFLY_SIM_THEME["--sim-control-reset-filter"],
+      }
+    : null;
   const simTextureStyle = textureUrl
     ? {
         "--sim-paper-texture": `url(${textureUrl})`,
@@ -859,16 +1056,45 @@ function Sim(props) {
         "--sim-sticky-rotate": stickyNote.rotate,
       }
     : null;
+  const usesDarkControlTheme =
+    selectedAnimal === "firefly" || selectedAnimal === "bat";
   const simStyle =
-    selectedAnimal === "firefly"
-      ? { ...FIREFLY_SIM_THEME, ...simTextureStyle, ...stickyNoteStyle }
+    usesDarkControlTheme
+      ? {
+          ...FIREFLY_SIM_THEME,
+          ...simTextureStyle,
+          ...stickyNoteStyle,
+          ...batBrightnessStyle,
+        }
       : { ...simTextureStyle, ...stickyNoteStyle };
   const simClassName = [
     "sim",
-    selectedAnimal === "firefly" ? "sim--firefly" : "",
+    usesDarkControlTheme ? "sim--firefly" : "",
+    isBat ? "sim--bat" : "",
   ]
     .filter(Boolean)
     .join(" ");
+
+  const handleControlSnapshot = React.useCallback(
+    (snapshot) => {
+      if (!isBat) {
+        return;
+      }
+
+      setBatLightIntensityLux((current) =>
+        Object.is(current, snapshot.lightIntensityLux)
+          ? current
+          : snapshot.lightIntensityLux,
+      );
+    },
+    [isBat],
+  );
+
+  React.useEffect(() => {
+    if (!isBat) {
+      setBatLightIntensityLux(null);
+    }
+  }, [isBat]);
 
   React.useEffect(() => {
     if (PRELOAD_TEXTURE_URLS.length === 0) {
@@ -953,6 +1179,7 @@ function Sim(props) {
           onDetailClick={onDetailClick}
           onAnimalSelect={onAnimalSelect}
           isPaused={isPaused}
+          onControlSnapshot={isBat ? handleControlSnapshot : undefined}
         />
       )}
     </div>

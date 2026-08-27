@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  resolveAtlasGrid,
   getAtlasFrameStyle,
   resolveAtlasAspectRatio,
   resolveStageFrameSequence,
@@ -32,6 +33,7 @@ function SpriteAtlas({
   observeClassNameStages = false,
   animated = true,
   aspectRatio,
+  renderMode = "background",
   style,
 }) {
   const containerRef = React.useRef(null);
@@ -146,6 +148,19 @@ function SpriteAtlas({
     ...getAtlasFrameStyle({ atlas, imageSize, frame: activeFrame }),
   };
 
+  const grid = resolveAtlasGrid(atlas, imageSize);
+  const imageStyle = {
+    position: "absolute",
+    left: `${-activeFrame.x * 100}%`,
+    top: `${-activeFrame.y * 100}%`,
+    width: `${grid.columns * 100}%`,
+    height: `${grid.rows * 100}%`,
+    maxWidth: "none",
+    display: "block",
+    userSelect: "none",
+    pointerEvents: "none",
+  };
+
   return (
     <div
       ref={containerRef}
@@ -153,9 +168,23 @@ function SpriteAtlas({
       data-sprite-stage={sequence.stageName || undefined}
       data-sprite-frame-x={activeFrame.x}
       data-sprite-frame-y={activeFrame.y}
-      style={outerStyle}
+      style={
+        renderMode === "image"
+          ? { ...outerStyle, overflow: "hidden" }
+          : outerStyle
+      }
     >
-      <div aria-hidden="true" style={innerStyle} />
+      {renderMode === "image" ? (
+        <img
+          aria-hidden="true"
+          alt=""
+          src={atlas.src}
+          draggable="false"
+          style={imageStyle}
+        />
+      ) : (
+        <div aria-hidden="true" style={innerStyle} />
+      )}
     </div>
   );
 }

@@ -9,6 +9,11 @@ import {
   applyTransparentCanvasStyle,
   clearTransparentCanvas2d,
 } from "../../utils/transparentCanvas";
+import {
+  drawFlashlightOverlay,
+  FLASHLIGHT_PRESET,
+  resolveFlashlightIntensity as resolveSharedFlashlightIntensity,
+} from "../../utils/flashlight";
 
 const ATLAS = HOME_SPRITE_ATLASES.bat;
 
@@ -108,16 +113,6 @@ const PARAMS = {
   EVASION_BRAKE_RATIO: 0.72,
   EVASION_LATERAL_WEIGHT: 1.4,
   VISUAL_BOB_PX: 2.6,
-  FLASHLIGHT_RADIUS_PX: 224,
-  FLASHLIGHT_HOTSPOT_RATIO: 0.18,
-  FLASHLIGHT_FALLOFF_RATIO: 0.68,
-  FLASHLIGHT_BLOOM_RADIUS_PX: 336,
-  FLASHLIGHT_BLOOM_ALPHA: 0.082,
-  FLASHLIGHT_DUST_ALPHA: 0.072,
-  FLASHLIGHT_DIRECTIONAL_ALPHA: 0.052,
-  FLASHLIGHT_DIRECTIONAL_LENGTH_SCALE: 1.36,
-  FLASHLIGHT_DIRECTIONAL_WIDTH_SCALE: 0.78,
-  FLASHLIGHT_SOURCE_OFFSET_Y_PX: 110,
   FLASHLIGHT_STEER_WEIGHT: 1.45,
   FLASHLIGHT_BRAKE_RATIO: 0.9,
   PREDATOR_RADIUS_M: 5.2,
@@ -158,9 +153,9 @@ const CONTROL_FIELDS = [
     key: "INTERACTION_MODE",
     label: "마우스 도구",
     type: "binary-toggle",
-    onValue: "predator",
-    offValue: "flashlight",
-    formatValue: (value) => (value === "predator" ? "포식자" : "손전등"),
+    onValue: "flashlight",
+    offValue: "predator",
+    formatValue: (value) => (value === "flashlight" ? "손전등" : "포식자"),
   },
   {
     key: "SHOW_ULTRASOUND",
@@ -207,36 +202,7 @@ const smoothstep = (edge0, edge1, value) => {
 };
 
 const resolveFlashlightIntensity = (x, y, pointerState) => {
-  if (!pointerState?.active) {
-    return 0;
-  }
-
-  const dx = x - pointerState.x;
-  const dy = y - pointerState.y;
-  const distance = Math.hypot(dx, dy);
-  const normalizedDistance = distance / PARAMS.FLASHLIGHT_RADIUS_PX;
-
-  if (normalizedDistance >= 1) {
-    return 0;
-  }
-
-  const hotspot = PARAMS.FLASHLIGHT_HOTSPOT_RATIO;
-  const falloff = PARAMS.FLASHLIGHT_FALLOFF_RATIO;
-
-  if (normalizedDistance <= hotspot) {
-    return 1;
-  }
-
-  const t = clamp(
-    (normalizedDistance - hotspot) / Math.max(falloff - hotspot, 1e-6),
-    0,
-    1,
-  );
-  const eased = 1 - t * t * (3 - 2 * t);
-  return normalizedDistance <= falloff
-    ? eased
-    : eased *
-        (1 - (normalizedDistance - falloff) / Math.max(1 - falloff, 1e-6));
+  return resolveSharedFlashlightIntensity(x, y, pointerState, FLASHLIGHT_PRESET);
 };
 
 const wrapAngle = (angle) => {
@@ -342,7 +308,7 @@ const resolvePointerInteraction = (agent, pointerState, controls) => {
   const radiusPx =
     mode === "predator"
       ? metersToPx(PARAMS.PREDATOR_RADIUS_M)
-      : PARAMS.FLASHLIGHT_RADIUS_PX;
+      : FLASHLIGHT_PRESET.radiusPx;
 
   if (distancePx >= radiusPx) {
     return {
@@ -394,114 +360,15 @@ const resolvePointerInteraction = (agent, pointerState, controls) => {
 };
 
 const drawPointerInteraction = (ctx, pointerState, controls, width, height) => {
-  if (
-    !pointerState?.active ||
-    controls.INTERACTION_MODE === "predator"
-  ) {
+  if (controls.INTERACTION_MODE !== "flashlight") {
     return;
   }
 
-  const radius = PARAMS.FLASHLIGHT_RADIUS_PX;
-  const bloomRadius = PARAMS.FLASHLIGHT_BLOOM_RADIUS_PX;
-  const sourceX = width * 0.5;
-  const sourceY = height + PARAMS.FLASHLIGHT_SOURCE_OFFSET_Y_PX;
-  const driftX = Math.min(
-    28,
-    Math.max(-28, (pointerState.x - width * 0.5) * 0.07),
-  );
-  const driftY = Math.min(
-    24,
-    Math.max(-24, (pointerState.y - height * 0.5) * 0.05),
-  );
-  const beamAngle = Math.atan2(
-    pointerState.y - sourceY,
-    pointerState.x - sourceX,
-  );
-
-  ctx.save();
-  ctx.globalCompositeOperation = "screen";
-  ctx.globalAlpha = 0.82;
-
-  const atmosphere = ctx.createRadialGradient(
-    pointerState.x + driftX * 0.45,
-    pointerState.y + driftY * 0.35,
-    radius * 0.14,
-    pointerState.x + driftX,
-    pointerState.y + driftY,
-    bloomRadius,
-  );
-  atmosphere.addColorStop(
-    0,
-    `rgba(255, 247, 226, ${PARAMS.FLASHLIGHT_BLOOM_ALPHA})`,
-  );
-  atmosphere.addColorStop(0.24, "rgba(218, 212, 171, 0.02)");
-  atmosphere.addColorStop(0.68, "rgba(112, 118, 84, 0.008)");
-  atmosphere.addColorStop(1, "rgba(20, 24, 16, 0)");
-  ctx.fillStyle = atmosphere;
-  ctx.beginPath();
-  ctx.arc(
-    pointerState.x + driftX,
-    pointerState.y + driftY,
-    bloomRadius,
-    0,
-    Math.PI * 2,
-  );
-  ctx.fill();
-
-  const spill = ctx.createRadialGradient(
-    pointerState.x + driftX * 0.15,
-    pointerState.y + driftY * 0.12,
-    radius * 0.18,
-    pointerState.x + driftX * 0.35,
-    pointerState.y + driftY * 0.28,
-    radius,
-  );
-  spill.addColorStop(0, `rgba(238, 232, 194, ${PARAMS.FLASHLIGHT_DUST_ALPHA})`);
-  spill.addColorStop(0.2, "rgba(201, 196, 154, 0.018)");
-  spill.addColorStop(0.5, "rgba(138, 144, 104, 0.009)");
-  spill.addColorStop(0.78, "rgba(82, 88, 63, 0.003)");
-  spill.addColorStop(1, "rgba(24, 28, 18, 0)");
-  ctx.fillStyle = spill;
-  ctx.beginPath();
-  ctx.arc(
-    pointerState.x + driftX * 0.25,
-    pointerState.y + driftY * 0.2,
-    radius,
-    0,
-    Math.PI * 2,
-  );
-  ctx.fill();
-
-  ctx.save();
-  ctx.translate(pointerState.x + driftX * 0.4, pointerState.y + driftY * 0.3);
-  ctx.rotate(beamAngle);
-  ctx.scale(
-    PARAMS.FLASHLIGHT_DIRECTIONAL_LENGTH_SCALE,
-    PARAMS.FLASHLIGHT_DIRECTIONAL_WIDTH_SCALE,
-  );
-
-  const directionalDust = ctx.createRadialGradient(
-    radius * 0.08,
-    0,
-    radius * 0.06,
-    radius * 0.18,
-    0,
-    radius,
-  );
-  directionalDust.addColorStop(
-    0,
-    `rgba(224, 217, 181, ${PARAMS.FLASHLIGHT_DIRECTIONAL_ALPHA})`,
-  );
-  directionalDust.addColorStop(0.36, "rgba(162, 162, 125, 0.01)");
-  directionalDust.addColorStop(0.78, "rgba(88, 96, 68, 0.003)");
-  directionalDust.addColorStop(1, "rgba(24, 28, 18, 0)");
-  ctx.fillStyle = directionalDust;
-  ctx.beginPath();
-  ctx.arc(radius * 0.18, 0, radius * 0.76, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-
-  ctx.restore();
+  drawFlashlightOverlay(ctx, pointerState, {
+    width,
+    height,
+    ...FLASHLIGHT_PRESET,
+  });
 };
 
 const drawUltrasoundRings = (ctx, agents, controls, timeS) => {
@@ -910,8 +777,11 @@ const sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => {
   next.ACOUSTIC_GAIN = clamp(next.ACOUSTIC_GAIN, 0, 2);
   next.EXIT_PULL = clamp(next.EXIT_PULL, 0, 1);
   next.RECOVERY_ACCEL_MPS2 = clamp(next.RECOVERY_ACCEL_MPS2, 2, 8);
-  next.INTERACTION_MODE =
-    next.INTERACTION_MODE === "predator" ? "predator" : "flashlight";
+  next.INTERACTION_MODE = ["predator", "flashlight"].includes(
+    next.INTERACTION_MODE,
+  )
+    ? next.INTERACTION_MODE
+    : PARAMS.DEFAULT_INTERACTION_MODE;
   next.SHOW_ULTRASOUND = Boolean(next.SHOW_ULTRASOUND);
 
   return next;

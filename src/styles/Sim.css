@@ -3,13 +3,8 @@
   --sim-overlay-gap: 14px;
   --sim-paper-texture: url("../assets/texture/white-paper-texture-seamless.webp");
   --sim-black-paper-texture: url("../assets/texture/black-paper-texture-seamless.webp");
-  --sim-bright-paper-texture: url("../assets/texture/sky-paper-texture-seamless.webp");
   --sim-masking-tape-texture: url("../assets/texture/masking-tape-texture.webp");
   --sim-sticky-texture: url("../assets/texture/yellow-sticky-note-texture-seamless.webp");
-  --sim-bright-sticky-texture: url("../assets/texture/blue-sticky-note-texture-seamless.webp");
-  --sim-night-background-opacity: 1;
-  --sim-night-sticky-opacity: 1;
-  --sim-paper-grain-opacity: 0.82;
   --sim-sticky-text: rgb(77 57 22);
   --sim-sticky-muted: rgb(99 75 34 / 0.72);
   --sim-sticky-strong: rgb(60 42 10);
@@ -56,12 +51,12 @@
   opacity: 0.72;
 }
 .sim.sim--bat {
-  background: var(--sim-bright-paper-texture), linear-gradient(135deg, rgb(74, 136, 190), rgb(200, 232, 247));
+  background: var(--sim-bright-paper-texture), linear-gradient(135deg, rgb(119, 148, 166), rgb(171, 201, 217));
   background-size: 544px 544px, 100% 100%;
 }
 .sim.sim--bat::before {
-  mix-blend-mode: multiply;
-  opacity: var(--sim-paper-grain-opacity);
+  opacity: var(--sim-paper-grain-opacity, 0.72);
+  transition: opacity 180ms linear;
 }
 .sim.sim--bat::after {
   content: "";
@@ -69,10 +64,10 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: var(--sim-black-paper-texture), linear-gradient(135deg, rgb(9, 10, 12), rgb(24, 26, 31));
+  background: var(--sim-black-paper-texture), linear-gradient(135deg, rgb(16, 16, 14), rgb(29, 28, 24));
   background-size: 544px 544px, 100% 100%;
-  opacity: var(--sim-night-background-opacity);
-  transition: opacity 180ms ease;
+  opacity: var(--sim-night-background-opacity, 1);
+  transition: opacity 180ms linear;
 }
 .sim .sim-canvas {
   position: relative;
@@ -166,7 +161,7 @@
   isolation: isolate;
   transform: rotate(2deg);
   transform-origin: 0 0;
-  transition: color 180ms ease, transform 140ms ease;
+  transition: transform 140ms ease;
 }
 .sim .sim-back-button::before {
   content: "";
@@ -181,26 +176,17 @@
   pointer-events: none;
 }
 .sim .sim-back-button::after {
-  content: none;
-}
-.sim.sim--bat .sim-back-button::before {
-  background: var(--sim-bright-sticky-texture), rgb(135, 184, 218);
-  background-size: 256px 256px, 100% 100%;
-  background-position: center;
-  background-repeat: repeat;
-}
-.sim.sim--bat .sim-back-button::after {
   content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
-  pointer-events: none;
-  background: var(--sim-sticky-texture), rgb(14, 15, 16);
-  background-size: 256px 256px, 100% 100%;
+  background: var(--sim-bright-sticky-texture);
+  background-size: 256px 256px;
   background-position: center;
   background-repeat: repeat;
-  opacity: var(--sim-night-sticky-opacity);
-  transition: opacity 180ms ease;
+  opacity: calc(1 - var(--sim-night-sticky-opacity, 1));
+  pointer-events: none;
+  transition: opacity 180ms linear;
 }
 .sim .sim-back-button span {
   position: relative;
@@ -351,28 +337,19 @@
   transform-origin: 100% 0;
 }
 .sim .sim-control-panel::after {
-  content: none;
-}
-.sim.sim--bat .sim-control-panel::before {
-  background: var(--sim-bright-sticky-texture), rgb(135, 184, 218);
-  background-size: 304px 304px, 100% 100%;
-  background-position: center;
-  background-repeat: repeat;
-}
-.sim.sim--bat .sim-control-panel::after {
   content: "";
   position: absolute;
   inset: -74px -58px -54px -98px;
   z-index: -1;
-  pointer-events: none;
-  background: var(--sim-sticky-texture), rgb(14, 15, 16);
-  background-size: 304px 304px, 100% 100%;
+  background: var(--sim-bright-sticky-texture);
+  background-size: 304px 304px;
   background-position: center;
   background-repeat: repeat;
-  opacity: var(--sim-night-sticky-opacity);
+  opacity: calc(1 - var(--sim-night-sticky-opacity, 1));
+  pointer-events: none;
   transform: translateX(var(--sim-control-paper-x)) rotate(-5deg);
   transform-origin: 100% 0;
-  transition: opacity 180ms ease;
+  transition: opacity 180ms linear;
 }
 .sim .sim-control-panel__header {
   position: relative;
@@ -394,7 +371,6 @@
   font-size: 22px;
   line-height: 1;
   color: var(--sim-sticky-text);
-  transition: color 180ms ease;
 }
 .sim .sim-control-panel__content {
   transform: translate(-18px, 8px) rotate(-4deg);
@@ -417,7 +393,6 @@
   font-size: 16px;
   font-weight: 600;
   line-height: 1.2;
-  transition: color 180ms ease;
 }
 .sim .sim-control-field--toggle {
   margin-top: 16px;
@@ -443,7 +418,6 @@
 }
 .sim .sim-control-field__value {
   color: var(--sim-sticky-muted);
-  transition: color 180ms ease;
 }
 .sim .sim-control-reset {
   flex: 0 0 auto;
@@ -459,7 +433,7 @@
   cursor: pointer;
   opacity: 0.58;
   transform: rotate(-18deg);
-  transition: color 180ms ease, opacity 140ms ease, transform 140ms ease;
+  transition: opacity 140ms ease, transform 140ms ease;
 }
 .sim .sim-control-reset:hover {
   background: transparent;
@@ -480,7 +454,6 @@
   -o-object-fit: contain;
      object-fit: contain;
   filter: var(--sim-control-reset-filter);
-  transition: filter 180ms ease;
   pointer-events: none;
   -webkit-user-select: none;
      -moz-user-select: none;
@@ -541,7 +514,6 @@
   border-radius: 999px;
   background: var(--sim-control-dim);
   box-shadow: none;
-  transition: background 180ms ease;
 }
 .sim .sim-control-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -553,7 +525,6 @@
   border-radius: 50%;
   background: var(--sim-sticky-strong);
   box-shadow: 0 2px 8px rgba(37, 33, 27, 0.15);
-  transition: background 180ms ease;
 }
 .sim .sim-control-slider::-moz-range-track {
   height: 6px;
@@ -561,7 +532,6 @@
   border-radius: 999px;
   background: var(--sim-control-dim);
   box-shadow: none;
-  transition: background 180ms ease;
 }
 .sim .sim-control-slider::-moz-range-thumb {
   width: 16px;
@@ -570,7 +540,6 @@
   border-radius: 50%;
   background: var(--sim-sticky-strong);
   box-shadow: 0 2px 8px rgba(37, 33, 27, 0.15);
-  transition: background 180ms ease;
 }
 .sim .sim-animal-dock {
   position: absolute;
@@ -589,33 +558,20 @@
 }
 .sim .sim-animal-dock__item {
   --dock-sprite-width: 64px;
-  --dock-sprite-bottom: -11.2px;
   position: relative;
   width: clamp(52px, 7vw, 80px);
   height: 76px;
   border: 0;
   padding: 0;
   overflow: visible;
-  color: var(--theme-text-soft);
+  color: var(--sim-sticky-text);
   background: transparent;
   cursor: pointer;
   transition: color 160ms ease, transform 180ms ease;
 }
 .sim .sim-animal-dock__item:hover, .sim .sim-animal-dock__item.is-active {
-  color: var(--theme-text-strong);
+  color: var(--sim-sticky-strong);
   transform: translateY(-6px);
-}
-.sim .sim-animal-dock__item.is-active::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: 4px;
-  width: 28px;
-  height: 2px;
-  border-radius: 1584px;
-  background: currentColor;
-  transform: translateX(-50%);
-  opacity: 0.7;
 }
 .sim .sim-animal-dock__item[data-animal-id=starling] {
   --dock-sprite-width: 66.4px;
@@ -664,21 +620,21 @@
 .sim .sim-animal-dock__sprite {
   position: absolute;
   left: 50%;
-  bottom: var(--dock-sprite-bottom);
+  bottom: 50%;
   width: var(--dock-sprite-width);
   height: auto;
   display: block;
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateY(50%);
   filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.18));
 }
 .sim .sim-animal-dock__label {
   position: absolute;
   left: 50%;
-  bottom: 10px;
+  top: -30px;
   max-width: 100%;
   color: currentColor;
-  font-family: var(--theme-ui-font);
-  font-size: 11px;
+  font-family: var(--theme-parameter-title-font);
+  font-size: 14px;
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;

@@ -1,7 +1,6 @@
 import React from "react";
 import { getAnimalDetails } from "../behaviors/animalDetails";
 import RulePreview from "../components/RulePreview";
-import leatherTextureUrl from "../assets/texture/leather-texture.webp";
 import paperTextureUrl from "../assets/texture/white-paper-texture-seamless.webp";
 import {
   createBookCurlRenderer,
@@ -13,6 +12,13 @@ const headerArtworkModules = import.meta.glob("../assets/detail/*.svg", {
   eager: true,
   import: "default",
 });
+const bookCoverTextureModules = import.meta.glob(
+  "../assets/texture/book_cover/*.webp",
+  {
+    eager: true,
+    import: "default",
+  },
+);
 
 const HEADER_ARTWORK_ASSET_KEYS = {
   spiny_lobster: {
@@ -30,6 +36,14 @@ const getHeaderArtwork = (animalId) => {
 
   return { src };
 };
+
+const getBookCoverTexture = (animalId) => {
+  return bookCoverTextureModules[
+    `../assets/texture/book_cover/${animalId}.webp`
+  ];
+};
+
+const getCssImageValue = (imageUrl) => (imageUrl ? `url(${imageUrl})` : "none");
 
 const CANVAS_TURN_DURATION = 520;
 const BOOK_OPEN_DELAY_MS = 720;
@@ -226,7 +240,7 @@ const createHtmlInCanvasStage = ({
   return { container, canvas, content };
 };
 
-const captureHtmlNodeWithHtmlInCanvas = (node) =>
+const captureHtmlNodeWithHtmlInCanvas = (node, coverTextureUrl) =>
   new Promise((resolve, reject) => {
     if (!canUseHtmlInCanvas()) {
       reject(new Error("HTML-in-Canvas is not available"));
@@ -250,8 +264,8 @@ const captureHtmlNodeWithHtmlInCanvas = (node) =>
       `url(${paperTextureUrl})`,
     );
     clonedNode.style.setProperty(
-      "--detail-leather-texture",
-      `url(${leatherTextureUrl})`,
+      "--detail-cover-texture",
+      getCssImageValue(coverTextureUrl),
     );
 
     const { container, canvas, content } = createHtmlInCanvasStage({
@@ -316,7 +330,7 @@ const captureHtmlNodeWithHtmlInCanvas = (node) =>
     canvas.requestPaint();
   });
 
-const captureHtmlNodeWithSvg = (node) =>
+const captureHtmlNodeWithSvg = (node, coverTextureUrl) =>
   new Promise((resolve, reject) => {
     if (!node) {
       reject(new Error("No node to capture"));
@@ -340,8 +354,8 @@ const captureHtmlNodeWithSvg = (node) =>
       `url(${paperTextureUrl})`,
     );
     clonedNode.style.setProperty(
-      "--detail-leather-texture",
-      `url(${leatherTextureUrl})`,
+      "--detail-cover-texture",
+      getCssImageValue(coverTextureUrl),
     );
 
     const styleText = getDocumentStyleText();
@@ -375,11 +389,11 @@ const captureHtmlNodeWithSvg = (node) =>
     image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   });
 
-const captureHtmlNodeAsImage = async (node) => {
+const captureHtmlNodeAsImage = async (node, coverTextureUrl) => {
   try {
-    return await captureHtmlNodeWithHtmlInCanvas(node);
+    return await captureHtmlNodeWithHtmlInCanvas(node, coverTextureUrl);
   } catch {
-    return captureHtmlNodeWithSvg(node);
+    return captureHtmlNodeWithSvg(node, coverTextureUrl);
   }
 };
 
@@ -692,6 +706,8 @@ function Detail({
   const [previewControls, setPreviewControls] = React.useState({});
   const animal = getAnimalDetails(animalId);
   const artwork = getHeaderArtwork(animalId);
+  const coverTextureUrl = getBookCoverTexture(animalId);
+  const coverTextureCssValue = getCssImageValue(coverTextureUrl);
   const pageSurfaceRef = React.useRef(null);
   const turnCaptureSurfaceRef = React.useRef(null);
   const turnCanvasRef = React.useRef(null);
@@ -845,20 +861,23 @@ function Detail({
     setTurnCaptureSize(null);
   }, []);
 
-  const capturePreparedPage = React.useCallback(async (pageKey, size) => {
-    setTurnCaptureSize(size);
-    setTurnCapturePageKey(pageKey);
+  const capturePreparedPage = React.useCallback(
+    async (pageKey, size) => {
+      setTurnCaptureSize(size);
+      setTurnCapturePageKey(pageKey);
 
-    await waitForSpreadKey(pageKey, () => turnCaptureSurfaceRef.current);
+      await waitForSpreadKey(pageKey, () => turnCaptureSurfaceRef.current);
 
-    const captureNode = turnCaptureSurfaceRef.current;
+      const captureNode = turnCaptureSurfaceRef.current;
 
-    if (!captureNode) {
-      throw new Error("Turn capture surface was not mounted");
-    }
+      if (!captureNode) {
+        throw new Error("Turn capture surface was not mounted");
+      }
 
-    return captureHtmlNodeAsImage(captureNode);
-  }, []);
+      return captureHtmlNodeAsImage(captureNode, coverTextureUrl);
+    },
+    [coverTextureUrl],
+  );
 
   React.useEffect(() => {
     setActivePageKey("cover");
@@ -946,7 +965,7 @@ function Detail({
 
   if (!animal) {
     return <div>동물 정보를 찾을 수 없습니다.</div>;
-  };
+  }
 
   const handleClosedBookOpen = () => {
     if (isOpen) {
@@ -980,7 +999,10 @@ function Detail({
       isPageTurnRunningRef.current = true;
 
       try {
-        const fromSnapshot = await captureHtmlNodeAsImage(pageNode);
+        const fromSnapshot = await captureHtmlNodeAsImage(
+          pageNode,
+          coverTextureUrl,
+        );
         const coverMode = getCoverTurnMode(activePage, nextPage);
 
         const direction = nextIndex > activePageIndex ? 1 : -1;
@@ -1318,7 +1340,10 @@ function Detail({
       dragTurnRef.current = dragTurn;
 
       try {
-        const fromSnapshot = await captureHtmlNodeAsImage(pageNode);
+        const fromSnapshot = await captureHtmlNodeAsImage(
+          pageNode,
+          coverTextureUrl,
+        );
         const coverMode = getCoverTurnMode(activePage, nextPage);
 
         const dpr = window.devicePixelRatio || 1;
@@ -1612,15 +1637,13 @@ function Detail({
           <div className="detail-book-page detail-book-page--cover">
             <div className="detail-page-inner detail-page-inner--cover">
               <div className="detail-intro-copy">
-                <p className="detail-page-kicker">Encyclopedia of Swarms</p>
+                <p className="detail-page-kicker">군집사전</p>
                 <h1
                   id={`detail-intro-title${idSuffix}`}
                   className="theme-page-title"
                 >
                   {animal.korean}
                 </h1>
-                <p className="detail-english">{animal.english}</p>
-                <p className="detail-scientific">{animal.scientific}</p>
               </div>
             </div>
           </div>
@@ -1664,7 +1687,6 @@ function Detail({
                 </div>
               ) : null}
               <div className="detail-intro-copy">
-                <p className="detail-page-kicker">Encyclopedia of Swarms</p>
                 <h1
                   id={`detail-intro-title${idSuffix}`}
                   className="theme-page-title"
@@ -1673,10 +1695,6 @@ function Detail({
                 </h1>
                 <p className="detail-english">{animal.english}</p>
                 <p className="detail-scientific">{animal.scientific}</p>
-                <p className="detail-intro-description">
-                  {animal.description ||
-                    "개체가 가까운 이웃과 주고받는 단순한 반응이 모여 하나의 집단 행동으로 확장되는 과정을 관찰합니다."}
-                </p>
               </div>
               <span className="detail-page-number detail-page-number--right">
                 {rightNumber}
@@ -1829,7 +1847,7 @@ function Detail({
         isAnimating ? "slide-up" : "slide-down",
       ].join(" ")}
       style={{
-        "--detail-leather-texture": `url(${leatherTextureUrl})`,
+        "--detail-cover-texture": coverTextureCssValue,
         "--detail-paper-texture": `url(${paperTextureUrl})`,
       }}
       onDragStart={(event) => event.preventDefault()}
@@ -1902,7 +1920,7 @@ function Detail({
           aria-hidden="true"
           style={{
             ...turnCaptureWrapperStyle,
-            "--detail-leather-texture": `url(${leatherTextureUrl})`,
+            "--detail-cover-texture": coverTextureCssValue,
             "--detail-paper-texture": `url(${paperTextureUrl})`,
           }}
         >

@@ -301,6 +301,7 @@ function AnimalDockItem({ animal, atlas, isActive, onAnimalSelect }) {
             stage={atlas.defaultStage}
             baseClassName={atlas.baseClassName}
             animated={isAnimated}
+            renderMode="image"
             style={{
               width: "100%",
               height: "auto",
@@ -504,9 +505,9 @@ function SwarmCanvas({
 
   const handleCanvasPointerProxy = React.useCallback((event) => {
     const targetElement = event.target instanceof Element ? event.target : null;
-    if (targetElement?.closest(CANVAS_POINTER_BLOCK_SELECTOR)) {
-      return;
-    }
+    const isInteractiveTarget = Boolean(
+      targetElement?.closest(CANVAS_POINTER_BLOCK_SELECTOR),
+    );
 
     const canvas = containerRef.current?.querySelector("canvas");
     if (!canvas || canvas === event.target) {
@@ -514,7 +515,11 @@ function SwarmCanvas({
     }
 
     const nativeEvent = event.nativeEvent;
-    const proxiedEvent = new PointerEvent(event.type, {
+    const proxyType =
+      isInteractiveTarget && event.type === "pointerdown"
+        ? "pointermove"
+        : event.type;
+    const proxiedEvent = new PointerEvent(proxyType, {
       bubbles: true,
       cancelable: true,
       composed: true,
@@ -528,8 +533,8 @@ function SwarmCanvas({
       tiltX: nativeEvent.tiltX,
       tiltY: nativeEvent.tiltY,
       twist: nativeEvent.twist,
-      button: nativeEvent.button,
-      buttons: nativeEvent.buttons,
+      button: proxyType === "pointermove" && isInteractiveTarget ? -1 : nativeEvent.button,
+      buttons: proxyType === "pointermove" && isInteractiveTarget ? 0 : nativeEvent.buttons,
       clientX: nativeEvent.clientX,
       clientY: nativeEvent.clientY,
       screenX: nativeEvent.screenX,
@@ -590,6 +595,14 @@ function SwarmCanvas({
     },
     [animalId, onControlSnapshot],
   );
+
+  React.useEffect(() => {
+    if (animalId !== "bat" || !resolvedControls) {
+      return;
+    }
+
+    notifyControlSnapshot(resolvedControls);
+  }, [animalId, notifyControlSnapshot, resolvedControls]);
 
   if (isLoading) {
     return (

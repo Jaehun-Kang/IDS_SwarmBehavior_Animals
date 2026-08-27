@@ -107,10 +107,10 @@
   opacity: 1;
   pointer-events: auto;
   transform-origin: right bottom;
-  transform: translate(0, 0) scale(0.12);
+  transform: translate(0, 0) scale(0.24);
 }
 .detail-container.detail-container--launching .detail-book-stage:hover, .detail-container.detail-container--returning .detail-book-stage:hover, .detail-container.detail-container--closed .detail-book-stage:hover {
-  transform: translateY(-0.35rem) scale(0.12);
+  transform: translateY(-0.35rem) scale(0.24);
 }
 .detail-container.detail-container--launching .detail-book-spread, .detail-container.detail-container--returning .detail-book-spread, .detail-container.detail-container--closed .detail-book-spread {
   pointer-events: auto;
@@ -410,7 +410,7 @@
   box-shadow: none;
 }
 .detail-book-spread.is-open::after {
-  opacity: 1;
+  opacity: 0;
 }
 
 .no-rules {
@@ -497,9 +497,9 @@
 }
 
 .detail-book-page--cover {
-  color: rgb(244, 232, 200);
-  background-color: rgb(88, 43, 22);
-  background-image: var(--detail-leather-texture);
+  color: rgba(23, 22, 27, 0.86);
+  background-color: rgb(255, 252, 243);
+  background-image: var(--detail-cover-texture);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -517,11 +517,25 @@
 .detail-book-page--cover .detail-intro-description {
   opacity: 0.78;
 }
+.detail-book-page--cover .detail-page-kicker {
+  font-family: var(--theme-title-font);
+  font-size: 5rem;
+  font-weight: 700;
+  line-height: 100%;
+  letter-spacing: 0;
+}
+.detail-book-page--cover .theme-page-title {
+  margin-right: 0.25rem;
+  font-family: var(--theme-title-font);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 100%;
+}
 .detail-book-page--cover .detail-page-kicker,
 .detail-book-page--cover .theme-page-title,
 .detail-book-page--cover .detail-english,
 .detail-book-page--cover .detail-scientific {
-  text-shadow: 0 0.0625rem 0.25rem rgba(0, 0, 0, 0.32);
+  text-shadow: none;
 }
 .detail-book-page--cover .detail-header-artwork__image {
   filter: sepia(0.08) saturate(0.95) drop-shadow(0 0.25rem 0.5rem rgba(0, 0, 0, 0.22));
@@ -612,6 +626,18 @@
   flex-direction: column;
   justify-content: center;
   gap: 0.875rem;
+}
+
+.detail-book-page--cover .detail-page-inner--cover {
+  justify-content: flex-start;
+  align-items: flex-end;
+  padding: clamp(2.25rem, 4vw, 4.75rem) clamp(2rem, 3.5vw, 4.25rem);
+  text-align: right;
+}
+
+.detail-book-page--cover .detail-intro-copy {
+  align-items: flex-end;
+  text-align: right;
 }
 
 .detail-simulation-heading {

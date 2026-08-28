@@ -12,12 +12,14 @@ import darkYellowStickyNoteTextureUrl from "../assets/texture/dark-yellow-sticky
 import grassPaperTextureUrl from "../assets/texture/grass-paper-texture-seamless.webp";
 import greenStickyNoteTextureUrl from "../assets/texture/green-sticky-note-texture-seamless.webp";
 import lightYellowStickyNoteTextureUrl from "../assets/texture/light-yellow-sticky-note-texture-seamless.webp";
+import oceanSandDarkPaperTextureUrl from "../assets/texture/ocean-sand-dark-paper-texture-seamless.webp";
 import oceanSandPaperTextureUrl from "../assets/texture/ocean-sand-paper-texture-seamless.webp";
 import sandPaperTextureUrl from "../assets/texture/sand-paper-texture-seamless.webp";
 import seaPaperTextureUrl from "../assets/texture/sea-paper-texture-seamless.webp";
 import skyPaperTextureUrl from "../assets/texture/sky-paper-texture-seamless.webp";
 import snowPaperTextureUrl from "../assets/texture/snow-paper-texture-seamless.webp";
 import soilPaperTextureUrl from "../assets/texture/soil-paper-texture-seamless.webp";
+import tealStickyNoteTextureUrl from "../assets/texture/teal-sticky-note-texture-seamless.webp";
 import whiteStickyNoteTextureUrl from "../assets/texture/white-sticky-note-texture-seamless.webp";
 import yellowStickyNoteTextureUrl from "../assets/texture/yellow-sticky-note-texture-seamless.webp";
 
@@ -180,6 +182,8 @@ const CANVAS_POINTER_BLOCK_SELECTOR = [
 ].join(", ");
 
 const CONTROL_RESET_LERP_DURATION_MS = 320;
+const SPINY_LOBSTER_HOUR_AUTO_ADVANCE_MS = 2000;
+const SPINY_LOBSTER_HOUR_MANUAL_HOLD_MS = 2000;
 
 const FIREFLY_SIM_THEME = {
   "--theme-bg": "oklch(0.14 0.015 91.51)",
@@ -212,6 +216,23 @@ const mix = (from, to, ratio) => from + (to - from) * ratio;
 const smoothstep = (edge0, edge1, value) => {
   const ratio = clamp01((value - edge0) / (edge1 - edge0));
   return ratio * ratio * (3 - 2 * ratio);
+};
+
+const getNightProgressFromHour = (hour) => {
+  const normalizedHour = ((Number(hour) % 24) + 24) % 24;
+  if (!Number.isFinite(normalizedHour)) {
+    return 0;
+  }
+
+  if (normalizedHour >= 18) {
+    return smoothstep(18, 20, normalizedHour);
+  }
+
+  if (normalizedHour <= 7) {
+    return 1 - smoothstep(5, 7, normalizedHour);
+  }
+
+  return 0;
 };
 
 const mixRgb = (from, to, ratio, alpha = null) => {
@@ -340,6 +361,7 @@ function SwarmCanvas({
   const lastControlSnapshotRef = React.useRef(null);
   const controlSnapshotFrameRef = React.useRef(null);
   const pendingControlSnapshotRef = React.useRef(null);
+  const lastSpinyLobsterHourInteractionAtRef = React.useRef(0);
 
   const loadSwarmModule = React.useCallback(
     async (attempt = 0) => {
@@ -561,14 +583,31 @@ function SwarmCanvas({
 
   const notifyControlSnapshot = React.useCallback(
     (nextControls) => {
-      if (!onControlSnapshot || animalId !== "bat") {
+      if (!onControlSnapshot) {
         return;
       }
 
-      const nextLightIntensityLux = Number(nextControls?.LIGHT_INTENSITY_LUX);
-      const snapshotValue = Number.isFinite(nextLightIntensityLux)
-        ? nextLightIntensityLux
-        : null;
+      const snapshotValue = (() => {
+        if (animalId === "bat") {
+          const nextLightIntensityLux = Number(
+            nextControls?.LIGHT_INTENSITY_LUX,
+          );
+          return Number.isFinite(nextLightIntensityLux)
+            ? nextLightIntensityLux
+            : null;
+        }
+
+        if (animalId === "spiny_lobster") {
+          const nextStartHour = Number(nextControls?.START_HOUR);
+          return Number.isFinite(nextStartHour) ? nextStartHour : null;
+        }
+
+        return null;
+      })();
+
+      if (snapshotValue === null) {
+        return;
+      }
 
       if (Object.is(lastControlSnapshotRef.current, snapshotValue)) {
         return;
@@ -590,19 +629,70 @@ function SwarmCanvas({
         }
 
         lastControlSnapshotRef.current = pendingValue;
-        onControlSnapshot({ lightIntensityLux: pendingValue });
+        onControlSnapshot(
+          animalId === "bat"
+            ? { lightIntensityLux: pendingValue }
+            : { startHour: pendingValue },
+        );
       });
     },
     [animalId, onControlSnapshot],
   );
 
   React.useEffect(() => {
-    if (animalId !== "bat" || !resolvedControls) {
+    if (
+      (animalId !== "bat" && animalId !== "spiny_lobster") ||
+      !resolvedControls
+    ) {
       return;
     }
 
     notifyControlSnapshot(resolvedControls);
   }, [animalId, notifyControlSnapshot, resolvedControls]);
+
+  React.useEffect(() => {
+    if (animalId !== "spiny_lobster" || !controls || isPaused) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      const now = window.performance.now();
+      if (
+        now - lastSpinyLobsterHourInteractionAtRef.current <
+        SPINY_LOBSTER_HOUR_MANUAL_HOLD_MS
+      ) {
+        return;
+      }
+
+      if (resetAnimationFrameRef.current) {
+        return;
+      }
+
+      setControls((current) => {
+        if (!current) {
+          return current;
+        }
+
+        const currentHour = Number(current.START_HOUR);
+        const nextHour =
+          ((Number.isFinite(currentHour) ? Math.round(currentHour) : 0) + 1) %
+          24;
+        const nextControls = {
+          ...current,
+          START_HOUR: nextHour,
+        };
+        const sanitizedControls = sanitizeControls
+          ? sanitizeControls(nextControls)
+          : nextControls;
+
+        return shallowEqualObject(current, sanitizedControls)
+          ? current
+          : sanitizedControls;
+      });
+    }, SPINY_LOBSTER_HOUR_AUTO_ADVANCE_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [animalId, Boolean(controls), isPaused, sanitizeControls]);
 
   if (isLoading) {
     return (
@@ -646,7 +736,15 @@ function SwarmCanvas({
           ? Number(rawValue)
           : rawValue;
 
-    if (animalId === "bat" && key === "LIGHT_INTENSITY_LUX") {
+    const shouldPreviewControl =
+      (animalId === "bat" && key === "LIGHT_INTENSITY_LUX") ||
+      (animalId === "spiny_lobster" && key === "START_HOUR");
+
+    if (animalId === "spiny_lobster" && key === "START_HOUR") {
+      lastSpinyLobsterHourInteractionAtRef.current = window.performance.now();
+    }
+
+    if (shouldPreviewControl) {
       const nextPreviewControls = {
         ...(resolvedControls ?? controls ?? {}),
         [key]: nextValue,
@@ -703,6 +801,10 @@ function SwarmCanvas({
       return;
     }
 
+    if (animalId === "spiny_lobster" && key === "START_HOUR") {
+      lastSpinyLobsterHourInteractionAtRef.current = window.performance.now();
+    }
+
     const startedAt = window.performance.now();
     const animateReset = (now) => {
       const progress = Math.min(
@@ -715,7 +817,11 @@ function SwarmCanvas({
           ? targetValue
           : fromValue + (targetValue - fromValue) * easedProgress;
 
-      if (animalId === "bat" && key === "LIGHT_INTENSITY_LUX") {
+      const shouldPreviewControl =
+        (animalId === "bat" && key === "LIGHT_INTENSITY_LUX") ||
+        (animalId === "spiny_lobster" && key === "START_HOUR");
+
+      if (shouldPreviewControl) {
         const nextPreviewControls = {
           ...(resolvedControls ?? controls ?? {}),
           [key]: nextValue,
@@ -987,10 +1093,13 @@ function Sim(props) {
   } = props;
   const [batLightIntensityLux, setBatLightIntensityLux] =
     React.useState(null);
+  const [spinyLobsterStartHour, setSpinyLobsterStartHour] =
+    React.useState(null);
   const animalLabel = selectedAnimal ? animalNames[selectedAnimal] : "";
   const textureUrl = selectedAnimal ? SIM_TEXTURES[selectedAnimal] : null;
   const stickyNote = selectedAnimal ? SIM_STICKY_NOTES[selectedAnimal] : null;
   const isBat = selectedAnimal === "bat";
+  const isSpinyLobster = selectedAnimal === "spiny_lobster";
   const batLightProgress = isBat
     ? clamp01(((batLightIntensityLux ?? 1.4) - 1.4) / (400 - 1.4))
     : 0;
@@ -1054,6 +1163,69 @@ function Sim(props) {
             : FIREFLY_SIM_THEME["--sim-control-reset-filter"],
       }
     : null;
+  const spinyNightProgress = isSpinyLobster
+    ? getNightProgressFromHour(spinyLobsterStartHour ?? 20)
+    : 0;
+  const spinyDayProgress = 1 - spinyNightProgress;
+  const spinyTextLightProgress = smoothstep(0.68, 0.94, spinyNightProgress);
+  const spinyLobsterStyle = isSpinyLobster
+    ? {
+        "--sim-bright-sticky-texture": `url(${lightYellowStickyNoteTextureUrl})`,
+        "--sim-night-sticky-opacity": String(spinyNightProgress.toFixed(3)),
+        "--sim-sticky-texture": `url(${tealStickyNoteTextureUrl})`,
+        "--sim-sticky-text": mixRgb(
+          [62, 42, 11],
+          [232, 255, 241],
+          spinyTextLightProgress,
+          (0.94 + spinyTextLightProgress * 0.04).toFixed(3),
+        ),
+        "--sim-sticky-muted": mixRgb(
+          [86, 61, 21],
+          [204, 231, 216],
+          spinyTextLightProgress,
+          (0.74 + spinyTextLightProgress * 0.06).toFixed(3),
+        ),
+        "--sim-sticky-strong": mixRgb(
+          [48, 31, 7],
+          [244, 255, 248],
+          spinyTextLightProgress,
+        ),
+        "--sim-control-dim": mixRgb(
+          [255, 247, 214],
+          [0, 0, 0],
+          spinyDayProgress,
+          (0.14 - spinyDayProgress * 0.065).toFixed(3),
+        ),
+        "--sim-control-dim-soft": mixRgb(
+          [255, 247, 214],
+          [0, 0, 0],
+          spinyDayProgress,
+          (0.1 - spinyDayProgress * 0.045).toFixed(3),
+        ),
+        "--sim-control-dim-active": mixRgb(
+          [255, 247, 214],
+          [0, 0, 0],
+          spinyDayProgress,
+          (0.2 - spinyDayProgress * 0.1).toFixed(3),
+        ),
+        "--sim-control-reset-filter":
+          spinyTextLightProgress > 0.5
+            ? FIREFLY_SIM_THEME["--sim-control-reset-filter"]
+            : "brightness(0) saturate(100%) opacity(0.92)",
+      }
+    : null;
+  const spinyLobsterBackgroundOverlayStyle = isSpinyLobster
+    ? {
+        position: "absolute",
+        inset: 0,
+        zIndex: 0,
+        pointerEvents: "none",
+        background: `url(${oceanSandDarkPaperTextureUrl}), linear-gradient(135deg, rgb(40 76 73), rgb(60 107 101))`,
+        backgroundSize: "544px 544px, 100% 100%",
+        opacity: String((spinyNightProgress * 0.58).toFixed(3)),
+        transition: "opacity 180ms linear",
+      }
+    : null;
   const simTextureStyle = textureUrl
     ? {
         "--sim-paper-texture": `url(${textureUrl})`,
@@ -1078,8 +1250,9 @@ function Sim(props) {
           ...simTextureStyle,
           ...stickyNoteStyle,
           ...batBrightnessStyle,
+          ...spinyLobsterStyle,
         }
-      : { ...simTextureStyle, ...stickyNoteStyle };
+      : { ...simTextureStyle, ...stickyNoteStyle, ...spinyLobsterStyle };
   const simClassName = [
     "sim",
     usesDarkControlTheme ? "sim--firefly" : "",
@@ -1090,24 +1263,31 @@ function Sim(props) {
 
   const handleControlSnapshot = React.useCallback(
     (snapshot) => {
-      if (!isBat) {
-        return;
+      if (isBat) {
+        setBatLightIntensityLux((current) =>
+          Object.is(current, snapshot.lightIntensityLux)
+            ? current
+            : snapshot.lightIntensityLux,
+        );
       }
 
-      setBatLightIntensityLux((current) =>
-        Object.is(current, snapshot.lightIntensityLux)
-          ? current
-          : snapshot.lightIntensityLux,
-      );
+      if (isSpinyLobster) {
+        setSpinyLobsterStartHour((current) =>
+          Object.is(current, snapshot.startHour) ? current : snapshot.startHour,
+        );
+      }
     },
-    [isBat],
+    [isBat, isSpinyLobster],
   );
 
   React.useEffect(() => {
     if (!isBat) {
       setBatLightIntensityLux(null);
     }
-  }, [isBat]);
+    if (!isSpinyLobster) {
+      setSpinyLobsterStartHour(null);
+    }
+  }, [isBat, isSpinyLobster]);
 
   React.useEffect(() => {
     if (PRELOAD_TEXTURE_URLS.length === 0) {
@@ -1183,6 +1363,12 @@ function Sim(props) {
 
   return (
     <div className={simClassName} style={simStyle}>
+      {spinyLobsterBackgroundOverlayStyle ? (
+        <div
+          aria-hidden="true"
+          style={spinyLobsterBackgroundOverlayStyle}
+        />
+      ) : null}
       {selectedAnimal && (
         <SwarmCanvas
           key={selectedAnimal}
@@ -1192,7 +1378,9 @@ function Sim(props) {
           onDetailClick={onDetailClick}
           onAnimalSelect={onAnimalSelect}
           isPaused={isPaused}
-          onControlSnapshot={isBat ? handleControlSnapshot : undefined}
+          onControlSnapshot={
+            isBat || isSpinyLobster ? handleControlSnapshot : undefined
+          }
         />
       )}
     </div>

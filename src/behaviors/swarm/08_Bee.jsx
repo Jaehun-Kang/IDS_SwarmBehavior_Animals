@@ -2348,7 +2348,6 @@ const updateSurfaceWandering = (
   env,
   target,
   dt,
-  occupiedSlotIds,
 ) => {
   clearFlowerCollectionState(agent);
   agent.isAnchored = false;
@@ -3772,7 +3771,6 @@ const updateAgents = (agents, env, controls, dt) => {
             y: agent.surfaceTargetY,
           },
           dt,
-          occupiedSlotIds,
         );
       } else if (agent.activityState === ACTIVITY_STATES.FORAGING) {
         return;
@@ -3810,7 +3808,6 @@ const updateAgents = (agents, env, controls, dt) => {
           y: agent.surfaceTargetY,
         },
         dt,
-        occupiedSlotIds,
       );
       return;
     }

@@ -813,9 +813,6 @@ const createWorld = (width, height, controls) => {
   return world;
 };
 
-const rebuildWorld = (world, controls) =>
-  createWorld(world.width, world.height, controls);
-
 const resizeWorld = (world, width, height, controls) => {
   if (!world || (world.width === width && world.height === height)) {
     return world;
@@ -1516,37 +1513,6 @@ const selectFoodResponderAnts = (world, patch, count, excluded = new Set()) =>
         scoreFoodResponderCandidate(left, world, patch),
     )
     .slice(0, count);
-
-const seedFoodRecruitmentMarkers = (world, ant, patch, patchIndex) => {
-  const toFood = normalize(
-    subtract(patch.position, ant.position),
-    angleToVector(ant.heading),
-  );
-  const markerStepPx = world.metrics.bodyLengthsToPx(
-    FOOD_PLACEMENT_MARKER_STEP_BODY_LENGTHS,
-  );
-
-  for (let index = 0; index < FOOD_PLACEMENT_MARKER_COUNT; index += 1) {
-    addRecruitmentMarkerAt(
-      world,
-      add(ant.position, scale(toFood, markerStepPx * index)),
-      toFood,
-      patch,
-      patchIndex,
-      FOOD_PLACEMENT_MARKER_STRENGTH * (1 - index * 0.055),
-    );
-  }
-
-  depositField(
-    world.recruitmentField,
-    ant.position.x,
-    ant.position.y,
-    FOOD_PLACEMENT_RECRUITMENT_FIELD_AMOUNT,
-    world.metrics.bodyLengthsToPx(
-      FOOD_PLACEMENT_RECRUITMENT_FIELD_RADIUS_BODY_LENGTHS,
-    ),
-  );
-};
 
 const activateFoodResponder = (ant, world, patch, patchIndex, controls) => {
   const toFood = normalize(
@@ -2953,74 +2919,6 @@ const resolveMillAnchor = (ant, ants, world) => {
   };
 };
 
-const shouldEnterMill = (
-  ant,
-  ants,
-  world,
-  controls,
-  localCrowding,
-  localConcentrationRatio,
-  localRecruitmentRatio,
-  localGradientRatio,
-  markerSignal,
-) => {
-  if (
-    !controls.ENABLE_MILL ||
-    world.millBias <= 0 ||
-    ant.state === "mill" ||
-    ant.role !== "outbound" ||
-    ant.foodLinkedRecruitment
-  ) {
-    return false;
-  }
-
-  const outsideBivouac =
-    distance(ant.position, world.trail.colony) >
-    Math.max(
-      world.trail.bivouacRadiusPx * 2.8,
-      world.metrics.bodyLengthsToPx(MILL_MIN_COLONY_DISTANCE_BODY_LENGTHS),
-    );
-  if (
-    !outsideBivouac ||
-    localCrowding <
-      Math.max(
-        0.35,
-        MILL_CONFUSION_DENSITY - world.millBias * MILL_BIAS_CROWDING_RELAX,
-      ) ||
-    ant.separatedTime <
-      Math.max(
-        0.08,
-        MILL_CONFUSION_SECONDS - world.millBias * MILL_BIAS_SEPARATION_RELAX_S,
-      )
-  ) {
-    return false;
-  }
-
-  const lowGradientMillZone = localGradientRatio <= MILL_LOW_GRADIENT_RATIO;
-  ant.lastRcN = computePathReinforcementIndex(ant, ants, world);
-  const activeFoodTrailZone =
-    localRecruitmentRatio >= MILL_RECRUITMENT_ACTIVE_RATIO ||
-    markerSignal >=
-      RECRUITMENT_MARKER_RESPONSE_THRESHOLD * MILL_MARKER_ACTIVE_RATIO;
-
-  if (!lowGradientMillZone || !activeFoodTrailZone) {
-    return false;
-  }
-
-  const effectiveRcN =
-    ant.lastRcN +
-    Math.min(localCrowding, 4) * MILL_CROWDING_RC_BONUS +
-    (localRecruitmentRatio >= MILL_RECRUITMENT_ACTIVE_RATIO
-      ? MILL_TRAIL_RC_BONUS
-      : 0) +
-    (markerSignal >=
-    RECRUITMENT_MARKER_RESPONSE_THRESHOLD * MILL_MARKER_ACTIVE_RATIO
-      ? MILL_MARKER_RC_BONUS
-      : 0) +
-    world.millBias * MILL_BIAS_RC_BONUS;
-  return effectiveRcN >= controls.RC_N_THRESHOLD;
-};
-
 const shouldExitMill = (ant, ants, world, controls, localCrowding, dt) => {
   if (ant.state !== "mill") {
     return false;
@@ -3593,12 +3491,6 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
   const localRecruitmentRatio = clamp(
     sampleField(world.recruitmentField, ant.position.x, ant.position.y) /
       Math.max(world.recruitmentField.saturationConcentration, 1e-3),
-    0,
-    1,
-  );
-  const localGradientRatio = clamp(
-    Math.abs(sensors.right - sensors.left) /
-      Math.max(world.field.saturationConcentration, 1e-3),
     0,
     1,
   );

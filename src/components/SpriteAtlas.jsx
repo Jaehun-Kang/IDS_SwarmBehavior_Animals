@@ -3,6 +3,7 @@ import {
   resolveAtlasGrid,
   getAtlasFrameStyle,
   resolveAtlasAspectRatio,
+  resolveAtlasFrameSize,
   resolveStageFrameSequence,
 } from "../utils/spriteAtlas";
 
@@ -149,6 +150,8 @@ function SpriteAtlas({
   };
 
   const grid = resolveAtlasGrid(atlas, imageSize);
+  const frameSize = resolveAtlasFrameSize(atlas, imageSize);
+  const resolvedImageSize = atlas?.imageSize || imageSize;
   const imageStyle = {
     position: "absolute",
     left: `${-activeFrame.x * 100}%`,
@@ -160,6 +163,22 @@ function SpriteAtlas({
     userSelect: "none",
     pointerEvents: "none",
   };
+  const svgFrameStyle = {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    display: "block",
+    overflow: "hidden",
+    userSelect: "none",
+    pointerEvents: "none",
+  };
+  const canRenderSvgFrame =
+    resolvedImageSize?.width &&
+    resolvedImageSize?.height &&
+    frameSize?.width &&
+    frameSize?.height;
 
   return (
     <div
@@ -174,7 +193,25 @@ function SpriteAtlas({
           : outerStyle
       }
     >
-      {renderMode === "image" ? (
+      {renderMode === "image" && canRenderSvgFrame ? (
+        <svg
+          aria-hidden="true"
+          viewBox={`${activeFrame.x * frameSize.width} ${
+            activeFrame.y * frameSize.height
+          } ${frameSize.width} ${frameSize.height}`}
+          preserveAspectRatio="none"
+          draggable="false"
+          style={svgFrameStyle}
+        >
+          <image
+            href={atlas.src}
+            x="0"
+            y="0"
+            width={resolvedImageSize.width}
+            height={resolvedImageSize.height}
+          />
+        </svg>
+      ) : renderMode === "image" ? (
         <img
           aria-hidden="true"
           alt=""

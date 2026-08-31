@@ -132,8 +132,8 @@ const PARAMS = {
   WANDER_PULL_WEIGHT: 0.58,
   BOUNDARY_MARGIN_PX: 34,
   BOUNDARY_STEER_WEIGHT: 1.8,
-  QUEUE_DOCKING_ENTRY_MARGIN_PX: 96,
-  QUEUE_DOCKING_SPAWN_STEP_PX: 72,
+  QUEUE_DOCKING_ENTRY_MARGIN_PX: 24,
+  QUEUE_DOCKING_SPAWN_STEP_PX: 24,
   OFFSHORE_EXIT_REMOVE_MARGIN_PX: 128,
   OFFSHORE_EXIT_FADE_MARGIN_PX: 150,
   OFFSHORE_EXIT_SPEED_SCALE: 0.86,
@@ -276,14 +276,6 @@ const getInitialMigrationRoute = (width, height) => {
     y: -0.18,
   });
   return { start, end, direction, waypoints };
-};
-
-const getMigrationTarget = (side, width, height) => {
-  const route = getInitialMigrationRoute(width, height);
-  if (Number.isFinite(side)) {
-    return route.waypoints[side % route.waypoints.length];
-  }
-  return side === "start" ? route.start : route.end;
 };
 
 const ensureMigrationTarget = (agent, width, height) => {
@@ -582,15 +574,6 @@ const createAgents = (count, width, height, behavior, shelters, algaeCovers) =>
     }),
   );
 
-const findNearestShelter = (agent, shelters) =>
-  shelters.reduce((best, shelter) => {
-    const distance = magnitude(shelter.x - agent.x, shelter.y - agent.y);
-    if (!best || distance < best.distance) {
-      return { shelter, distance };
-    }
-    return best;
-  }, null)?.shelter || shelters[0];
-
 const resolveOffshoreExitTarget = (agent, width, height) => {
   const reef = getMainReefAnchor(width, height);
   const fallbackAngle =
@@ -676,6 +659,25 @@ const markAgentForOffshoreExit = (agent, width, height) => {
   updateEdgeFade(agent, width, height);
 };
 
+const markAgentForQueueReentry = (agent, width, height, behavior, queueOrder) => {
+  const route = getInitialMigrationRoute(width, height);
+  agent.isRetiring = false;
+  agent.isJoiningQueue = true;
+  agent.inQueue = false;
+  agent.queueLeaderId = null;
+  agent.queueFollowerId = null;
+  agent.queueLength = 1;
+  agent.queueOrder = queueOrder;
+  agent.currentShelterId = null;
+  agent.offshoreExitTargetX = null;
+  agent.offshoreExitTargetY = null;
+  agent.state = STATES.MIGRATING;
+  agent.heading = Math.atan2(route.direction.y, route.direction.x);
+  agent.vx = route.direction.x * behavior.baseSpeedCmS;
+  agent.vy = route.direction.y * behavior.baseSpeedCmS;
+  updateEdgeFade(agent, width, height);
+};
+
 const isQueueExitCandidate = (agent) =>
   agent.isJoiningQueue || agent.inQueue || agent.state === STATES.MIGRATING;
 
@@ -737,8 +739,8 @@ const createQueueDockingAgent = (
   );
   const spawnDistance =
     outsideDistance +
-    PARAMS.QUEUE_DOCKING_ENTRY_MARGIN_PX +
-    groupIndex * spacing * 0.92;
+    PARAMS.QUEUE_DOCKING_ENTRY_MARGIN_PX * 0.6 +
+    groupIndex * spacing * 0.78;
   const lateralOffset =
     Math.sin((id + groupIndex) * 1.731) * PARAMS.QUEUE_TRAIL_WIDTH_CM * 0.16;
 
@@ -770,8 +772,8 @@ const reconcileAgents = (
   shelters,
   algaeCovers,
 ) => {
-  const activeAgents = agents.filter((agent) => !agent.isRetiring);
-  const managedAgents = agents.filter(
+  let activeAgents = agents.filter((agent) => !agent.isRetiring);
+  let managedAgents = agents.filter(
     (agent) => !isAgentOffscreen(agent, width, height),
   );
 
@@ -785,6 +787,34 @@ const reconcileAgents = (
 
   if (activeAgents.length === count || managedAgents.length >= count) {
     return agents;
+  }
+
+  const reentryCandidates = agents
+    .filter(
+      (agent) =>
+        agent.isRetiring &&
+        !isAgentOffscreen(agent, width, height, PARAMS.OFFSHORE_EXIT_REMOVE_MARGIN_PX * 0.5),
+    )
+    .sort((a, b) => getEdgeDistance(b, width, height) - getEdgeDistance(a, width, height));
+  const reentryCount = Math.min(count - activeAgents.length, reentryCandidates.length);
+  for (let index = 0; index < reentryCount; index += 1) {
+    markAgentForQueueReentry(
+      reentryCandidates[index],
+      width,
+      height,
+      behavior,
+      activeAgents.length + index,
+    );
+  }
+
+  if (reentryCount > 0) {
+    activeAgents = agents.filter((agent) => !agent.isRetiring);
+    managedAgents = agents.filter(
+      (agent) => !isAgentOffscreen(agent, width, height),
+    );
+    if (activeAgents.length === count || managedAgents.length >= count) {
+      return agents;
+    }
   }
 
   const nextAgents = [...agents];
@@ -2105,7 +2135,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     };
 
     const render = (timestamp) => {
-      const currentBehavior = behaviorRef.current || behavior;
+      const currentBehavior = behaviorRef.current;
       const currentIsPaused = isPausedRef.current;
       const now = timestamp * 0.001;
       const dt = lastTimeRef.current

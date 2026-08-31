@@ -13,7 +13,7 @@
 }
 
 .home {
-  --home-paper-texture: url("../assets/texture/white-paper-texture-seamless.webp");
+  --home-paper-texture: url("../assets/texture/paper/white-paper-texture-seamless.webp");
   position: relative;
   overflow: hidden;
   margin-inline: auto;
@@ -103,7 +103,7 @@
 .home .creature[data-species-id=starling] .sprite_starling {
   width: 100%;
   height: 100%;
-  background: url("../assets/starling_1.svg") 0 center no-repeat;
+  background: url("../assets/sprite-sheets/starling_1.svg") 0 center no-repeat;
   background-size: 600% 100%;
 }
 .home .creature[data-species-id=starling] .sprite_starling.starling_fly1 {
@@ -145,7 +145,7 @@
 .home .creature[data-species-id=sardine] .sprite_sardine {
   width: 100%;
   height: 100%;
-  background: url("../assets/sardine_1.svg") 0 center no-repeat;
+  background: url("../assets/sprite-sheets/sardine_1.svg") 0 center no-repeat;
   background-size: 300% 100%;
 }
 .home .creature[data-species-id=sardine] .sprite_sardine.sardine_swim1 {
@@ -165,7 +165,7 @@
 .home .creature[data-species-id=grasshopper] .sprite_grasshopper {
   width: 100%;
   height: 100%;
-  background: url("../assets/grasshopper_1.svg") 0 center no-repeat;
+  background: url("../assets/sprite-sheets/grasshopper_1.svg") 0 center no-repeat;
   background-size: 500% 100%;
 }
 .home .creature[data-species-id=grasshopper] .sprite_grasshopper.grasshopper_idle {
@@ -196,7 +196,7 @@
 .home .creature[data-species-id=ant] .sprite_ant {
   width: 100%;
   height: 100%;
-  background: url("../assets/ant_1.svg") 0 center no-repeat;
+  background: url("../assets/sprite-sheets/ant_1.svg") 0 center no-repeat;
   background-size: 300% 100%;
 }
 .home .creature[data-species-id=ant] .sprite_ant.ant_walk {
@@ -216,7 +216,7 @@
 .home .creature[data-species-id=bat] .sprite_bat {
   width: 100%;
   height: 100%;
-  background: url("../assets/bat_1.svg") 0 center no-repeat;
+  background: url("../assets/sprite-sheets/bat_1.svg") 0 center no-repeat;
   background-size: 400% 100%;
 }
 .home .creature[data-species-id=bat] .sprite_bat.bat_fly1 {
@@ -252,7 +252,7 @@
 .home .creature[data-species-id=sheep] .sprite_sheep {
   width: 100%;
   height: 100%;
-  background: url("../assets/sheep_1.svg") 0 center no-repeat;
+  background: url("../assets/sprite-sheets/sheep_1.svg") 0 center no-repeat;
   background-size: 300% 100%;
 }
 .home .creature[data-species-id=sheep] .sprite_sheep.sheep_walk {
@@ -272,7 +272,7 @@
 .home .creature[data-species-id=penguin] .sprite_penguin {
   width: 100%;
   height: 100%;
-  background: url("../assets/penguin_1.svg") 0 center no-repeat;
+  background: url("../assets/sprite-sheets/penguin_1.svg") 0 center no-repeat;
   background-size: 300% 100%;
 }
 .home .creature[data-species-id=penguin] .sprite_penguin.penguin_walk {
@@ -292,7 +292,7 @@
 .home .creature[data-species-id=bee] .sprite_bee {
   width: 100%;
   height: 100%;
-  background: url("../assets/bee_1.svg") 0 center no-repeat;
+  background: url("../assets/sprite-sheets/bee_1.svg") 0 center no-repeat;
   background-size: 600% 100%;
 }
 .home .creature[data-species-id=bee] .sprite_bee.bee_fly {
@@ -325,7 +325,7 @@
 .home .creature[data-species-id=firefly] .sprite_firefly {
   width: 100%;
   height: 100%;
-  background: url("../assets/firefly_1.svg") 0 0 no-repeat;
+  background: url("../assets/sprite-sheets/firefly_1.svg") 0 0 no-repeat;
   background-size: 600% 200%;
 }
 .home .creature[data-species-id=firefly] .sprite_firefly.firefly_glow {
@@ -380,7 +380,7 @@
 .home .creature[data-species-id=spiny_lobster] .sprite_spiny_lobster {
   width: 100%;
   height: 100%;
-  background: url("../assets/spinylobster_1.svg") 0 center no-repeat;
+  background: url("../assets/sprite-sheets/spinylobster_1.svg") 0 center no-repeat;
   background-size: 400% 100%;
 }
 .home .creature[data-species-id=spiny_lobster] .sprite_spiny_lobster.lobster_swim {
@@ -413,7 +413,7 @@
 .home .creature[data-species-id=krill] .sprite_krill {
   width: 100%;
   height: 100%;
-  background: url("../assets/krill_1.svg") 0 center no-repeat;
+  background: url("../assets/sprite-sheets/krill_1.svg") 0 center no-repeat;
   background-size: 200% 100%;
 }
 .home .creature[data-species-id=krill] .sprite_krill.krill_swim {

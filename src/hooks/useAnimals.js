@@ -280,7 +280,7 @@ export function useAnimals(
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [animalsLoaded, homeRef]);
+  }, [animalsLoaded, homeRef, obstacleBoxRef]);
 
   // 동물 위치 복원
   useEffect(() => {

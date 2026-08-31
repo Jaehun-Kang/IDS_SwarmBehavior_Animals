@@ -1,0 +1,20 @@
+<svg
+  width="36"
+  height="36"
+  viewBox="0 0 36 36"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <path
+    d="M13.5 7.5L24 18L13.5 28.5"
+    stroke="#C1C5C9"
+    style="
+      stroke: #c1c5c9;
+      stroke: color(display-p3 0.7569 0.7725 0.7882);
+      stroke-opacity: 1;
+    "
+    stroke-width="3.6"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

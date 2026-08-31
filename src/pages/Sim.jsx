@@ -1,29 +1,29 @@
 import React from "react";
-import "../styles/Sim.css";
+import "../styles/Sim.scss";
 import { animals } from "../behaviors/animalData";
 import SpriteAtlas from "../components/SpriteAtlas.jsx";
 import { HOME_SPRITE_ATLASES } from "../data/spriteAtlases";
 import refreshIconUrl from "../assets/icons/refresh.svg";
-import blackPaperTextureUrl from "../assets/texture/black-paper-texture-seamless.webp";
-import blackStickyNoteTextureUrl from "../assets/texture/black-sticky-note-texture-seamless.webp";
-import blueStickyNoteTextureUrl from "../assets/texture/blue-sticky-note-texture-seamless.webp";
-import darkBlueStickyNoteTextureUrl from "../assets/texture/dark-blue-sticky-note-texture-seamless.webp";
-import darkYellowStickyNoteTextureUrl from "../assets/texture/dark-yellow-sticky-note-texture-seamless.webp";
-import grassPaperTextureUrl from "../assets/texture/grass-paper-texture-seamless.webp";
-import greenStickyNoteTextureUrl from "../assets/texture/green-sticky-note-texture-seamless.webp";
-import lightYellowStickyNoteTextureUrl from "../assets/texture/light-yellow-sticky-note-texture-seamless.webp";
-import oceanSandDarkPaperTextureUrl from "../assets/texture/ocean-sand-dark-paper-texture-seamless.webp";
-import oceanSandPaperTextureUrl from "../assets/texture/ocean-sand-paper-texture-seamless.webp";
-import sandPaperTextureUrl from "../assets/texture/sand-paper-texture-seamless.webp";
-import seaPaperTextureUrl from "../assets/texture/sea-paper-texture-seamless.webp";
-import skyPaperTextureUrl from "../assets/texture/sky-paper-texture-seamless.webp";
-import snowPaperTextureUrl from "../assets/texture/snow-paper-texture-seamless.webp";
-import soilPaperTextureUrl from "../assets/texture/soil-paper-texture-seamless.webp";
-import tealStickyNoteTextureUrl from "../assets/texture/teal-sticky-note-texture-seamless.webp";
-import whiteStickyNoteTextureUrl from "../assets/texture/white-sticky-note-texture-seamless.webp";
-import yellowStickyNoteTextureUrl from "../assets/texture/yellow-sticky-note-texture-seamless.webp";
+import blackPaperTextureUrl from "../assets/texture/paper/black-paper-texture-seamless.webp";
+import grassPaperTextureUrl from "../assets/texture/paper/grass-paper-texture-seamless.webp";
+import oceanSandDarkPaperTextureUrl from "../assets/texture/paper/ocean-sand-dark-paper-texture-seamless.webp";
+import oceanSandPaperTextureUrl from "../assets/texture/paper/ocean-sand-paper-texture-seamless.webp";
+import sandPaperTextureUrl from "../assets/texture/paper/sand-paper-texture-seamless.webp";
+import seaPaperTextureUrl from "../assets/texture/paper/sea-paper-texture-seamless.webp";
+import skyPaperTextureUrl from "../assets/texture/paper/sky-paper-texture-seamless.webp";
+import snowPaperTextureUrl from "../assets/texture/paper/snow-paper-texture-seamless.webp";
+import soilPaperTextureUrl from "../assets/texture/paper/soil-paper-texture-seamless.webp";
+import blackStickyNoteTextureUrl from "../assets/texture/sticky-note/black-sticky-note-texture-seamless.webp";
+import blueStickyNoteTextureUrl from "../assets/texture/sticky-note/blue-sticky-note-texture-seamless.webp";
+import darkBlueStickyNoteTextureUrl from "../assets/texture/sticky-note/dark-blue-sticky-note-texture-seamless.webp";
+import darkYellowStickyNoteTextureUrl from "../assets/texture/sticky-note/dark-yellow-sticky-note-texture-seamless.webp";
+import greenStickyNoteTextureUrl from "../assets/texture/sticky-note/green-sticky-note-texture-seamless.webp";
+import lightYellowStickyNoteTextureUrl from "../assets/texture/sticky-note/light-yellow-sticky-note-texture-seamless.webp";
+import tealStickyNoteTextureUrl from "../assets/texture/sticky-note/teal-sticky-note-texture-seamless.webp";
+import whiteStickyNoteTextureUrl from "../assets/texture/sticky-note/white-sticky-note-texture-seamless.webp";
+import yellowStickyNoteTextureUrl from "../assets/texture/sticky-note/yellow-sticky-note-texture-seamless.webp";
 
-const textureModules = import.meta.glob("../assets/texture/*.webp", {
+const textureModules = import.meta.glob("../assets/texture/**/*.webp", {
   eager: true,
   import: "default",
 });
@@ -210,6 +210,87 @@ const FIREFLY_SIM_THEME = {
 };
 
 const clamp01 = (value) => Math.max(0, Math.min(1, value));
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+const getDecimalPlaces = (value) => {
+  const text = String(value);
+  if (!text.includes(".")) {
+    return 0;
+  }
+
+  const [, decimal = ""] = text.split(".");
+  return decimal.replace(/0+$/, "").length;
+};
+
+const normalizeControlDisplayValue = (field, value) => {
+  if (
+    field.type === "toggle" ||
+    field.type === "binary-toggle" ||
+    field.type === "select"
+  ) {
+    return value;
+  }
+
+  const numericValue = Number(value);
+  const numericStep = Number(field.step);
+  if (
+    !Number.isFinite(numericValue) ||
+    !Number.isFinite(numericStep) ||
+    numericStep <= 0
+  ) {
+    return value;
+  }
+
+  const decimalPlaces = getDecimalPlaces(field.step);
+  if (decimalPlaces === 0) {
+    return Math.round(numericValue);
+  }
+
+  return Number(numericValue.toFixed(decimalPlaces));
+};
+
+const normalizeControlInputValue = (field, value) => {
+  if (
+    !field ||
+    field.type === "toggle" ||
+    field.type === "binary-toggle" ||
+    field.type === "select"
+  ) {
+    return value;
+  }
+
+  const numericValue = Number(value);
+  const numericStep = Number(field.step);
+  if (!Number.isFinite(numericValue) || !Number.isFinite(numericStep)) {
+    return value;
+  }
+
+  const min = Number(field.min);
+  const max = Number(field.max);
+  const stepOrigin = Number.isFinite(min) ? min : 0;
+  const decimalPlaces = getDecimalPlaces(field.step);
+  let nextValue =
+    stepOrigin +
+    Math.round((numericValue - stepOrigin) / numericStep) * numericStep;
+
+  if (Number.isFinite(min) && Number.isFinite(max)) {
+    nextValue = clamp(nextValue, min, max);
+  }
+
+  if (decimalPlaces === 0) {
+    return Math.round(nextValue);
+  }
+
+  return Number(nextValue.toFixed(decimalPlaces));
+};
+
+const formatControlDisplayValue = (field, controls, timeS) => {
+  const value = normalizeControlDisplayValue(field, controls[field.key]);
+
+  return field.formatValue
+    ? field.formatValue(value, controls, timeS)
+    : String(value);
+};
 
 const mix = (from, to, ratio) => from + (to - from) * ratio;
 
@@ -352,6 +433,7 @@ function SwarmCanvas({
   const [loadError, setLoadError] = React.useState(null);
   const [gpuError, setGpuError] = React.useState("");
   const [controls, setControls] = React.useState(null);
+  const [resetVisualValues, setResetVisualValues] = React.useState({});
   const [controlValueTime, setControlValueTime] = React.useState(0);
   const [retryCount, setRetryCount] = React.useState(0);
   const containerRef = React.useRef(null);
@@ -392,6 +474,7 @@ function SwarmCanvas({
             ? { ...module.App.ui.defaultControlState }
             : null,
         );
+        setResetVisualValues({});
         setGpuError("");
         // setIsControlPanelOpen(true);
         setIsLoading(false);
@@ -436,6 +519,7 @@ function SwarmCanvas({
       setSwarmUi(null);
       setSanitizeControls(null);
       setControls(null);
+      setResetVisualValues({});
       setGpuError("");
 
       // 모든 캔버스, WebGL 정리
@@ -578,9 +662,6 @@ function SwarmCanvas({
     return sanitizeControls ? sanitizeControls(controls) : controls;
   }, [controls, sanitizeControls]);
 
-  const batLightIntensityLux =
-    animalId === "bat" ? Number(resolvedControls?.LIGHT_INTENSITY_LUX) : null;
-
   const notifyControlSnapshot = React.useCallback(
     (nextControls) => {
       if (!onControlSnapshot) {
@@ -650,8 +731,10 @@ function SwarmCanvas({
     notifyControlSnapshot(resolvedControls);
   }, [animalId, notifyControlSnapshot, resolvedControls]);
 
+  const hasControls = Boolean(controls);
+
   React.useEffect(() => {
-    if (animalId !== "spiny_lobster" || !controls || isPaused) {
+    if (animalId !== "spiny_lobster" || !hasControls || isPaused) {
       return undefined;
     }
 
@@ -692,7 +775,7 @@ function SwarmCanvas({
     }, SPINY_LOBSTER_HOUR_AUTO_ADVANCE_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [animalId, Boolean(controls), isPaused, sanitizeControls]);
+  }, [animalId, hasControls, isPaused, sanitizeControls]);
 
   if (isLoading) {
     return (
@@ -722,12 +805,25 @@ function SwarmCanvas({
   }
 
   const handleControlChange = (key, rawValue) => {
+    const field = swarmUi?.controlFields?.find(
+      (controlField) => controlField.key === key,
+    );
+
     if (resetAnimationFrameRef.current) {
       window.cancelAnimationFrame(resetAnimationFrameRef.current);
       resetAnimationFrameRef.current = null;
     }
+    setResetVisualValues((current) => {
+      if (!(key in current)) {
+        return current;
+      }
 
-    const nextValue =
+      const { [key]: _removed, ...rest } = current;
+      void _removed;
+      return rest;
+    });
+
+    const parsedValue =
       typeof rawValue === "boolean"
         ? rawValue
         : typeof rawValue === "string" &&
@@ -735,6 +831,7 @@ function SwarmCanvas({
             !Number.isNaN(Number(rawValue))
           ? Number(rawValue)
           : rawValue;
+    const nextValue = normalizeControlInputValue(field, parsedValue);
 
     const shouldPreviewControl =
       (animalId === "bat" && key === "LIGHT_INTENSITY_LUX") ||
@@ -779,10 +876,44 @@ function SwarmCanvas({
     });
   };
 
+  const handleControlSliderWheel = (event, field) => {
+    event.stopPropagation();
+
+    const min = Number(field.min);
+    const max = Number(field.max);
+    const current = Number(resolvedControls?.[field.key]);
+    const step = Number(field.step);
+
+    if (
+      !Number.isFinite(min) ||
+      !Number.isFinite(max) ||
+      min >= max ||
+      !Number.isFinite(current)
+    ) {
+      return;
+    }
+
+    const resolvedStep =
+      Number.isFinite(step) && step > 0 ? step : Math.max((max - min) / 100, 1);
+    const direction = event.deltaY > 0 ? -1 : 1;
+    const multiplier = event.shiftKey ? 5 : 1;
+    const nextValue = clamp(
+      current + direction * resolvedStep * multiplier,
+      min,
+      max,
+    );
+
+    handleControlChange(field.key, nextValue);
+  };
+
   const handleControlReset = (key) => {
     if (!swarmUi?.defaultControlState || !resolvedControls) {
       return;
     }
+
+    const field = swarmUi.controlFields?.find(
+      (controlField) => controlField.key === key,
+    );
 
     if (resetAnimationFrameRef.current) {
       window.cancelAnimationFrame(resetAnimationFrameRef.current);
@@ -812,10 +943,27 @@ function SwarmCanvas({
         (now - startedAt) / CONTROL_RESET_LERP_DURATION_MS,
       );
       const easedProgress = 1 - Math.pow(1 - progress, 3);
-      const nextValue =
+      const visualValue =
         progress >= 1
           ? targetValue
           : fromValue + (targetValue - fromValue) * easedProgress;
+      const nextValue = normalizeControlInputValue(
+        field,
+        visualValue,
+      );
+
+      setResetVisualValues((current) =>
+        progress >= 1
+          ? (() => {
+              const { [key]: _removed, ...rest } = current;
+              void _removed;
+              return rest;
+            })()
+          : {
+              ...current,
+              [key]: visualValue,
+            },
+      );
 
       const shouldPreviewControl =
         (animalId === "bat" && key === "LIGHT_INTENSITY_LUX") ||
@@ -824,7 +972,7 @@ function SwarmCanvas({
       if (shouldPreviewControl) {
         const nextPreviewControls = {
           ...(resolvedControls ?? controls ?? {}),
-          [key]: nextValue,
+          [key]: visualValue,
         };
         notifyControlSnapshot(
           sanitizeControls
@@ -947,8 +1095,8 @@ function SwarmCanvas({
                     <span>{field.label}</span>
                     <div className="sim-control-field__value-group">
                       <span className="sim-control-field__value">
-                        {field.formatValue(
-                          resolvedControls[field.key],
+                        {formatControlDisplayValue(
+                          field,
                           resolvedControls,
                           controlValueTime,
                         )}
@@ -1051,10 +1199,19 @@ function SwarmCanvas({
                       type="range"
                       min={field.min}
                       max={field.max}
-                      step={field.step}
-                      value={resolvedControls[field.key]}
+                      step={
+                        resetVisualValues[field.key] == null
+                          ? field.step
+                          : "any"
+                      }
+                      value={
+                        resetVisualValues[field.key] ?? resolvedControls[field.key]
+                      }
                       onChange={(event) =>
                         handleControlChange(field.key, event.target.value)
+                      }
+                      onWheel={(event) =>
+                        handleControlSliderWheel(event, field)
                       }
                     />
                   )}

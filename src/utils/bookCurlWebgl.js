@@ -67,32 +67,35 @@ void main() {
   );
   color.rgb *= 1.0 - castShadow * 0.065 * shadowProgress * fixedSideShadowRamp;
 
-  if (absCos > 0.025) {
-    float pageLocal = (turnUv.x - 0.5) / (0.5 * cosAngle);
+  float safeSign = cosAngle < 0.0 ? -1.0 : 1.0;
+  float safeCos = safeSign * max(absCos, 0.0001);
+  float pageLocal = (turnUv.x - 0.5) / (0.5 * safeCos);
 
-    if (pageLocal >= 0.0 && pageLocal <= 1.0) {
-      float sheetMask = 1.0;
-      vec2 pageUv;
+  if (pageLocal >= 0.0 && pageLocal <= 1.0) {
+    float sheetMask = 1.0;
+    vec2 pageUv;
 
-      if (cosAngle >= 0.0) {
-        pageUv = u_direction > 0.0
-          ? vec2(0.5 + pageLocal * 0.5, turnUv.y)
-          : vec2(0.5 - pageLocal * 0.5, turnUv.y);
-        vec4 sheetColor = texture2D(u_fromPage, pageUv);
-        color = mix(color, sheetColor, sheetMask * sheetColor.a);
-      } else {
-        pageUv = u_direction > 0.0
-          ? vec2(0.5 - pageLocal * 0.5, turnUv.y)
-          : vec2(0.5 + pageLocal * 0.5, turnUv.y);
-        vec4 backColor = texture2D(u_toPage, pageUv);
-        float diffuse = 0.62 + 0.38 * absCos;
-        float edgeHighlight = smoothstep(0.74, 1.0, pageLocal) * 0.12;
-        backColor.rgb *= diffuse;
-        backColor.rgb += edgeHighlight;
-        color = mix(color, backColor, sheetMask);
-      }
+    if (safeCos >= 0.0) {
+      pageUv = u_direction > 0.0
+        ? vec2(0.5 + pageLocal * 0.5, turnUv.y)
+        : vec2(0.5 - pageLocal * 0.5, turnUv.y);
+      vec4 sheetColor = texture2D(u_fromPage, pageUv);
+      color = mix(color, sheetColor, sheetMask * sheetColor.a);
+    } else {
+      pageUv = u_direction > 0.0
+        ? vec2(0.5 - pageLocal * 0.5, turnUv.y)
+        : vec2(0.5 + pageLocal * 0.5, turnUv.y);
+      vec4 backColor = texture2D(u_toPage, pageUv);
+      float diffuse = 0.62 + 0.38 * absCos;
+      float settleFade = 1.0 - smoothstep(0.74, 0.98, turnAmount);
+      float edgeHighlight = smoothstep(0.74, 1.0, pageLocal) * 0.045 * settleFade;
+      backColor.rgb *= diffuse;
+      backColor.rgb += edgeHighlight;
+      color = mix(color, backColor, sheetMask * backColor.a);
     }
-  } else {
+  }
+
+  if (absCos <= 0.025) {
     float spineGlow = 1.0 - smoothstep(0.0, 0.018, abs(turnUv.x - 0.5));
     color.rgb += spineGlow * 0.08 * shadowProgress;
   }

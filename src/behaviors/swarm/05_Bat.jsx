@@ -472,35 +472,6 @@ const getPostEmergenceCohesionRatio = (agent, controls) => {
   );
 };
 
-const getOutsideTransitSteer = (agent, environment, width, height) => {
-  const forward = environment.tangent;
-  const toSkyCenter = normalize2D(
-    environment.skyCenter.x - agent.x,
-    environment.skyCenter.y - agent.y,
-    environment.tangent,
-  );
-  const corridorContainment = getPlumeContainmentSteer(
-    agent,
-    environment.entrance,
-    environment.tangent,
-    0.82,
-  );
-  const offscreenReturn = getOffscreenReturnSteer(agent, width, height);
-
-  return {
-    x:
-      forward.x * PARAMS.POST_EMERGENCE_FORWARD_WEIGHT +
-      toSkyCenter.x * PARAMS.POST_EMERGENCE_CENTER_BOOST +
-      corridorContainment.x +
-      offscreenReturn.x,
-    y:
-      forward.y * PARAMS.POST_EMERGENCE_FORWARD_WEIGHT +
-      toSkyCenter.y * PARAMS.POST_EMERGENCE_CENTER_BOOST +
-      corridorContainment.y +
-      offscreenReturn.y,
-  };
-};
-
 const getPlumeContainmentSteer = (
   agent,
   origin,
@@ -1041,7 +1012,7 @@ const activeAgentCount = (agents) =>
     0,
   );
 
-const sendAgentToEntranceForRemoval = (agent, width, height) => {
+const sendAgentToEntranceForRemoval = (agent) => {
   agent.populationRetiring = true;
   agent.populationRetireDurationS = PARAMS.POPULATION_RETIRE_ENTERING_DURATION_S;
   agent.isEmergingMode = false;
@@ -1149,7 +1120,7 @@ const resizeAgents = (
         },
       )
       .slice(0, excess)
-      .forEach((agent) => sendAgentToEntranceForRemoval(agent, width, height));
+      .forEach((agent) => sendAgentToEntranceForRemoval(agent));
   }
 };
 

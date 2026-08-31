@@ -1,14 +1,14 @@
-import antSpriteSheetUrl from "../assets/ant_1.svg";
-import batSpriteSheetUrl from "../assets/bat_1.svg";
-import beeSpriteSheetUrl from "../assets/bee_1.svg";
-import fireflySpriteSheetUrl from "../assets/firefly_1.svg";
-import grasshopperSpriteSheetUrl from "../assets/grasshopper_1.svg";
-import krillSpriteSheetUrl from "../assets/krill_1.svg";
-import penguinSpriteSheetUrl from "../assets/penguin_1.svg";
-import sardineSpriteSheetUrl from "../assets/sardine_1.svg";
-import sheepSpriteSheetUrl from "../assets/sheep_1.svg";
-import spinyLobsterSpriteSheetUrl from "../assets/spinylobster_1.svg";
-import starlingSpriteSheetUrl from "../assets/starling_1.svg";
+import antSpriteSheetUrl from "../assets/sprite-sheets/ant_1.svg";
+import batSpriteSheetUrl from "../assets/sprite-sheets/bat_1.svg";
+import beeSpriteSheetUrl from "../assets/sprite-sheets/bee_1.svg";
+import fireflySpriteSheetUrl from "../assets/sprite-sheets/firefly_1.svg";
+import grasshopperSpriteSheetUrl from "../assets/sprite-sheets/grasshopper_1.svg";
+import krillSpriteSheetUrl from "../assets/sprite-sheets/krill_1.svg";
+import penguinSpriteSheetUrl from "../assets/sprite-sheets/penguin_1.svg";
+import sardineSpriteSheetUrl from "../assets/sprite-sheets/sardine_1.svg";
+import sheepSpriteSheetUrl from "../assets/sprite-sheets/sheep_1.svg";
+import spinyLobsterSpriteSheetUrl from "../assets/sprite-sheets/spinylobster_1.svg";
+import starlingSpriteSheetUrl from "../assets/sprite-sheets/starling_1.svg";
 
 export const HOME_SPRITE_ATLASES = {
   starling: {

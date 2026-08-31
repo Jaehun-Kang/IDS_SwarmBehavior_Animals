@@ -1,10 +1,10 @@
 .sim {
   --sim-left-overlay-width: 320px;
   --sim-overlay-gap: 14px;
-  --sim-paper-texture: url("../assets/texture/white-paper-texture-seamless.webp");
-  --sim-black-paper-texture: url("../assets/texture/black-paper-texture-seamless.webp");
+  --sim-paper-texture: url("../assets/texture/paper/white-paper-texture-seamless.webp");
+  --sim-black-paper-texture: url("../assets/texture/paper/black-paper-texture-seamless.webp");
   --sim-masking-tape-texture: url("../assets/texture/masking-tape-texture.webp");
-  --sim-sticky-texture: url("../assets/texture/yellow-sticky-note-texture-seamless.webp");
+  --sim-sticky-texture: url("../assets/texture/sticky-note/yellow-sticky-note-texture-seamless.webp");
   --sim-sticky-text: rgb(77 57 22);
   --sim-sticky-muted: rgb(99 75 34 / 0.72);
   --sim-sticky-strong: rgb(60 42 10);
@@ -97,10 +97,9 @@
   z-index: 1;
   width: 100%;
   height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
+  display: grid;
+  place-items: center;
+  align-content: center;
   gap: 1rem;
   background: transparent;
 }
@@ -135,15 +134,14 @@
   position: absolute;
   top: 4px;
   left: 10px;
-  z-index: 130;
+  z-index: 120;
   width: var(--sim-left-overlay-width);
   max-width: calc(100vw - 72px);
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: var(--sim-overlay-gap);
 }
 .sim .sim-overlay-button {
-  align-self: flex-start;
+  justify-self: start;
 }
 .sim .sim-back-button {
   position: relative;
@@ -208,7 +206,7 @@
   padding: 16px 16px 12.8px 21.6px;
   border: 1px solid rgba(52, 35, 20, 0.48);
   border-radius: 4px 8px 7.2px 2.88px;
-  background: url("../assets/texture/white-paper-texture-seamless.webp"), linear-gradient(105deg, rgb(95, 59, 31) 0 14%, rgb(122, 79, 38) 15% 17%, rgb(57, 38, 24) 18% 100%), rgb(64, 45, 28);
+  background: url("../assets/texture/paper/white-paper-texture-seamless.webp"), linear-gradient(105deg, rgb(95, 59, 31) 0 14%, rgb(122, 79, 38) 15% 17%, rgb(57, 38, 24) 18% 100%), rgb(64, 45, 28);
   color: rgb(255, 247, 226);
   background-size: 288px 288px, 100% 100%, 100% 100%;
   box-shadow: 0 13.6px 24px rgba(0, 0, 0, 0.26), 5.6px 5.6px 0 rgb(232, 220, 190), 7.2px 7.2px 0 rgb(178, 158, 120), inset 2.88px 0 0 rgba(46, 31, 20, 0.42), inset -7.2px 0 19.2px rgba(0, 0, 0, 0.16);
@@ -280,9 +278,8 @@
   top: 24px;
   left: 50%;
   z-index: 120;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-grid;
+  place-items: center;
   min-width: 168px;
   max-width: min(448px, 100vw - 440px);
   min-height: 42.4px;
@@ -353,9 +350,11 @@
 }
 .sim .sim-control-panel__header {
   position: relative;
-  display: flex;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: start;
   gap: 12px;
   min-height: 31.2px;
   margin: 0 0 7.2px;
@@ -402,8 +401,9 @@
   margin-bottom: 0;
 }
 .sim .sim-control-field__row {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  justify-content: stretch;
   align-items: center;
   gap: 12px;
   margin-bottom: 2px;
@@ -412,7 +412,9 @@
   font-size: clamp(14px, 0.94vw, 18px);
 }
 .sim .sim-control-field__value-group {
-  display: flex;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
   align-items: center;
   gap: 8px;
 }
@@ -420,7 +422,6 @@
   color: var(--sim-sticky-muted);
 }
 .sim .sim-control-reset {
-  flex: 0 0 auto;
   display: inline-grid;
   place-items: center;
   width: 22px;
@@ -469,9 +470,9 @@
   cursor: pointer;
 }
 .sim .sim-control-toggle-switch {
-  display: inline-flex;
+  display: inline-grid;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: start;
   width: 100%;
   padding: 0;
   background: transparent;
@@ -480,7 +481,6 @@
 }
 .sim .sim-control-toggle-switch.sim-control-toggle-switch--inline {
   width: auto;
-  flex: 0 0 auto;
 }
 .sim .sim-control-toggle-switch.is-on .sim-control-toggle-switch__track {
   background: var(--sim-control-dim-active);
@@ -490,8 +490,9 @@
 }
 .sim .sim-control-toggle-switch__track {
   position: relative;
-  display: inline-flex;
+  display: inline-grid;
   align-items: center;
+  justify-items: start;
   width: 48px;
   height: 26px;
   padding: 3px;
@@ -548,8 +549,10 @@
   z-index: 130;
   width: min(928px, 100vw - 48px);
   height: 92px;
-  display: flex;
-  align-items: flex-end;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  align-items: end;
   justify-content: center;
   gap: 6px;
   padding: 0 12px;

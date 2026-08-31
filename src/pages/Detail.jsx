@@ -1,12 +1,15 @@
 import React from "react";
 import { getAnimalDetails } from "../behaviors/animalDetails";
 import RulePreview from "../components/RulePreview";
-import paperTextureUrl from "../assets/texture/white-paper-texture-seamless.webp";
+import chevronLeftIconUrl from "../assets/icons/chevron-left.svg";
+import chevronRightIconUrl from "../assets/icons/chevron-right.svg";
+import closeIconUrl from "../assets/icons/close.svg";
+import paperTextureUrl from "../assets/texture/paper/white-paper-texture-seamless.webp";
 import {
   createBookCurlRenderer,
   renderBookCurlTransition,
 } from "../utils/bookCurlWebgl";
-import "../styles/Detail.css";
+import "../styles/Detail.scss";
 
 const headerArtworkModules = import.meta.glob("../assets/detail/*.svg", {
   eager: true,
@@ -167,6 +170,38 @@ const createCanvasSnapshotFromImage = ({
   };
 };
 
+const createTransparentCanvasDataUrl = (width, height) => {
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, width);
+  canvas.height = Math.max(1, height);
+  return canvas.toDataURL("image/png");
+};
+
+const createCanvasDataUrl = (sourceCanvas) => {
+  const width = Math.max(
+    1,
+    sourceCanvas.width || Math.round(sourceCanvas.clientWidth) || 1,
+  );
+  const height = Math.max(
+    1,
+    sourceCanvas.height || Math.round(sourceCanvas.clientHeight) || 1,
+  );
+
+  try {
+    const snapshotCanvas = document.createElement("canvas");
+    const snapshotContext = snapshotCanvas.getContext("2d");
+    snapshotCanvas.width = width;
+    snapshotCanvas.height = height;
+    if (snapshotContext) {
+      snapshotContext.clearRect(0, 0, width, height);
+      snapshotContext.drawImage(sourceCanvas, 0, 0, width, height);
+    }
+    return snapshotCanvas.toDataURL("image/png");
+  } catch {
+    return createTransparentCanvasDataUrl(width, height);
+  }
+};
+
 const inlineCanvasSnapshots = (sourceNode, clonedNode) => {
   const sourceCanvases = sourceNode.querySelectorAll("canvas");
   const clonedCanvases = clonedNode.querySelectorAll("canvas");
@@ -178,15 +213,40 @@ const inlineCanvasSnapshots = (sourceNode, clonedNode) => {
       return;
     }
 
+    const cssWidth = Math.max(1, sourceCanvas.clientWidth);
+    const cssHeight = Math.max(1, sourceCanvas.clientHeight);
     const snapshot = document.createElement("img");
-    snapshot.src = sourceCanvas.toDataURL("image/png");
-    snapshot.width = sourceCanvas.clientWidth;
-    snapshot.height = sourceCanvas.clientHeight;
-    snapshot.style.width = `${sourceCanvas.clientWidth}px`;
-    snapshot.style.height = `${sourceCanvas.clientHeight}px`;
+    snapshot.decoding = "sync";
+    snapshot.src = createCanvasDataUrl(sourceCanvas);
+    snapshot.width = cssWidth;
+    snapshot.height = cssHeight;
+    snapshot.style.width = `${cssWidth}px`;
+    snapshot.style.height = `${cssHeight}px`;
     snapshot.style.display = "block";
+    snapshot.style.background = "transparent";
     clonedCanvas.replaceWith(snapshot);
   });
+};
+
+const waitForImages = async (node) => {
+  const images = Array.from(node.querySelectorAll("img"));
+
+  await Promise.all(
+    images.map((image) => {
+      if (image.complete && image.naturalWidth > 0) {
+        return Promise.resolve();
+      }
+
+      if (typeof image.decode === "function") {
+        return image.decode().catch(() => undefined);
+      }
+
+      return new Promise((resolve) => {
+        image.addEventListener("load", resolve, { once: true });
+        image.addEventListener("error", resolve, { once: true });
+      });
+    }),
+  );
 };
 
 const canUseHtmlInCanvas = () => {
@@ -324,10 +384,21 @@ const captureHtmlNodeWithHtmlInCanvas = (node, coverTextureUrl) =>
       reject(new Error("HTML-in-Canvas paint timed out"));
     };
 
-    canvas.addEventListener("paint", finish, { once: true });
-    canvas.onpaint = finish;
-    timeoutId = window.setTimeout(fail, 600);
-    canvas.requestPaint();
+    waitForImages(content)
+      .then(() => {
+        if (settled) {
+          return;
+        }
+
+        canvas.addEventListener("paint", finish, { once: true });
+        canvas.onpaint = finish;
+        timeoutId = window.setTimeout(fail, 600);
+        canvas.requestPaint();
+      })
+      .catch((error) => {
+        cleanup();
+        reject(error);
+      });
   });
 
 const captureHtmlNodeWithSvg = (node, coverTextureUrl) =>
@@ -358,35 +429,39 @@ const captureHtmlNodeWithSvg = (node, coverTextureUrl) =>
       getCssImageValue(coverTextureUrl),
     );
 
-    const styleText = getDocumentStyleText();
-    const html = `
-      <div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;height:${height}px;">
-        <style>${styleText}</style>
-        ${clonedNode.outerHTML}
-      </div>
-    `;
-    const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-        <foreignObject width="100%" height="100%">${html}</foreignObject>
-      </svg>
-    `;
-    const image = new Image();
+    waitForImages(clonedNode)
+      .then(() => {
+        const styleText = getDocumentStyleText();
+        const html = `
+          <div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;height:${height}px;">
+            <style>${styleText}</style>
+            ${clonedNode.outerHTML}
+          </div>
+        `;
+        const svg = `
+          <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+            <foreignObject width="100%" height="100%">${html}</foreignObject>
+          </svg>
+        `;
+        const image = new Image();
 
-    image.onload = () => {
-      resolve(
-        createCanvasSnapshotFromImage({
-          image,
-          width,
-          height,
-          cssWidth,
-          cssHeight,
-          liveCanvasEntries,
-          source: "svg-foreignObject",
-        }),
-      );
-    };
-    image.onerror = reject;
-    image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+        image.onload = () => {
+          resolve(
+            createCanvasSnapshotFromImage({
+              image,
+              width,
+              height,
+              cssWidth,
+              cssHeight,
+              liveCanvasEntries,
+              source: "svg-foreignObject",
+            }),
+          );
+        };
+        image.onerror = reject;
+        image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      })
+      .catch(reject);
   });
 
 const captureHtmlNodeAsImage = async (node, coverTextureUrl) => {
@@ -693,6 +768,8 @@ function Detail({
   const [isAnimating, setIsAnimating] = React.useState(true);
   const [activePageKey, setActivePageKey] = React.useState(null);
   const [isTurningPage, setIsTurningPage] = React.useState(false);
+  const [turningTargetPageIndex, setTurningTargetPageIndex] =
+    React.useState(null);
   const [isTurnSnapshotReady, setIsTurnSnapshotReady] = React.useState(false);
   const [turnCapturePageKey, setTurnCapturePageKey] = React.useState(null);
   const [turnCaptureSize, setTurnCaptureSize] = React.useState(null);
@@ -703,6 +780,7 @@ function Detail({
   const bookOpenTimerRef = React.useRef(null);
   const bookCloseTimerRef = React.useRef(null);
   const bookLaunchFrameRef = React.useRef(null);
+  const bookTransitionLockRef = React.useRef(false);
   const [previewControls, setPreviewControls] = React.useState({});
   const animal = getAnimalDetails(animalId);
   const artwork = getHeaderArtwork(animalId);
@@ -759,6 +837,8 @@ function Detail({
   }, [activePageKey, bookSpreads]);
 
   const activePage = activePageIndex >= 0 ? bookSpreads[activePageIndex] : null;
+  const navigationPageIndex =
+    turningTargetPageIndex ?? activePageIndex;
   const turnCapturePage = React.useMemo(() => {
     if (!turnCapturePageKey) {
       return null;
@@ -766,38 +846,6 @@ function Detail({
 
     return bookSpreads.find((page) => page.key === turnCapturePageKey) || null;
   }, [bookSpreads, turnCapturePageKey]);
-  const activeRuleIndex = Math.max(0, activePageIndex - 2);
-  const pageCount = 3 + ruleSpreads.length * 2;
-  const leftPageNumber =
-    activePage?.type === "cover"
-      ? null
-      : activePage?.type === "intro"
-        ? 1
-        : 3 + activeRuleIndex * 2;
-  const rightPageNumber =
-    activePage?.type === "cover"
-      ? null
-      : activePage?.type === "intro"
-        ? 2
-        : leftPageNumber + 1;
-  const activePreviewControls = previewControls[activePage?.key] || {
-    ruleStrength: 68,
-    responseRange: 54,
-  };
-  const behaviorControlValues = Object.entries(activePreviewControls)
-    .filter(([key]) => key.startsWith("behavior_"))
-    .map(([, value]) => Number(value))
-    .filter(Number.isFinite);
-  const behaviorAverage =
-    behaviorControlValues.length > 0
-      ? behaviorControlValues.reduce((sum, value) => sum + value, 0) /
-        behaviorControlValues.length
-      : 62;
-  const resolvedPreviewControls = {
-    ...activePreviewControls,
-    ruleStrength: activePreviewControls.ruleStrength ?? behaviorAverage,
-    responseRange: activePreviewControls.responseRange ?? behaviorAverage,
-  };
   const isBookSpreadOpen = isOpen && isBookOpen;
   const isBookClosedSpread = !isBookSpreadOpen;
   const bookStageStyle = {
@@ -820,7 +868,7 @@ function Detail({
     left: 0,
     zIndex: 230,
     pointerEvents: "none",
-    opacity: isTurningPage ? 1 : 0,
+    opacity: isTurningPage && isTurnSnapshotReady ? 1 : 0,
     transformOrigin: "left center",
   };
   const bookSpreadStyle = {
@@ -888,6 +936,7 @@ function Detail({
     window.clearTimeout(bookCloseTimerRef.current);
 
     if (!isOpen) {
+      bookTransitionLockRef.current = false;
       setIsBookOpen(false);
       setIsAnimating(false);
       setActivePageKey("cover");
@@ -900,6 +949,7 @@ function Detail({
     }
 
     setIsAnimating(true);
+    bookTransitionLockRef.current = true;
     setIsBookOpen(false);
     setIsBookReturning(false);
     setActivePageKey("cover");
@@ -919,13 +969,14 @@ function Detail({
     bookOpenTimerRef.current = window.setTimeout(() => {
       setIsBookOpen(true);
       setIsBookExpanding(false);
+      bookTransitionLockRef.current = false;
     }, BOOK_OPEN_DELAY_MS);
 
     return () => {
       window.clearTimeout(bookOpenTimerRef.current);
       window.cancelAnimationFrame(bookLaunchFrameRef.current);
     };
-  }, [animalId, isOpen]);
+  }, [animalId, isBookLaunching, isOpen]);
 
   React.useEffect(
     () => () => {
@@ -951,27 +1002,36 @@ function Detail({
   }, [enterDuration, isOpen, onEnterComplete]);
 
   const closeBookFromCover = React.useCallback(() => {
+    if (bookTransitionLockRef.current) {
+      return;
+    }
+
+    bookTransitionLockRef.current = true;
     pendingCloseAfterCoverRef.current = false;
+    window.clearTimeout(bookOpenTimerRef.current);
+    window.cancelAnimationFrame(bookLaunchFrameRef.current);
+    setIsBookLaunching(false);
+    setIsBookExpanding(false);
     setIsBookReturning(true);
     setIsBookOpen(false);
     window.clearTimeout(bookCloseTimerRef.current);
     bookCloseTimerRef.current = window.setTimeout(() => {
+      setActivePageKey("cover");
+      setIsBookReturning(false);
       setIsAnimating(false);
+      bookTransitionLockRef.current = false;
       onBackClick();
     }, BOOK_CLOSE_DELAY_MS);
   }, [onBackClick]);
 
   closeBookFromCoverRef.current = closeBookFromCover;
 
-  if (!animal) {
-    return <div>동물 정보를 찾을 수 없습니다.</div>;
-  }
-
   const handleClosedBookOpen = () => {
-    if (isOpen) {
+    if (isOpen || bookTransitionLockRef.current) {
       return;
     }
 
+    bookTransitionLockRef.current = true;
     setIsBookLaunching(true);
     onOpen?.();
   };
@@ -993,10 +1053,17 @@ function Detail({
 
       if (!pageNode || !canvas) {
         setActivePageKey(nextPage.key);
+        setTurningTargetPageIndex(null);
+        if (nextPage.type === "cover" && pendingCloseAfterCoverRef.current) {
+          window.setTimeout(() => {
+            closeBookFromCoverRef.current?.();
+          }, BOOK_AUTO_FIRST_TURN_DELAY_MS);
+        }
         return;
       }
 
       isPageTurnRunningRef.current = true;
+      setTurningTargetPageIndex(nextIndex);
 
       try {
         const fromSnapshot = await captureHtmlNodeAsImage(
@@ -1050,6 +1117,7 @@ function Detail({
               setActivePageKey(nextPage.key);
               setIsTurningPage(false);
               setIsTurnSnapshotReady(false);
+              setTurningTargetPageIndex(null);
               isPageTurnRunningRef.current = false;
               if (
                 nextPage.type === "cover" &&
@@ -1128,6 +1196,7 @@ function Detail({
             clearTurnCapture();
             setIsTurningPage(false);
             setIsTurnSnapshotReady(false);
+            setTurningTargetPageIndex(null);
             isPageTurnRunningRef.current = false;
             window.requestAnimationFrame(clearTurnCanvas);
           }
@@ -1137,6 +1206,7 @@ function Detail({
         setActivePageKey(nextPage.key);
         setIsTurningPage(false);
         setIsTurnSnapshotReady(false);
+        setTurningTargetPageIndex(null);
         isPageTurnRunningRef.current = false;
         window.requestAnimationFrame(clearTurnCanvas);
       }
@@ -1148,10 +1218,15 @@ function Detail({
       capturePreparedPage,
       clearTurnCanvas,
       clearTurnCapture,
+      coverTextureUrl,
     ],
   );
 
   const goToPage = (nextIndex) => {
+    if (nextIndex === 0) {
+      pendingCloseAfterCoverRef.current = true;
+    }
+
     animatePageTurn(nextIndex);
   };
 
@@ -1176,6 +1251,7 @@ function Detail({
     dragTurnRef.current?.stagingRenderer?.dispose?.();
     dragTurnRef.current = null;
     dragStartXRef.current = null;
+    setTurningTargetPageIndex(null);
   }, []);
 
   const finishInteractiveTurn = React.useCallback(
@@ -1239,6 +1315,7 @@ function Detail({
 
         setIsTurningPage(false);
         setIsTurnSnapshotReady(false);
+        setTurningTargetPageIndex(null);
         isPageTurnRunningRef.current = false;
         cleanupDragTurn();
         window.requestAnimationFrame(clearTurnCanvas);
@@ -1291,7 +1368,7 @@ function Detail({
   }, [activePageKey, animatePageTurn]);
 
   const handleBack = () => {
-    if (isPageTurnRunningRef.current) {
+    if (isPageTurnRunningRef.current || bookTransitionLockRef.current) {
       return;
     }
 
@@ -1301,13 +1378,26 @@ function Detail({
     }
 
     pendingCloseAfterCoverRef.current = true;
+    animatePageTurn(0);
+  };
 
-    if (activePageIndex === 1) {
-      animatePageTurn(0);
+  const handleBackdropClick = (event) => {
+    if (!isOpen) {
       return;
     }
 
-    setActivePageKey("intro");
+    if (bookTransitionLockRef.current) {
+      return;
+    }
+
+    if (
+      event.target.closest(".detail-book-stage") ||
+      event.target.closest("button")
+    ) {
+      return;
+    }
+
+    handleBack();
   };
 
   const startInteractiveTurn = React.useCallback(
@@ -1322,6 +1412,7 @@ function Detail({
       }
 
       isPageTurnRunningRef.current = true;
+      setTurningTargetPageIndex(nextIndex);
 
       const dragTurn = {
         fromKey: activePage?.key,
@@ -1428,6 +1519,7 @@ function Detail({
             clearTurnCapture();
             setIsTurningPage(false);
             setIsTurnSnapshotReady(false);
+            setTurningTargetPageIndex(null);
             isPageTurnRunningRef.current = false;
             cleanupDragTurn();
             window.requestAnimationFrame(clearTurnCanvas);
@@ -1437,6 +1529,7 @@ function Detail({
         clearTurnCapture();
         setIsTurningPage(false);
         setIsTurnSnapshotReady(false);
+        setTurningTargetPageIndex(null);
         isPageTurnRunningRef.current = false;
         cleanupDragTurn();
         window.requestAnimationFrame(clearTurnCanvas);
@@ -1450,6 +1543,7 @@ function Detail({
       clearTurnCanvas,
       clearTurnCapture,
       cleanupDragTurn,
+      coverTextureUrl,
       finishInteractiveTurn,
       getCurlPosFromClientX,
     ],
@@ -1566,13 +1660,13 @@ function Detail({
       page?.type === "cover"
         ? null
         : page?.type === "intro"
-          ? 1
+          ? null
           : 3 + ruleIndex * 2;
     const pageRightNumber =
       page?.type === "cover"
         ? null
         : page?.type === "intro"
-          ? 2
+          ? null
           : pageLeftNumber + 1;
     const pagePreviewControls = previewControls[page?.key] || {
       ruleStrength: 68,
@@ -1604,7 +1698,6 @@ function Detail({
 
   const renderBookSpread = (page, { surfaceRef, isCapture = false } = {}) => {
     const {
-      ruleIndex,
       leftNumber,
       rightNumber,
       previewControls: pagePreviewControls,
@@ -1615,6 +1708,19 @@ function Detail({
       if (!isCapture) {
         updatePreviewControl(name, value);
       }
+    };
+
+    const handleParameterWheel = (event, name, value) => {
+      event.stopPropagation();
+
+      const current = Number(value);
+      if (!Number.isFinite(current)) {
+        return;
+      }
+
+      const direction = event.deltaY > 0 ? -1 : 1;
+      const step = event.shiftKey ? 5 : 1;
+      handleParameterChange(name, clamp(current + direction * step, 0, 100));
     };
 
     if (page?.type === "cover") {
@@ -1665,11 +1771,7 @@ function Detail({
           ref={surfaceRef}
           style={bookSpreadStyle}
         >
-          <div className="detail-book-page detail-book-page--inside-cover">
-            <span className="detail-page-number detail-page-number--left">
-              {leftNumber}
-            </span>
-          </div>
+          <div className="detail-book-page detail-book-page--inside-cover" />
           <div className="detail-book-page detail-book-page--intro">
             <div className="detail-page-inner detail-page-inner--intro">
               {artwork ? (
@@ -1696,9 +1798,6 @@ function Detail({
                 <p className="detail-english">{animal.english}</p>
                 <p className="detail-scientific">{animal.scientific}</p>
               </div>
-              <span className="detail-page-number detail-page-number--right">
-                {rightNumber}
-              </span>
             </div>
           </div>
         </section>
@@ -1719,23 +1818,24 @@ function Detail({
           style={bookSpreadStyle}
         >
           <div className="detail-book-page detail-book-page--simulation">
-            <RulePreview
-              animalId={animalId}
-              ruleGroup={page.ruleGroup}
-              previewControls={resolvedControls}
-            />
+            {isCapture ? (
+              <div
+                className="canvas-placeholder rule-preview rule-preview--capture"
+                aria-hidden="true"
+              />
+            ) : (
+              <RulePreview
+                animalId={animalId}
+                ruleGroup={page.ruleGroup}
+                previewControls={resolvedControls}
+              />
+            )}
             <span className="detail-page-number detail-page-number--left">
               {leftNumber}
             </span>
           </div>
           <div className="detail-book-page detail-book-page--notes">
             <div className="detail-page-inner">
-              <header className="detail-page-header">
-                <p className="detail-page-kicker">
-                  {animal.korean} / 규칙 {ruleIndex + 1}
-                </p>
-              </header>
-
               <div className="rule-header">
                 <h2
                   id={`detail-page-title-${page.key}${idSuffix}`}
@@ -1764,33 +1864,45 @@ function Detail({
                       return (
                         <article key={idx} className="behavior-item">
                           <h3 className="behavior-name">{behavior.name}</h3>
-                          <p className="behavior-description">
-                            {behavior.description}
-                          </p>
-                          <label className="detail-parameter-row">
-                            <span className="detail-parameter-row__label">
-                              {parameterMeta.label}
-                            </span>
-                            <span className="detail-parameter-row__value">
-                              {formatBehaviorParameterValue(
-                                parameterValue,
-                                parameterMeta,
-                              )}
-                            </span>
-                            <input
-                              type="range"
-                              min="0"
-                              max="100"
-                              value={parameterValue}
-                              aria-label={`${behavior.name} ${parameterMeta.label}`}
-                              onChange={(event) =>
-                                handleParameterChange(
-                                  parameterName,
-                                  event.target.value,
-                                )
-                              }
-                            />
-                          </label>
+                          <div className="behavior-body">
+                            <p className="behavior-description">
+                              {behavior.description}
+                            </p>
+                            <label className="detail-parameter-row">
+                              <span className="detail-parameter-row__label">
+                                {parameterMeta.label}
+                              </span>
+                              <span className="detail-parameter-row__value">
+                                {formatBehaviorParameterValue(
+                                  parameterValue,
+                                  parameterMeta,
+                                )}
+                              </span>
+                              <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                value={parameterValue}
+                                style={{
+                                  "--detail-range-progress": `${parameterValue}%`,
+                                }}
+                                aria-label={`${behavior.name} ${parameterMeta.label}`}
+                                onChange={(event) =>
+                                  handleParameterChange(
+                                    parameterName,
+                                    event.target.value,
+                                  )
+                                }
+                                onWheel={(event) =>
+                                  handleParameterWheel(
+                                    event,
+                                    parameterName,
+                                    parameterValue,
+                                  )
+                                }
+                              />
+                            </label>
+                          </div>
                         </article>
                       );
                     })}
@@ -1836,6 +1948,10 @@ function Detail({
     );
   };
 
+  if (!animal) {
+    return <div>동물 정보를 찾을 수 없습니다.</div>;
+  }
+
   return (
     <div
       className={[
@@ -1850,8 +1966,17 @@ function Detail({
         "--detail-cover-texture": coverTextureCssValue,
         "--detail-paper-texture": `url(${paperTextureUrl})`,
       }}
+      onClick={handleBackdropClick}
       onDragStart={(event) => event.preventDefault()}
     >
+      <button
+        type="button"
+        className="detail-book-close"
+        aria-label="책 접기"
+        onClick={handleBack}
+      >
+        <img src={closeIconUrl} alt="" draggable="false" />
+      </button>
       <div className="rules-scroll-layer">
         <div
           className={[
@@ -1870,45 +1995,38 @@ function Detail({
           onPointerCancel={handleBookPointerCancel}
           onClick={handleClosedBookOpen}
         >
-          <button
-            type="button"
-            className="detail-book-close"
-            aria-label="책 접기"
-            onClick={handleBack}
-          >
-            ×
-          </button>
           <main
             className="rules-container detail-book"
             style={bookContainerStyle}
           >
             {renderBookSpread(activePage, { surfaceRef: pageSurfaceRef })}
           </main>
-          <button
-            type="button"
-            className="detail-page-chevron detail-page-chevron--prev"
-            aria-label="이전 페이지"
-            disabled={activePageIndex <= 0}
-            onClick={() => goToPage(activePageIndex - 1)}
-          >
-            ‹
-          </button>
-          <button
-            type="button"
-            className="detail-page-chevron detail-page-chevron--next"
-            aria-label="다음 페이지"
-            disabled={
-              activePageIndex < 0 || activePageIndex >= bookSpreads.length - 1
-            }
-            onClick={() => goToPage(activePageIndex + 1)}
-          >
-            ›
-          </button>
+          {navigationPageIndex > 0 ? (
+            <button
+              type="button"
+              className="detail-page-chevron detail-page-chevron--prev"
+              aria-label="이전 페이지"
+              onClick={() => goToPage(activePageIndex - 1)}
+            >
+              <img src={chevronLeftIconUrl} alt="" draggable="false" />
+            </button>
+          ) : null}
+          {navigationPageIndex >= 0 &&
+          navigationPageIndex < bookSpreads.length - 1 ? (
+            <button
+              type="button"
+              className="detail-page-chevron detail-page-chevron--next"
+              aria-label="다음 페이지"
+              onClick={() => goToPage(activePageIndex + 1)}
+            >
+              <img src={chevronRightIconUrl} alt="" draggable="false" />
+            </button>
+          ) : null}
           <canvas
             layoutsubtree=""
             ref={turnCanvasRef}
             className={`detail-book-turn-canvas${
-              isTurningPage ? " is-active" : ""
+              isTurningPage && isTurnSnapshotReady ? " is-active" : ""
             }`}
             style={turnCanvasStyle}
             aria-hidden="true"

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { computeTextZIndex } from "../behaviors/animalData";
 import { animals } from "../behaviors/animalData";
 import { getAnimalDetails } from "../behaviors/animalDetails";
@@ -6,7 +6,7 @@ import { useParticleCanvas } from "../hooks/useParticleCanvas";
 import { useAnimals } from "../hooks/useAnimals";
 import SpriteAtlas from "../components/SpriteAtlas.jsx";
 import { HOME_SPRITE_ATLASES } from "../data/spriteAtlases";
-import "../styles/Home.css";
+import "../styles/Home.scss";
 
 const HOME_ANIMALS = animals.flatMap((animal) =>
   Array.from({ length: 10 }, (_, index) => ({
@@ -113,14 +113,14 @@ function Home(props) {
     subtitleRef,
   );
 
-  const clearHoverIdleTimeout = () => {
+  const clearHoverIdleTimeout = useCallback(() => {
     if (hoverIdleTimeoutRef.current) {
       window.clearTimeout(hoverIdleTimeoutRef.current);
       hoverIdleTimeoutRef.current = null;
     }
-  };
+  }, []);
 
-  const scheduleHoverIdleClear = () => {
+  const scheduleHoverIdleClear = useCallback(() => {
     clearHoverIdleTimeout();
 
     if (!hoveredIdRef.current) {
@@ -132,9 +132,10 @@ function Home(props) {
       isHoverFocusLockedRef.current = true;
       hoverIdleTimeoutRef.current = null;
     }, HOME_HOVER_CLEAR_DELAY_MS);
-  };
+  }, [clearHoverIdleTimeout, hoveredIdRef]);
 
-  const focusHoveredAnimal = (instanceId) => {
+  const focusHoveredAnimal = useCallback(
+    (instanceId) => {
     if (!instanceId) {
       return;
     }
@@ -142,12 +143,14 @@ function Home(props) {
     hoveredIdRef.current = instanceId;
     isHoverFocusLockedRef.current = false;
     scheduleHoverIdleClear();
-  };
+    },
+    [hoveredIdRef, scheduleHoverIdleClear],
+  );
 
-  const clearHoveredAnimal = () => {
+  const clearHoveredAnimal = useCallback(() => {
     hoveredIdRef.current = null;
     clearHoverIdleTimeout();
-  };
+  }, [clearHoverIdleTimeout, hoveredIdRef]);
 
   const updatePointerState = (pointX, pointY) => {
     pointerPositionRef.current = {
@@ -244,7 +247,7 @@ function Home(props) {
       window.removeEventListener("touchstart", handleActivity);
       window.removeEventListener("keydown", handleActivity);
     };
-  }, [hoveredIdRef]);
+  }, [clearHoverIdleTimeout, hoveredIdRef, scheduleHoverIdleClear]);
 
   useEffect(() => {
     const syncHoveredAnimalFromPointer = () => {
@@ -289,7 +292,7 @@ function Home(props) {
     return () => {
       cancelAnimationFrame(frameId);
     };
-  }, [hoveredIdRef]);
+  }, [clearHoveredAnimal, focusHoveredAnimal, hoveredIdRef]);
 
   useEffect(() => {
     const handlePointerMove = (event) => {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import "./styles/App.css";
+import "./styles/App.scss";
 import Home from "./pages/Home.jsx";
 import Sim from "./pages/Sim.jsx";
 import Detail from "./pages/Detail.jsx";
@@ -103,7 +103,7 @@ function navigateRoute(page, animalId, { replace = false } = {}) {
 }
 
 function App() {
-  const initialRoute = getRouteState();
+  const [initialRoute] = useState(() => getRouteState());
   const [selectedAnimal, setSelectedAnimal] = useState(
     initialRoute.selectedAnimal,
   );
@@ -133,7 +133,11 @@ function App() {
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
+  }, [
+    initialRoute.currentPage,
+    initialRoute.selectedAnimal,
+    initialRoute.shouldReplace,
+  ]);
 
   useEffect(() => {
     let timeoutId;

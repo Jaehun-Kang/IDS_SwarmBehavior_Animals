@@ -58,7 +58,8 @@ void main() {
   }
 
   float movingEdge = 0.5 + cosAngle * 0.5;
-  float shadowProgress = smoothstep(0.06, 0.78, turnAmount);
+  float settleFade = 1.0 - smoothstep(0.82, 0.98, turnAmount);
+  float shadowProgress = smoothstep(0.06, 0.78, turnAmount) * settleFade;
   float castShadow = 1.0 - smoothstep(0.0, 0.038, abs(turnUv.x - movingEdge));
   float fixedSideShadowRamp = mix(
     smoothstep(0.48, 0.9, turnAmount),
@@ -86,8 +87,7 @@ void main() {
         ? vec2(0.5 - pageLocal * 0.5, turnUv.y)
         : vec2(0.5 + pageLocal * 0.5, turnUv.y);
       vec4 backColor = texture2D(u_toPage, pageUv);
-      float diffuse = 0.62 + 0.38 * absCos;
-      float settleFade = 1.0 - smoothstep(0.74, 0.98, turnAmount);
+      float diffuse = mix(1.0, 0.62 + 0.38 * absCos, settleFade);
       float edgeHighlight = smoothstep(0.74, 1.0, pageLocal) * 0.045 * settleFade;
       backColor.rgb *= diffuse;
       backColor.rgb += edgeHighlight;

@@ -261,6 +261,7 @@
   font-size: 15.2px;
   font-weight: 700;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 .sim .sim-gpu-error {

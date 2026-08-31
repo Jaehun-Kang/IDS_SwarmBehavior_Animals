@@ -224,7 +224,6 @@ function RulePreview({ animalId, ruleGroup, previewControls }) {
     <div
       className="canvas-placeholder rule-preview"
       aria-label={`${ruleGroup.category} 미니 시뮬레이션`}
-      style={{ background: "transparent" }}
     >
       <canvas
         ref={canvasRef}

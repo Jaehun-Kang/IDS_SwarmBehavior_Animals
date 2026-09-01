@@ -228,6 +228,12 @@ const PARAMS = {
 
 const CONTROL_FIELDS = [
   {
+    key: "IS_THREAT_ACTIVE",
+    label: "마우스 상호작용",
+    type: "toggle",
+    formatValue: (value) => (value ? "말벌" : "꽃 심기"),
+  },
+  {
     key: "COUNT",
     label: "개체 수",
     min: 60,
@@ -242,12 +248,6 @@ const CONTROL_FIELDS = [
     max: 42,
     step: 1,
     formatValue: (value) => `${Math.round(value)} °C`,
-  },
-  {
-    key: "IS_THREAT_ACTIVE",
-    label: "말벌 위협",
-    type: "toggle",
-    formatValue: (value) => (value ? "ON - 마우스가 말벌" : "OFF"),
   },
   {
     key: "SUN_AZIMUTH_DEG",

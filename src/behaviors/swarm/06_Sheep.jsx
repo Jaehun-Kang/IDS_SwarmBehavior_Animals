@@ -137,24 +137,20 @@ const SHEEP_STATES = {
 
 const CONTROL_FIELDS = [
   {
+    key: "DOG_AUTO_MODE",
+    label: "마우스 상호작용",
+    type: "binary-toggle",
+    onValue: false,
+    offValue: true,
+    formatValue: (value) => (value ? "없음" : "양몰이 개"),
+  },
+  {
     key: "COUNT",
     label: "개체 수",
     min: 24,
     max: 480,
     step: 8,
     formatValue: (value) => `${Math.round(value)} 마리`,
-  },
-  {
-    key: "DOG_ENABLED",
-    label: "양몰이개 활성화",
-    type: "toggle",
-    formatValue: (value) => (value ? "ON" : "OFF"),
-  },
-  {
-    key: "DOG_AUTO_MODE",
-    label: "개 조종 모드",
-    type: "toggle",
-    formatValue: (value) => (value ? "자동 (Auto)" : "수동 (Mouse)"),
   },
   {
     key: "DOG_PRESSURE",

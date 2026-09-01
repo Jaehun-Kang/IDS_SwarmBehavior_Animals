@@ -131,6 +131,18 @@ const PARAMS = {
 
 const CONTROL_FIELDS = [
   {
+    key: "INTERACTION_MODE",
+    label: "마우스 상호작용",
+    type: "binary-toggle",
+    onValue: "light_threat",
+    offValue: "predator",
+    formatValue: (value) => {
+      if (value === "predator") return "포식자";
+      if (value === "light_threat") return "손전등";
+      return "포식자";
+    },
+  },
+  {
     key: "COUNT",
     label: "개체 수",
     min: 20,
@@ -153,24 +165,6 @@ const CONTROL_FIELDS = [
     max: 10,
     step: 0.25,
     formatValue: (value) => `${value.toFixed(1)} m`,
-  },
-  {
-    key: "INTERACTION_MODE",
-    label: "마우스 위협",
-    type: "binary-toggle",
-    onValue: "light_threat",
-    offValue: "predator",
-    formatValue: (value) => {
-      if (value === "predator") return "포식자";
-      if (value === "light_threat") return "광원위협";
-      return "포식자";
-    },
-  },
-  {
-    key: "INTERACTIONS_ENABLED",
-    label: "시각적 상호작용",
-    type: "toggle",
-    formatValue: (value) => (value ? "ON" : "OFF"),
   },
   {
     key: "SHOW_PHASE_DEBUG",

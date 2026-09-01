@@ -140,6 +140,12 @@ const PARAMS = {
 
 const CONTROL_FIELDS = [
   {
+    key: "MOUSE_INTERACTION",
+    label: "마우스 상호작용",
+    type: "static",
+    formatValue: () => "없음",
+  },
+  {
     key: "COUNT",
     label: "개체 수",
     min: 120,
@@ -154,18 +160,6 @@ const CONTROL_FIELDS = [
     max: 0.05,
     step: 0.001,
     formatValue: (value) => value.toFixed(3),
-  },
-  {
-    key: "ADULT_FLIGHT_MODE",
-    label: "성충 비행 환경 규칙",
-    type: "toggle",
-    formatValue: (value) => (value ? "ON" : "OFF"),
-  },
-  {
-    key: "HUNGER_MODE",
-    label: "허기 동족포식 압력",
-    type: "toggle",
-    formatValue: (value) => (value ? "ON" : "OFF"),
   },
   {
     key: "TEMPERATURE_C",
@@ -203,6 +197,18 @@ const CONTROL_FIELDS = [
         </>
       );
     },
+  },
+  {
+    key: "ADULT_FLIGHT_MODE",
+    label: "성충 비행 환경 규칙",
+    type: "toggle",
+    formatValue: (value) => (value ? "ON" : "OFF"),
+  },
+  {
+    key: "HUNGER_MODE",
+    label: "허기 동족포식 압력",
+    type: "toggle",
+    formatValue: (value) => (value ? "ON" : "OFF"),
   },
 ];
 
@@ -418,9 +424,6 @@ const createAgent = (width, height) => {
     PARAMS.INITIAL_HEADING_SPREAD_RAD,
   );
   const isMoving = Math.random() < PARAMS.INITIAL_MARCHING_RATIO;
-  const bandCenterX = width * PARAMS.INITIAL_BAND_CENTER_X_RATIO;
-  const bandWidth = width * PARAMS.INITIAL_BAND_WIDTH_RATIO;
-  const bandHeight = height * PARAMS.INITIAL_BAND_HEIGHT_RATIO;
   const activityDurationS =
     PARAMS.ACTIVITY_DURATION_S *
     randomBetween(
@@ -435,16 +438,8 @@ const createAgent = (width, height) => {
     );
 
   return {
-    x: clamp(
-      bandCenterX + randomBetween(-bandWidth * 0.5, bandWidth * 0.5),
-      0,
-      width,
-    ),
-    y: clamp(
-      height * 0.5 + randomBetween(-bandHeight * 0.5, bandHeight * 0.5),
-      0,
-      height,
-    ),
+    x: randomBetween(0, width),
+    y: randomBetween(0, height),
     vx: Math.cos(heading),
     vy: Math.sin(heading),
     heading,

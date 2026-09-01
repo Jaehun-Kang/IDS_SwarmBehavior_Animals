@@ -126,6 +126,9 @@ const PARAMS = {
   EDGE_SPEED_DAMPING: 0.12,
   EDGE_CLAMP_REDIRECT: 28,
   EDGE_RETURN_GRACE: bodyLengthsToPx(22),
+  COUNT_TRANSITION_SCREEN_MARGIN: bodyLengthsToPx(10),
+  COUNT_TRANSITION_SPEED_MULTIPLIER: 1.35,
+  COUNT_EXIT_REMOVE_MARGIN: bodyLengthsToPx(7),
   INTRA_EVENT_INTERVAL: 125,
   INTER_EVENT_INTERVAL: 300,
   EVENT_JITTER: 0.24,
@@ -147,24 +150,18 @@ const PARAMS = {
 
 const CONTROL_FIELDS = [
   {
+    key: "IS_PREDATOR_ACTIVE",
+    label: "마우스 상호작용",
+    type: "toggle",
+    formatValue: (value) => (value ? "포식자" : "없음"),
+  },
+  {
     key: "BOID_COUNT",
     label: "개체 수",
     min: 240,
     max: 1800,
     step: 20,
     formatValue: (value) => `${value}`,
-  },
-  {
-    key: "IS_DAYTIME",
-    label: "낮/밤 전환",
-    type: "toggle",
-    formatValue: (value) => (value ? "낮" : "밤"),
-  },
-  {
-    key: "IS_PREDATOR_ACTIVE",
-    label: "포식자 반응",
-    type: "toggle",
-    formatValue: (value) => (value ? "켜짐" : "꺼짐"),
   },
   {
     key: "BASE_SPEED",
@@ -190,6 +187,12 @@ const CONTROL_FIELDS = [
     max: 2.5,
     step: 0.05,
     formatValue: (value) => value.toFixed(2),
+  },
+  {
+    key: "IS_DAYTIME",
+    label: "낮/밤 전환",
+    type: "toggle",
+    formatValue: (value) => (value ? "낮" : "밤"),
   },
 ];
 
@@ -621,6 +624,61 @@ const getWorldPointOnPointerRay = (screenX, screenY, depth, width, height) => {
   };
 };
 
+const getOutsideScreenPoint = (width, height, margin) => {
+  const side = Math.floor(Math.random() * 4);
+
+  if (side === 0) {
+    return { x: randomBetween(-margin, width + margin), y: -margin };
+  }
+
+  if (side === 1) {
+    return { x: width + margin, y: randomBetween(-margin, height + margin) };
+  }
+
+  if (side === 2) {
+    return { x: randomBetween(-margin, width + margin), y: height + margin };
+  }
+
+  return { x: -margin, y: randomBetween(-margin, height + margin) };
+};
+
+const getExitScreenTarget = (boid, width, height) => {
+  const margin = PARAMS.COUNT_TRANSITION_SCREEN_MARGIN;
+  const projected = getProjectedPoint(boid.position, width, height);
+  const fromCenterX = projected.x - width * 0.5;
+  const fromCenterY = projected.y - height * 0.5;
+  const absX = Math.abs(fromCenterX);
+  const absY = Math.abs(fromCenterY);
+
+  if (absX < 1 && absY < 1) {
+    return getOutsideScreenPoint(width, height, margin);
+  }
+
+  if (absX > absY) {
+    return {
+      x: fromCenterX < 0 ? -margin : width + margin,
+      y: clamp(projected.y + fromCenterY * 0.28, -margin, height + margin),
+    };
+  }
+
+  return {
+    x: clamp(projected.x + fromCenterX * 0.28, -margin, width + margin),
+    y: fromCenterY < 0 ? -margin : height + margin,
+  };
+};
+
+const isBoidOutsideScreen = (boid, width, height) => {
+  const margin = PARAMS.COUNT_EXIT_REMOVE_MARGIN;
+  const projected = getProjectedPoint(boid.position, width, height);
+
+  return (
+    projected.x < -margin ||
+    projected.x > width + margin ||
+    projected.y < -margin ||
+    projected.y > height + margin
+  );
+};
+
 const getClosestPointOnSegment3D = (point, start, end) => {
   const segment = subtract3D(end, start);
   const segmentLengthSquared = dot3D(segment, segment);
@@ -859,6 +917,12 @@ const getOutsideCubeDistance = (position, origin, radius) => {
   );
 };
 
+const getNeighborGridSearchRadius = () =>
+  Math.min(
+    PARAMS.MAX_GRID_RADIUS,
+    Math.max(1, Math.ceil(PARAMS.NEIGHBOR_RADIUS / PARAMS.GRID_CELL_SIZE)),
+  );
+
 const insertNearestNeighbor = (
   nearestNeighbors,
   candidateState,
@@ -896,8 +960,9 @@ const collectNeighbors = (
   let densityNeighborCount = 0;
   let densityDistanceSum = 0;
   let closeNeighborCount = 0;
+  const maxGridRadius = getNeighborGridSearchRadius();
 
-  for (let radius = 0; radius <= PARAMS.MAX_GRID_RADIUS; radius += 1) {
+  for (let radius = 0; radius <= maxGridRadius; radius += 1) {
     const shellCandidateIndices = [];
     appendGridShell(grid, origin, radius, shellCandidateIndices);
 
@@ -1064,12 +1129,39 @@ const scheduleNextEvent = (now, interval, rateScale) =>
   (interval / rateScale) *
     randomBetween(1 - PARAMS.EVENT_JITTER, 1 + PARAMS.EVENT_JITTER);
 
-const createBoid = (id, world, leaderCutoff) => {
-  const position = {
-    x: randomBetween(-world.width * 0.26, world.width * 0.26),
-    y: randomBetween(-world.height * 0.18, world.height * 0.18),
-    z: randomBetween(-world.depth * 0.18, world.depth * 0.18),
-  };
+const createBoid = (
+  id,
+  world,
+  leaderCutoff,
+  viewportWidth,
+  viewportHeight,
+  options = {},
+) => {
+  const depth = randomBetween(-world.depth * 0.24, world.depth * 0.24);
+  const screenPoint = options.isEntering
+    ? getOutsideScreenPoint(
+        viewportWidth,
+        viewportHeight,
+        PARAMS.COUNT_TRANSITION_SCREEN_MARGIN,
+      )
+    : {
+        x: randomBetween(0, viewportWidth),
+        y: randomBetween(0, viewportHeight),
+      };
+  const position =
+    viewportWidth > 0 && viewportHeight > 0
+      ? getWorldPointOnPointerRay(
+          screenPoint.x,
+          screenPoint.y,
+          depth,
+          viewportWidth,
+          viewportHeight,
+        )
+      : {
+          x: randomBetween(-world.width * 0.5, world.width * 0.5),
+          y: randomBetween(-world.height * 0.5, world.height * 0.5),
+          z: depth,
+        };
   const heading = normalize3D({
     x: randomBetween(-1, 1),
     y: randomBetween(-0.18, 0.18),
@@ -1102,6 +1194,11 @@ const createBoid = (id, world, leaderCutoff) => {
     referenceLock: null,
     state: "normal",
     stateExpiresAt: 0,
+    isEntering: Boolean(options.isEntering),
+    isExiting: false,
+    exitDepth: null,
+    exitScreenTarget: null,
+    exitDirection: null,
     activeSignal: 0,
     evasionRecovery: 0,
     flash: Math.random() * 0.12,
@@ -1505,21 +1602,107 @@ const updateSpriteFrame = (boid, width, height) => {
   boid.previousScreenPosition = pose.screenPosition;
 };
 
-const rebuildBoids = (count, world) => {
+const rebuildBoids = (count, world, viewportWidth, viewportHeight) => {
   const leaderCutoff = Math.max(1, Math.round(count * PARAMS.LEADER_RATIO));
   return Array.from({ length: count }, (_, index) =>
-    createBoid(index, world, leaderCutoff),
+    createBoid(index, world, leaderCutoff, viewportWidth, viewportHeight),
   );
+};
+
+const syncBoidCount = (boids, count, world, viewportWidth, viewportHeight) => {
+  const targetCount = clamp(Math.round(count), 1, 1800);
+  const leaderCutoff = Math.max(
+    1,
+    Math.round(targetCount * PARAMS.LEADER_RATIO),
+  );
+  let activeCount = 0;
+
+  for (let index = 0; index < boids.length; index += 1) {
+    if (!boids[index].isExiting) {
+      activeCount += 1;
+    }
+  }
+
+  let didChangeCount = false;
+
+  if (activeCount > targetCount) {
+    let remainingExitCount = activeCount - targetCount;
+    didChangeCount = true;
+
+    for (
+      let index = boids.length - 1;
+      index >= 0 && remainingExitCount > 0;
+      index -= 1
+    ) {
+      const boid = boids[index];
+
+      if (boid.isExiting) {
+        continue;
+      }
+
+      boid.isExiting = true;
+      boid.isEntering = false;
+      boid.referenceLock = null;
+      boid.turnIntent = null;
+      boid.exitDepth = boid.position.z;
+      boid.exitScreenTarget = getExitScreenTarget(
+        boid,
+        viewportWidth,
+        viewportHeight,
+      );
+      boid.exitDirection = normalize3D(
+        subtract3D(
+          getWorldPointOnPointerRay(
+            boid.exitScreenTarget.x,
+            boid.exitScreenTarget.y,
+            boid.exitDepth,
+            viewportWidth,
+            viewportHeight,
+          ),
+          boid.position,
+        ),
+        boid.direction,
+      );
+      remainingExitCount -= 1;
+    }
+  }
+
+  while (activeCount < targetCount && boids.length < 1800) {
+    boids.push(
+      createBoid(
+        boids.length,
+        world,
+        leaderCutoff,
+        viewportWidth,
+        viewportHeight,
+        { isEntering: true },
+      ),
+    );
+    activeCount += 1;
+    didChangeCount = true;
+  }
+
+  if (didChangeCount) {
+    boids.forEach((boid, index) => {
+      boid.id = index;
+      boid.isLeader = index < leaderCutoff && !boid.isExiting;
+    });
+  }
 };
 
 export function App({ controls, onGpuErrorChange, isPaused } = {}) {
   const canvasRef = React.useRef(null);
   const pointerRef = React.useRef({ active: false, x: 0, y: 0 });
+  const isPausedRef = React.useRef(isPaused);
   const resolvedControls = React.useMemo(
     () => sanitizeControlState(controls),
     [controls],
   );
   const controlsRef = React.useRef(resolvedControls);
+
+  React.useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
 
   React.useEffect(() => {
     controlsRef.current = resolvedControls;
@@ -1571,7 +1754,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
       height: PARAMS.WORLD_HEIGHT,
       depth: PARAMS.WORLD_DEPTH,
     };
-    const boids = rebuildBoids(resolvedControls.BOID_COUNT, world);
+    let boids = [];
 
     const handlePointerMove = (event) => {
       pointerRef.current = {
@@ -1611,6 +1794,27 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
 
+      if (isPausedRef.current) {
+        drawBoids(
+          gl,
+          renderer,
+          viewportWidth,
+          viewportHeight,
+          window.devicePixelRatio || 1,
+          boids,
+        );
+        animationFrame = window.requestAnimationFrame(step);
+        return;
+      }
+
+      syncBoidCount(
+        boids,
+        liveControls.BOID_COUNT,
+        world,
+        viewportWidth,
+        viewportHeight,
+      );
+
       daylightState = lerp(
         daylightState,
         liveControls.IS_DAYTIME ? 1 : 0,
@@ -1633,25 +1837,30 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
         schoolShapeMode = 0;
       }
 
-      const grid = buildSpatialGrid(boids);
-      const center = boids.reduce((sum, boid) => add3D(sum, boid.position), {
-        x: 0,
-        y: 0,
-        z: 0,
-      });
-      const aggregateVelocity = boids.reduce(
+      const activeBoids = boids.filter((boid) => !boid.isExiting);
+      const grid = buildSpatialGrid(activeBoids);
+      const center = activeBoids.reduce(
+        (sum, boid) => add3D(sum, boid.position),
+        {
+          x: 0,
+          y: 0,
+          z: 0,
+        },
+      );
+      const aggregateVelocity = activeBoids.reduce(
         (sum, boid) => add3D(sum, boid.velocity),
         { x: 0, y: 0, z: 0 },
       );
-      center.x /= boids.length;
-      center.y /= boids.length;
-      center.z /= boids.length;
+      const activeCount = Math.max(1, activeBoids.length);
+      center.x /= activeCount;
+      center.y /= activeCount;
+      center.z /= activeCount;
       const globalDirection = normalize3D(aggregateVelocity, {
         x: 1,
         y: 0,
         z: 0,
       });
-      const activeLeaderAggregate = boids.reduce(
+      const activeLeaderAggregate = activeBoids.reduce(
         (sum, candidate) => {
           if (!candidate.isLeader) {
             return sum;
@@ -1692,12 +1901,50 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
           : globalDirection;
       const activeLeaderSignal = clamp(
         activeLeaderAggregate.signal /
-          Math.max(Math.ceil(boids.length * PARAMS.LEADER_RATIO), 1),
+          Math.max(Math.ceil(activeCount * PARAMS.LEADER_RATIO), 1),
         0,
         1,
       );
 
-      boids.forEach((boid, boidIndex) => {
+      boids.forEach((boid) => {
+        if (!boid.isExiting) {
+          return;
+        }
+
+        const exitDepth = boid.exitDepth ?? boid.position.z;
+        const exitTarget = getWorldPointOnPointerRay(
+          boid.exitScreenTarget?.x ?? viewportWidth + 190,
+          boid.exitScreenTarget?.y ?? viewportHeight * 0.5,
+          exitDepth,
+          viewportWidth,
+          viewportHeight,
+        );
+        const exitDirection = normalize3D(
+          subtract3D(exitTarget, boid.position),
+          boid.exitDirection || boid.direction,
+        );
+        const exitSpeed = clamp(
+          length3D(boid.velocity),
+          liveControls.BASE_SPEED * 0.82,
+          PARAMS.MAX_SPEED,
+        );
+
+        boid.exitDirection = exitDirection;
+        boid.direction = rotateTowards(
+          boid.direction,
+          exitDirection,
+          PARAMS.MAX_TURN_RATE * boid.turnRateBias * dt,
+        );
+        boid.velocity = scale3D(boid.direction, exitSpeed);
+        boid.position = add3D(boid.position, scale3D(boid.velocity, dt));
+        boid.position.z = lerp(boid.position.z, exitDepth, 0.18);
+        boid.recentTurnAngle = 0;
+        boid.previousDirection = boid.direction;
+        boid.poseScale = lerp(boid.poseScale, 0.42, 0.08);
+        updateSpriteFrame(boid, viewportWidth, viewportHeight);
+      });
+
+      activeBoids.forEach((boid, boidIndex) => {
         if (now >= boid.nextMorphAt) {
           boid.poseScale = randomBetween(0, 1);
           boid.flash = randomBetween(0.08, 0.24);
@@ -2703,7 +2950,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
           edgeAvoidance.pressure,
         );
         const burstBoost = boid.turnIntent ? boid.turnIntent.strength * 34 : 0;
-        const speedTarget = clamp(
+        let speedTarget = clamp(
           Math.max(
             targetSpeed * edgeSpeedScale + burstBoost,
             leaderCruiseFloor,
@@ -2713,6 +2960,12 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
           liveControls.BASE_SPEED * 0.82,
           speedCap,
         );
+        if (boid.isEntering) {
+          speedTarget = Math.min(
+            speedCap,
+            speedTarget * PARAMS.COUNT_TRANSITION_SPEED_MULTIPLIER,
+          );
+        }
         const maxTurnAngle =
           PARAMS.MAX_TURN_RATE *
           boid.turnRateBias *
@@ -2804,6 +3057,15 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
           viewportWidth,
           viewportHeight,
         );
+        if (
+          boid.isEntering &&
+          projectedAfterMove.x >= 0 &&
+          projectedAfterMove.x <= viewportWidth &&
+          projectedAfterMove.y >= 0 &&
+          projectedAfterMove.y <= viewportHeight
+        ) {
+          boid.isEntering = false;
+        }
         const emergencyOverflow =
           projectedAfterMove.x < -PARAMS.EDGE_RETURN_GRACE ||
           projectedAfterMove.x > viewportWidth + PARAMS.EDGE_RETURN_GRACE ||
@@ -2845,6 +3107,17 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
         updateSpriteFrame(boid, viewportWidth, viewportHeight);
       });
 
+      for (let index = boids.length - 1; index >= 0; index -= 1) {
+        const boid = boids[index];
+
+        if (
+          boid.isExiting &&
+          isBoidOutsideScreen(boid, viewportWidth, viewportHeight)
+        ) {
+          boids.splice(index, 1);
+        }
+      }
+
       drawBoids(
         gl,
         renderer,
@@ -2854,9 +3127,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
         boids,
       );
 
-      if (!isPaused) {
-        animationFrame = window.requestAnimationFrame(step);
-      }
+      animationFrame = window.requestAnimationFrame(step);
     };
 
     loadTexture(gl, SARDINE_SPRITE_ATLAS)
@@ -2868,6 +3139,12 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
 
         renderer.texture = texture;
         resizeCanvas();
+        boids = rebuildBoids(
+          controlsRef.current.BOID_COUNT,
+          world,
+          window.innerWidth,
+          window.innerHeight,
+        );
         window.addEventListener("resize", resizeCanvas);
         window.addEventListener("pointermove", handlePointerMove);
         window.addEventListener("pointerleave", clearPointer);
@@ -2890,7 +3167,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
       destroyRenderer(gl, renderer);
       onGpuErrorChange?.("");
     };
-  }, [onGpuErrorChange, resolvedControls.BOID_COUNT, isPaused]);
+  }, [onGpuErrorChange]);
 
   return (
     <div

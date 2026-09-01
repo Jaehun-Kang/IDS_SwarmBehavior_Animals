@@ -20,6 +20,21 @@ const HOME_ANIMALS = animals.flatMap((animal) =>
 const DEFAULT_SUBTITLE_KEY = "__default__";
 const HOME_IDLE_HINT_DELAY_MS = 10000;
 const HOME_HOVER_CLEAR_DELAY_MS = 20000;
+const CANVAS_DRAW_ELEMENT_FLAG_URL = "chrome://flags/#canvas-draw-element";
+
+const canUseCanvasDrawElement = () => {
+  if (typeof document === "undefined") {
+    return true;
+  }
+
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  return (
+    typeof canvas.requestPaint === "function" &&
+    typeof context?.drawElementImage === "function"
+  );
+};
 
 const idleHintStyle = {
   position: "absolute",
@@ -71,6 +86,10 @@ function Home(props) {
     useState(null);
   const [committedTitleBottomY, setCommittedTitleBottomY] = useState(0);
   const [isIdleHintVisible, setIsIdleHintVisible] = useState(false);
+  const [isCanvasDrawElementUnavailable] = useState(
+    () => !canUseCanvasDrawElement(),
+  );
+  const [hasCopiedCanvasFlagUrl, setHasCopiedCanvasFlagUrl] = useState(false);
   const [particleTextState, setParticleTextState] = useState({
     speciesId: null,
     lineCount: 2,
@@ -151,6 +170,16 @@ function Home(props) {
     hoveredIdRef.current = null;
     clearHoverIdleTimeout();
   }, [clearHoverIdleTimeout, hoveredIdRef]);
+
+  const copyCanvasFlagUrl = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(CANVAS_DRAW_ELEMENT_FLAG_URL);
+      setHasCopiedCanvasFlagUrl(true);
+      window.setTimeout(() => setHasCopiedCanvasFlagUrl(false), 1600);
+    } catch {
+      setHasCopiedCanvasFlagUrl(false);
+    }
+  }, []);
 
   const updatePointerState = (pointX, pointY) => {
     pointerPositionRef.current = {
@@ -411,6 +440,17 @@ function Home(props) {
       >
         동물을 클릭해보세요
       </div>
+
+      {isCanvasDrawElementUnavailable ? (
+        <aside className="home-canvas-flag-notice" role="status">
+          <strong>플래그 비활성화됨</strong>
+          <span>원활한 체험을 위해 Chrome 플래그를 켜주세요</span>
+          <code>{CANVAS_DRAW_ELEMENT_FLAG_URL}</code>
+          <button type="button" onClick={copyCanvasFlagUrl}>
+            {hasCopiedCanvasFlagUrl ? "복사됨" : "주소 복사"}
+          </button>
+        </aside>
+      ) : null}
 
       {HOME_ANIMALS.map((animal) => (
         <div

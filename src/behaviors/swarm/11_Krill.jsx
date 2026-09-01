@@ -84,6 +84,12 @@ const PARAMS = {
 
 const CONTROL_FIELDS = [
   {
+    key: "MOUSE_INTERACTION",
+    label: "마우스 상호작용",
+    type: "static",
+    formatValue: () => "없음",
+  },
+  {
     key: "COUNT",
     label: "개체 수",
     min: PARAMS.MIN_COUNT,
@@ -323,27 +329,13 @@ const resolveTargetDepthY = (height, timeFlags) => {
 };
 
 // 에이전트 생성
-const createAgent = (index, width, height, config) => {
+const createAgent = (index, width, height) => {
   const heading = randomBetween(-Math.PI, Math.PI);
   const speed = randomBetween(
     PARAMS.OPTIMAL_SPEED_PX_S * 0.75,
     PARAMS.OPTIMAL_SPEED_PX_S * 1.05,
   );
   const direction = angleToVector(heading);
-  const timeFlags = resolveTimeFlags(config.startHour);
-  const targetDepth = resolveTargetDepthY(height, timeFlags);
-  const spawnRadiusX = lerp(
-    width * 0.22,
-    width * 0.1,
-    config.countDensityRatio,
-  );
-  const spawnRadiusY = lerp(
-    height * 0.1,
-    height * 0.045,
-    config.countDensityRatio,
-  );
-  const spawnAngle = randomBetween(-Math.PI, Math.PI);
-  const spawnRadius = Math.sqrt(Math.random());
   const bodyLength = randomBetween(
     PARAMS.BODY_LENGTH_MIN_PX,
     PARAMS.BODY_LENGTH_MAX_PX,
@@ -356,16 +348,8 @@ const createAgent = (index, width, height, config) => {
 
   return {
     id: index,
-    x: clamp(
-      width * 0.5 + Math.cos(spawnAngle) * spawnRadiusX * spawnRadius,
-      0,
-      width,
-    ),
-    y: clamp(
-      targetDepth + Math.sin(spawnAngle) * spawnRadiusY * spawnRadius,
-      0,
-      height,
-    ),
+    x: randomBetween(0, width),
+    y: randomBetween(0, height),
     vx: direction.x * speed,
     vy: direction.y * speed,
     ax: 0,
@@ -392,9 +376,9 @@ const createAgent = (index, width, height, config) => {
   };
 };
 
-const createAgents = (count, width, height, config) =>
+const createAgents = (count, width, height) =>
   Array.from({ length: count }, (_, index) =>
-    createAgent(index, width, height, config),
+    createAgent(index, width, height),
   );
 
 const ensureAgents = (agentsRef, config, width, height) => {
@@ -402,7 +386,7 @@ const ensureAgents = (agentsRef, config, width, height) => {
     const nextAgents = [...agentsRef.current];
     const startIndex = nextAgents.length;
     for (let index = startIndex; index < config.count; index += 1) {
-      nextAgents.push(createAgent(index, width, height, config));
+      nextAgents.push(createAgent(index, width, height));
     }
     agentsRef.current = nextAgents;
   } else if (agentsRef.current.length > config.count) {
@@ -957,7 +941,6 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         behaviorConfig.count,
         width,
         height,
-        behaviorConfig,
       );
       foodFieldRef.current = createFoodField(width, height);
       elapsedTimeRef.current = 0;

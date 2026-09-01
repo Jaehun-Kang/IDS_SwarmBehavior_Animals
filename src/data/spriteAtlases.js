@@ -1,14 +1,14 @@
-import antSpriteSheetUrl from "../assets/sprite-sheets/ant_1.svg";
-import batSpriteSheetUrl from "../assets/sprite-sheets/bat_1.svg";
-import beeSpriteSheetUrl from "../assets/sprite-sheets/bee_1.svg";
-import fireflySpriteSheetUrl from "../assets/sprite-sheets/firefly_1.svg";
-import grasshopperSpriteSheetUrl from "../assets/sprite-sheets/grasshopper_1.svg";
-import krillSpriteSheetUrl from "../assets/sprite-sheets/krill_1.svg";
-import penguinSpriteSheetUrl from "../assets/sprite-sheets/penguin_1.svg";
-import sardineSpriteSheetUrl from "../assets/sprite-sheets/sardine_1.svg";
-import sheepSpriteSheetUrl from "../assets/sprite-sheets/sheep_1.svg";
-import spinyLobsterSpriteSheetUrl from "../assets/sprite-sheets/spinylobster_1.svg";
-import starlingSpriteSheetUrl from "../assets/sprite-sheets/starling_1.svg";
+import starlingSpriteSheetUrl from "../assets/sprite-sheets/01_starling.svg";
+import sardineSpriteSheetUrl from "../assets/sprite-sheets/02_sardine.svg";
+import grasshopperSpriteSheetUrl from "../assets/sprite-sheets/03_grasshopper.svg";
+import antSpriteSheetUrl from "../assets/sprite-sheets/04_ant.svg";
+import batSpriteSheetUrl from "../assets/sprite-sheets/05_bat.svg";
+import sheepSpriteSheetUrl from "../assets/sprite-sheets/06_sheep.svg";
+import penguinSpriteSheetUrl from "../assets/sprite-sheets/07_penguin.svg";
+import beeSpriteSheetUrl from "../assets/sprite-sheets/08_bee.svg";
+import fireflySpriteSheetUrl from "../assets/sprite-sheets/09_firefly.svg";
+import spinyLobsterSpriteSheetUrl from "../assets/sprite-sheets/10_spinylobster.svg";
+import krillSpriteSheetUrl from "../assets/sprite-sheets/11_krill.svg";
 
 export const HOME_SPRITE_ATLASES = {
   starling: {
@@ -185,8 +185,8 @@ export const HOME_SPRITE_ATLASES = {
   ant: {
     space: "2d",
     src: antSpriteSheetUrl,
-    imageSize: { width: 300, height: 44 },
-    aspectRatio: "100 / 44",
+    imageSize: { width: 480, height: 70 },
+    aspectRatio: "160 / 70",
     grid: { columns: 3, rows: 1 },
     baseClassName: "sprite_ant",
     defaultStage: "ant_top",

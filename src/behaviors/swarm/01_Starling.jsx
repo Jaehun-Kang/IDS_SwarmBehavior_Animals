@@ -75,18 +75,18 @@ const PARAMS = {
 
 const CONTROL_FIELDS = [
   {
+    key: "IS_PREDATOR_ACTIVE",
+    label: "마우스 상호작용",
+    type: "toggle",
+    formatValue: (value) => (value ? "포식자" : "없음"),
+  },
+  {
     key: "BOID_COUNT",
     label: "개체 수",
     min: 300,
     max: 2600,
     step: 50,
     formatValue: (value) => `${value}`,
-  },
-  {
-    key: "IS_PREDATOR_ACTIVE",
-    label: "포식자 위협",
-    type: "toggle",
-    formatValue: (value) => (value ? "켜짐" : "꺼짐"),
   },
   {
     key: "NEIGHBOR_COUNT",

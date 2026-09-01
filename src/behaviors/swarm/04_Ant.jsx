@@ -381,6 +381,12 @@ const PARAMS = {
 
 const CONTROL_FIELDS = [
   {
+    key: "MOUSE_INTERACTION",
+    label: "마우스 상호작용",
+    type: "static",
+    formatValue: () => "먹이 놓기",
+  },
+  {
     key: "AGENT_COUNT",
     label: "개체 수",
     min: SIMULATED_RAIDERS_MIN,
@@ -413,12 +419,6 @@ const CONTROL_FIELDS = [
     formatValue: (value) => value.toFixed(2) + " rad",
   },
   {
-    key: "ENABLE_MILL",
-    label: "앤트밀 활성화",
-    type: "toggle",
-    formatValue: (value) => (value ? "ON" : "OFF"),
-  },
-  {
     key: "RC_N_THRESHOLD",
     label: "앤트밀 임계치",
     min: -3,
@@ -433,6 +433,12 @@ const CONTROL_FIELDS = [
     max: 180 / 60,
     step: 5 / 60,
     formatValue: (value) => Math.round(value * 60) + " sec",
+  },
+  {
+    key: "ENABLE_MILL",
+    label: "앤트밀 활성화",
+    type: "toggle",
+    formatValue: (value) => (value ? "ON" : "OFF"),
   },
 ];
 const DEFAULT_CONTROL_STATE = { ...PARAMS };

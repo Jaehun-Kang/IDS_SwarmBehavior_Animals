@@ -128,14 +128,16 @@ const PARAMS = {
 
 const CONTROL_FIELDS = [
   {
-    key: "IS_EMERGING",
-    label: "동굴 이동 방향",
-    type: "toggle",
-    formatValue: (value) => (value ? "나오기" : "들어가기"),
+    key: "INTERACTION_MODE",
+    label: "마우스 상호작용",
+    type: "binary-toggle",
+    onValue: "flashlight",
+    offValue: "predator",
+    formatValue: (value) => (value === "flashlight" ? "손전등" : "포식자"),
   },
   {
     key: "COUNT",
-    label: "무리 크기",
+    label: "개체 수",
     min: 40,
     max: 320,
     step: 4,
@@ -150,12 +152,10 @@ const CONTROL_FIELDS = [
     formatValue: (value) => `${Number(value).toFixed(1)} lx`,
   },
   {
-    key: "INTERACTION_MODE",
-    label: "마우스 도구",
-    type: "binary-toggle",
-    onValue: "flashlight",
-    offValue: "predator",
-    formatValue: (value) => (value === "flashlight" ? "손전등" : "포식자"),
+    key: "IS_EMERGING",
+    label: "동굴 이동 방향",
+    type: "toggle",
+    formatValue: (value) => (value ? "나오기" : "들어가기"),
   },
   {
     key: "SHOW_ULTRASOUND",
@@ -203,6 +203,29 @@ const smoothstep = (edge0, edge1, value) => {
 
 const resolveFlashlightIntensity = (x, y, pointerState) => {
   return resolveSharedFlashlightIntensity(x, y, pointerState, FLASHLIGHT_PRESET);
+};
+
+const resolveSkyLightRatio = (lightLux) =>
+  Math.sqrt(clamp(Number(lightLux) / PARAMS.LIGHT_HIGH_LUX, 0, 1));
+
+const createTintedAtlasCanvas = (source, width, height, fillStyle, alpha) => {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return source;
+  }
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(source, 0, 0, width, height);
+  ctx.globalCompositeOperation = "source-atop";
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = fillStyle;
+  ctx.fillRect(0, 0, width, height);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+  return canvas;
 };
 
 const wrapAngle = (angle) => {
@@ -376,6 +399,12 @@ const drawUltrasoundRings = (ctx, agents, controls, timeS) => {
     return;
   }
 
+  const skyLightRatio = resolveSkyLightRatio(controls.LIGHT_INTENSITY_LUX);
+  const ringColor = {
+    r: Math.round(lerp(170, 44, skyLightRatio)),
+    g: Math.round(lerp(210, 82, skyLightRatio)),
+    b: Math.round(lerp(235, 98, skyLightRatio)),
+  };
   let drawn = 0;
   const maxRings = PARAMS.ULTRASOUND_MAX_RINGS;
   const ringSpeedPx = metersToPx(PARAMS.ULTRASOUND_RING_SPEED_MPS);
@@ -402,7 +431,7 @@ const drawUltrasoundRings = (ctx, agents, controls, timeS) => {
     const radius = pulsePhase * ringSpeedPx * PARAMS.ULTRASOUND_RING_INTERVAL_S;
     const alpha = (1 - pulsePhase) * (agent.protestCallActive ? 0.28 : 0.16);
 
-    ctx.strokeStyle = `rgba(170, 210, 235, ${alpha})`;
+    ctx.strokeStyle = `rgba(${ringColor.r}, ${ringColor.g}, ${ringColor.b}, ${alpha})`;
     ctx.beginPath();
     ctx.arc(agent.x, agent.y, radius, 0, Math.PI * 2);
     ctx.stroke();
@@ -1876,6 +1905,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const canvasRef = React.useRef(null);
   const imageRef = React.useRef(null);
   const rasterCanvasRef = React.useRef(null);
+  const atlasVariantsRef = React.useRef(null);
   const animationFrameRef = React.useRef(0);
   const agentsRef = React.useRef([]);
   const flashlightToggleRef = React.useRef(false);
@@ -1912,11 +1942,21 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       imageRef.current = image;
       frameSizeRef.current = frameSize;
       rasterCanvasRef.current = canvas;
+      atlasVariantsRef.current = {
+        dim: createTintedAtlasCanvas(
+          canvas,
+          canvas.width,
+          canvas.height,
+          "rgb(12, 13, 14)",
+          0.58,
+        ),
+      };
     });
 
     return () => {
       cancelled = true;
       rasterCanvasRef.current = null;
+      atlasVariantsRef.current = null;
     };
   }, []);
 
@@ -2071,6 +2111,14 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         return;
       }
 
+      const atlasVariants = atlasVariantsRef.current;
+      const dimImage = atlasVariants?.dim ?? image;
+      const skyLightRatio = resolveSkyLightRatio(
+        resolvedControls.LIGHT_INTENSITY_LUX,
+      );
+      const isFlashlightInteraction =
+        resolvedControls.INTERACTION_MODE === "flashlight";
+
       agentsRef.current.forEach((agent, index) => {
         if (agent.phase === BAT_PHASES.INSIDE) {
           return;
@@ -2143,6 +2191,19 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         const bobOffset =
           Math.sin(now * PARAMS.WINGBEAT_FREQUENCY_HZ + index * 0.7) *
           PARAMS.VISUAL_BOB_PX;
+        const flashlightIntensity = isFlashlightInteraction
+          ? resolveFlashlightIntensity(
+              agent.x,
+              agent.y + bobOffset,
+              pointerRef.current,
+            )
+          : 0;
+        const ambientReveal = lerp(0.04, 0.42, skyLightRatio);
+        const bodyRevealIntensity = clamp(
+          ambientReveal + flashlightIntensity * 0.9,
+          0,
+          1,
+        );
 
         agent.previousScreenPosition = sprite.pose.screenPosition;
 
@@ -2155,15 +2216,16 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             ? lerp(0.18, 1, exitingProgress)
             : 1;
         ctx.save();
-        ctx.globalAlpha =
+        const phaseAlpha =
           lerp(0.78, 1, altitudeRatio) *
           enteringAlphaFactor *
           exitingAlphaFactor;
         ctx.translate(agent.x, agent.y + bobOffset);
         ctx.rotate(sprite.rotation);
         ctx.scale(sprite.flipX, flattenScaleY);
+        ctx.globalAlpha = phaseAlpha * lerp(0.72, 0.92, skyLightRatio);
         ctx.drawImage(
-          image,
+          dimImage,
           sprite.frame.x * frameSize.width,
           sprite.frame.y * frameSize.height,
           frameSize.width,
@@ -2173,6 +2235,21 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           drawWidth,
           drawHeight,
         );
+        if (bodyRevealIntensity > 0.01) {
+          ctx.globalAlpha =
+            phaseAlpha * lerp(0.08, 1, bodyRevealIntensity);
+          ctx.drawImage(
+            image,
+            sprite.frame.x * frameSize.width,
+            sprite.frame.y * frameSize.height,
+            frameSize.width,
+            frameSize.height,
+            -drawWidth * 0.5,
+            -drawHeight * 0.5,
+            drawWidth,
+            drawHeight,
+          );
+        }
         ctx.restore();
       });
 

@@ -158,6 +158,12 @@ const PARAMS = {
 
 const CONTROL_FIELDS = [
   {
+    key: "THREAT_ACTIVE",
+    label: "마우스 상호작용",
+    type: "toggle",
+    formatValue: (value) => (value ? "포식자" : "없음"),
+  },
+  {
     key: "COUNT",
     label: "개체 수",
     min: PARAMS.MIN_COUNT,
@@ -180,12 +186,6 @@ const CONTROL_FIELDS = [
     max: 100,
     step: 1,
     formatValue: (value) => `${Math.round(value)} %`,
-  },
-  {
-    key: "THREAT_ACTIVE",
-    label: "포식자 위협 발생",
-    type: "toggle",
-    formatValue: (value) => (value ? "출현" : "안전"),
   },
   {
     key: "ODOR_TRAILS",

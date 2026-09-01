@@ -226,7 +226,8 @@ const normalizeControlDisplayValue = (field, value) => {
   if (
     field.type === "toggle" ||
     field.type === "binary-toggle" ||
-    field.type === "select"
+    field.type === "select" ||
+    field.type === "static"
   ) {
     return value;
   }
@@ -254,7 +255,8 @@ const normalizeControlInputValue = (field, value) => {
     !field ||
     field.type === "toggle" ||
     field.type === "binary-toggle" ||
-    field.type === "select"
+    field.type === "select" ||
+    field.type === "static"
   ) {
     return value;
   }
@@ -1101,7 +1103,7 @@ function SwarmCanvas({
                           controlValueTime,
                         )}
                       </span>
-                      {field.type === "toggle" ? (
+                      {field.type === "static" ? null : field.type === "toggle" ? (
                         <button
                           type="button"
                           className={[
@@ -1193,7 +1195,8 @@ function SwarmCanvas({
                   </div>
                   {field.type === "toggle" ||
                   field.type === "binary-toggle" ||
-                  field.type === "select" ? null : (
+                  field.type === "select" ||
+                  field.type === "static" ? null : (
                     <input
                       className="sim-control-slider"
                       type="range"

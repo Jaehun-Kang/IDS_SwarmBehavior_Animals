@@ -1,20 +1,23 @@
 import React from "react";
 import { getAnimalDetails } from "../behaviors/animalDetails";
 import RulePreview from "../components/RulePreview";
+import { HOME_SPRITE_ATLASES } from "../data/spriteAtlases";
 import chevronLeftIconUrl from "../assets/icons/chevron-left.svg";
 import chevronRightIconUrl from "../assets/icons/chevron-right.svg";
 import closeIconUrl from "../assets/icons/close.svg";
 import paperTextureUrl from "../assets/texture/paper/white-paper-texture-seamless.webp";
+import {
+  getAtlasFrameStyle,
+  resolveAtlasFrameSize,
+  resolveStageFrameSequence,
+} from "../utils/spriteAtlas";
+import { resolveDomAtlasSprite } from "../utils/spritePose";
 import {
   createBookCurlRenderer,
   renderBookCurlTransition,
 } from "../utils/bookCurlWebgl";
 import "../styles/Detail.scss";
 
-const headerArtworkModules = import.meta.glob("../assets/detail/*.svg", {
-  eager: true,
-  import: "default",
-});
 const bookCoverTextureModules = import.meta.glob(
   "../assets/texture/book_cover/*.webp",
   {
@@ -22,23 +25,6 @@ const bookCoverTextureModules = import.meta.glob(
     import: "default",
   },
 );
-
-const HEADER_ARTWORK_ASSET_KEYS = {
-  spiny_lobster: {
-    assetKey: "spinylobster",
-  },
-};
-
-const getHeaderArtwork = (animalId) => {
-  const assetKey = HEADER_ARTWORK_ASSET_KEYS[animalId]?.assetKey || animalId;
-  const src = headerArtworkModules[`../assets/detail/${assetKey}.svg`];
-
-  if (!src) {
-    return null;
-  }
-
-  return { src };
-};
 
 const getBookCoverTexture = (animalId) => {
   return bookCoverTextureModules[
@@ -53,8 +39,152 @@ const BOOK_OPEN_DELAY_MS = 720;
 const BOOK_CLOSE_DELAY_MS = 720;
 const BOOK_AUTO_FIRST_TURN_DELAY_MS = 50;
 const DRAG_TURN_THRESHOLD = 72;
+const INTRO_GRASSHOPPER_TAKEOFF_MS = 25;
+const INTRO_ANT_FRONT_RADIUS_PX = 56;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+const getIntroSpriteState = ({
+  animalId,
+  pointerVector,
+  timestampMs,
+  grasshopperFlightStartMs,
+}) => {
+  if (animalId === "starling") {
+    return {
+      spriteVariant: 0.75,
+      spriteBranchLock: true,
+    };
+  }
+
+  if (animalId === "grasshopper") {
+    const shouldFly = pointerVector.y < 0;
+    const takeoffElapsedMs = Math.max(0, timestampMs - grasshopperFlightStartMs);
+    const isTakingOff =
+      shouldFly && takeoffElapsedMs < INTRO_GRASSHOPPER_TAKEOFF_MS;
+
+    return {
+      directionX: pointerVector.x,
+      directionY: pointerVector.y,
+      isFlying: shouldFly,
+      isTakingOff,
+      jumpProgress: isTakingOff ? 0.12 : 1,
+    };
+  }
+
+  if (animalId === "firefly") {
+    const glowCycle = (timestampMs % 1200) / 1200;
+    return { glow: glowCycle < 0.2 || (glowCycle > 0.34 && glowCycle < 0.42) };
+  }
+
+  if (animalId === "spiny_lobster") {
+    const verticalDominance =
+      Math.abs(pointerVector.y) >= Math.abs(pointerVector.x) * 0.72;
+
+    return { forceTop: verticalDominance };
+  }
+
+  return undefined;
+};
+
+const getIntroAtlas = (animalId, atlas) => {
+  if (!atlas) {
+    return null;
+  }
+
+  if (animalId === "sardine") {
+    return {
+      ...atlas,
+      pose: {
+        ...atlas.pose,
+        options: {
+          ...atlas.pose?.options,
+          verticalThreshold: 0.92,
+        },
+      },
+    };
+  }
+
+  return atlas;
+};
+
+const applyIntroSpriteOverrides = (animalId, sprite, pointerVector, state) => {
+  if (animalId === "ant") {
+    const pointerDistance = Math.hypot(pointerVector.x, pointerVector.y);
+    const verticalDominance =
+      Math.abs(pointerVector.y) >= Math.abs(pointerVector.x) * 0.82;
+
+    if (pointerDistance <= INTRO_ANT_FRONT_RADIUS_PX) {
+      return {
+        ...sprite,
+        stage: "ant_front",
+        rotationDeg: 0,
+        scaleX: 1,
+      };
+    }
+
+    if (verticalDominance) {
+      return {
+        ...sprite,
+        stage: "ant_top",
+        rotationDeg:
+          (Math.atan2(pointerVector.y, pointerVector.x) * 180) / Math.PI,
+        scaleX: 1,
+      };
+    }
+
+    return {
+      ...sprite,
+      stage: "ant_walk",
+      rotationDeg: 0,
+      scaleX: pointerVector.x < 0 ? -1 : 1,
+    };
+  }
+
+  if (animalId === "spiny_lobster" && state?.forceTop) {
+    return {
+      ...sprite,
+      rotationDeg: (Math.atan2(pointerVector.y, pointerVector.x) * 180) / Math.PI,
+      scaleX: 1,
+    };
+  }
+
+  return sprite;
+};
+
+const getIntroSpriteFrameSequence = (animalId, stage, sequence) => {
+  if (sequence.frames?.length > 1) {
+    return sequence;
+  }
+
+  if (animalId === "bat" && stage === "bat_fly3") {
+    return {
+      ...sequence,
+      frames: [
+        { x: 2, y: 0 },
+        { x: 3, y: 0 },
+      ],
+      durationMs: 120,
+    };
+  }
+
+  return sequence;
+};
+
+const getIntroSpriteFrame = (sequence, timestampMs) => {
+  const frames = sequence.frames?.length ? sequence.frames : [{ x: 0, y: 0 }];
+
+  if (frames.length <= 1) {
+    return frames[0];
+  }
+
+  const stepMs = sequence.fps
+    ? Math.max(16, 1000 / sequence.fps)
+    : Math.max(16, (sequence.durationMs || 120) / frames.length);
+  const frameIndex = Math.floor(timestampMs / stepMs) % frames.length;
+
+  return frames[frameIndex] || frames[0];
+};
 
 const waitForAnimationFrame = () =>
   new Promise((resolve) => {
@@ -632,8 +762,15 @@ const formatBehaviorParameterValue = (value, meta) => {
   const normalized = clamp(Number(value) || 0, 0, 100) / 100;
   const scaled = meta.min + (meta.max - meta.min) * normalized;
   const formatted = scaled.toFixed(meta.decimals);
+  const unitSymbolMap = {
+    "퍼센트": "%",
+    "도": "°",
+  };
+  const compactUnits = new Set(["%", "°"]);
+  const displayUnit = unitSymbolMap[meta.unit] ?? meta.unit;
+  const separator = compactUnits.has(displayUnit) ? "" : " ";
 
-  return `${formatted} ${meta.unit}`;
+  return `${formatted}${separator}${displayUnit}`;
 };
 
 const easeInOutCubic = (value) =>
@@ -777,15 +914,21 @@ function Detail({
   const [isBookReturning, setIsBookReturning] = React.useState(false);
   const [isBookLaunching, setIsBookLaunching] = React.useState(false);
   const [isBookExpanding, setIsBookExpanding] = React.useState(false);
+  const [introPointerVector, setIntroPointerVector] = React.useState({
+    x: 1,
+    y: 0,
+  });
+  const [introAnimationTimeMs, setIntroAnimationTimeMs] = React.useState(0);
   const bookOpenTimerRef = React.useRef(null);
   const bookCloseTimerRef = React.useRef(null);
   const bookLaunchFrameRef = React.useRef(null);
   const bookTransitionLockRef = React.useRef(false);
   const [previewControls, setPreviewControls] = React.useState({});
   const animal = getAnimalDetails(animalId);
-  const artwork = getHeaderArtwork(animalId);
+  const introAtlas = HOME_SPRITE_ATLASES[animalId];
   const coverTextureUrl = getBookCoverTexture(animalId);
   const coverTextureCssValue = getCssImageValue(coverTextureUrl);
+  const introArtworkRef = React.useRef(null);
   const pageSurfaceRef = React.useRef(null);
   const turnCaptureSurfaceRef = React.useRef(null);
   const turnCanvasRef = React.useRef(null);
@@ -795,6 +938,10 @@ function Detail({
   const didAutoFirstTurnRef = React.useRef(false);
   const pendingCloseAfterCoverRef = React.useRef(false);
   const closeBookFromCoverRef = React.useRef(null);
+  const grasshopperIntroFlightRef = React.useRef({
+    isFlying: false,
+    startedAtMs: 0,
+  });
 
   const ruleSpreads = React.useMemo(() => {
     return Array.isArray(animal?.rules)
@@ -889,6 +1036,95 @@ function Detail({
         zIndex: -1,
       }
     : null;
+  const introSprite = React.useMemo(() => {
+    if (!introAtlas) {
+      return null;
+    }
+    const resolvedAtlas = getIntroAtlas(animalId, introAtlas);
+    if (animalId === "grasshopper") {
+      const shouldFly = introPointerVector.y < 0;
+
+      if (shouldFly !== grasshopperIntroFlightRef.current.isFlying) {
+        grasshopperIntroFlightRef.current = {
+          isFlying: shouldFly,
+          startedAtMs: shouldFly ? introAnimationTimeMs : 0,
+        };
+      }
+    }
+
+    const introState = getIntroSpriteState({
+      animalId,
+      pointerVector: introPointerVector,
+      timestampMs: introAnimationTimeMs,
+      grasshopperFlightStartMs:
+        grasshopperIntroFlightRef.current.startedAtMs,
+    });
+
+    const resolvedSprite = resolveDomAtlasSprite(resolvedAtlas, {
+      velocity: introPointerVector,
+      state: introState,
+      profile: "detail",
+    });
+    const displaySprite = applyIntroSpriteOverrides(
+      animalId,
+      resolvedSprite,
+      introPointerVector,
+      introState,
+    );
+    const sequence = getIntroSpriteFrameSequence(
+      animalId,
+      displaySprite.stage,
+      resolveStageFrameSequence(resolvedAtlas, displaySprite.stage),
+    );
+    const frame = getIntroSpriteFrame(sequence, introAnimationTimeMs);
+    const frameSize = resolveAtlasFrameSize(resolvedAtlas);
+    const frameRatio =
+      frameSize.width > 0 && frameSize.height > 0
+        ? frameSize.width / frameSize.height
+        : 1;
+
+    return {
+      ...displaySprite,
+      frame,
+      style: {
+        ...getAtlasFrameStyle({
+          atlas: resolvedAtlas,
+          frame,
+        }),
+        "--detail-intro-sprite-ratio": frameRatio,
+        aspectRatio: `${frameSize.width} / ${frameSize.height}`,
+      },
+    };
+  }, [animalId, introAnimationTimeMs, introAtlas, introPointerVector]);
+
+  const updateIntroPointerVector = React.useCallback((clientX, clientY) => {
+    const node = introArtworkRef.current;
+
+    if (!node) {
+      return;
+    }
+
+    const rect = node.getBoundingClientRect();
+    const nextVector = {
+      x: clientX - (rect.left + rect.width * 0.5),
+      y: clientY - (rect.top + rect.height * 0.5),
+    };
+
+    if (Math.hypot(nextVector.x, nextVector.y) < 1) {
+      return;
+    }
+
+    setIntroPointerVector((current) => {
+      if (
+        Math.abs(current.x - nextVector.x) < 0.5 &&
+        Math.abs(current.y - nextVector.y) < 0.5
+      ) {
+        return current;
+      }
+
+      return nextVector;
+    });
+  }, []);
 
   const clearTurnCanvas = React.useCallback(() => {
     const canvas = turnCanvasRef.current;
@@ -930,6 +1166,48 @@ function Detail({
   React.useEffect(() => {
     setActivePageKey("cover");
   }, [animalId]);
+
+  React.useEffect(() => {
+    grasshopperIntroFlightRef.current = {
+      isFlying: false,
+      startedAtMs: 0,
+    };
+  }, [activePageKey, animalId]);
+
+  React.useEffect(() => {
+    if (!isOpen || activePageKey !== "intro") {
+      return undefined;
+    }
+
+    const handlePointerMove = (event) => {
+      updateIntroPointerVector(event.clientX, event.clientY);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+    };
+  }, [activePageKey, isOpen, updateIntroPointerVector]);
+
+  React.useEffect(() => {
+    if (!isOpen || activePageKey !== "intro" || !introAtlas) {
+      return undefined;
+    }
+
+    let animationFrameId = 0;
+
+    const updateAnimationTime = (timestampMs) => {
+      setIntroAnimationTimeMs(timestampMs);
+      animationFrameId = window.requestAnimationFrame(updateAnimationTime);
+    };
+
+    animationFrameId = window.requestAnimationFrame(updateAnimationTime);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrameId);
+    };
+  }, [activePageKey, introAtlas, isOpen]);
 
   React.useEffect(() => {
     window.clearTimeout(bookOpenTimerRef.current);
@@ -1774,17 +2052,25 @@ function Detail({
           <div className="detail-book-page detail-book-page--inside-cover" />
           <div className="detail-book-page detail-book-page--intro">
             <div className="detail-page-inner detail-page-inner--intro">
-              {artwork ? (
+              {introSprite ? (
                 <div
+                  ref={isCapture ? null : introArtworkRef}
                   className="detail-intro-artwork"
                   aria-hidden="true"
-                  style={{ "--detail-artwork-mask": `url(${artwork.src})` }}
                 >
-                  <img
-                    className="detail-header-artwork__image"
-                    src={artwork.src}
-                    alt=""
-                    draggable="false"
+                  <span
+                    className={[
+                      "detail-header-artwork__image",
+                      "detail-header-artwork__sprite",
+                      introAtlas.baseClassName,
+                      introSprite.stage,
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    style={{
+                      ...introSprite.style,
+                      transform: `rotate(${introSprite.rotationDeg}deg) scaleX(${introSprite.scaleX})`,
+                    }}
                   />
                 </div>
               ) : null}

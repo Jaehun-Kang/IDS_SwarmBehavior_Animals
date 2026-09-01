@@ -14,17 +14,17 @@ export const FLASHLIGHT_PRESET = {
   directionalWidthScale: 0.78,
   sourceOffsetYPx: 110,
   colors: {
-    bloomCore: [255, 246, 226], // rgb(255, 246, 226)
-    bloomMid: [218, 199, 171], // rgb(218, 199, 171)
-    bloomEdge: [118, 106, 84], // rgb(118, 106, 84)
-    bloomFade: [20, 24, 16], // rgb(24, 21, 16)
-    dustCore: [238, 223, 194], // rgb(238, 223, 194)
-    dustMid: [201, 186, 154], // rgb(201, 186, 154)
-    dustEdge: [144, 133, 104], // rgb(144, 133, 104)
-    dustFade: [28, 23, 18], // rgb(28, 23, 18)
-    directionalCore: [224, 205, 181], // rgb(224, 205, 181)
-    directionalMid: [162, 150, 125], // rgb(162, 150, 125)
-    directionalEdge: [96, 87, 68], // rgb(96, 87, 68)
+    bloomCore: [255, 246, 226],
+    bloomMid: [255, 238, 212],
+    bloomEdge: [255, 226, 188],
+    bloomFade: [255, 226, 188],
+    dustCore: [250, 235, 205],
+    dustMid: [246, 226, 190],
+    dustEdge: [238, 214, 176],
+    dustFade: [238, 214, 176],
+    directionalCore: [250, 229, 202],
+    directionalMid: [242, 218, 188],
+    directionalEdge: [232, 205, 170],
   },
 };
 

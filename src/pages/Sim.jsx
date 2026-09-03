@@ -1,5 +1,5 @@
 import React from "react";
-import "../styles/Sim.scss";
+import "../styles/Sim.css";
 import { animals } from "../behaviors/animalData";
 import SpriteAtlas from "../components/SpriteAtlas.jsx";
 import { HOME_SPRITE_ATLASES } from "../data/spriteAtlases";
@@ -704,8 +704,14 @@ function SwarmCanvas({
       tiltX: nativeEvent.tiltX,
       tiltY: nativeEvent.tiltY,
       twist: nativeEvent.twist,
-      button: proxyType === "pointermove" && isInteractiveTarget ? -1 : nativeEvent.button,
-      buttons: proxyType === "pointermove" && isInteractiveTarget ? 0 : nativeEvent.buttons,
+      button:
+        proxyType === "pointermove" && isInteractiveTarget
+          ? -1
+          : nativeEvent.button,
+      buttons:
+        proxyType === "pointermove" && isInteractiveTarget
+          ? 0
+          : nativeEvent.buttons,
       clientX: nativeEvent.clientX,
       clientY: nativeEvent.clientY,
       screenX: nativeEvent.screenX,
@@ -995,7 +1001,10 @@ function SwarmCanvas({
     const currentValue = resolvedControls?.[field.key];
     const currentIndex = Math.max(0, values.indexOf(currentValue));
     if (field.cycleMode === "loop") {
-      handleControlChange(field.key, values[(currentIndex + 1) % values.length]);
+      handleControlChange(
+        field.key,
+        values[(currentIndex + 1) % values.length],
+      );
       return;
     }
 
@@ -1061,10 +1070,7 @@ function SwarmCanvas({
         progress >= 1
           ? targetValue
           : fromValue + (targetValue - fromValue) * easedProgress;
-      const nextValue = normalizeControlInputValue(
-        field,
-        visualValue,
-      );
+      const nextValue = normalizeControlInputValue(field, visualValue);
 
       setResetVisualValues((current) =>
         progress >= 1
@@ -1196,192 +1202,200 @@ function SwarmCanvas({
             ) : null}
           </div>
           <div className="sim-control-panel__content">
-              <div className="sim-control-panel__header">
-                <div className="theme-panel-title sim-control-panel__title">
-                  시뮬레이션 옵션
-                  {/* Simulation Params */}
-                </div>
+            <div className="sim-control-panel__header">
+              <div className="theme-panel-title sim-control-panel__title">
+                시뮬레이션 옵션
+                {/* Simulation Params */}
               </div>
-              <div className="sim-control-panel__body">
-                {swarmUi.controlFields.map((field) => (
-                  <div
-                    key={field.key}
-                    className={[
-                      "sim-control-field",
-                      field.type === "toggle" ||
-                      field.type === "binary-toggle" ||
-                      field.type === "cycle-toggle"
-                        ? "sim-control-field--toggle"
-                        : "",
-                    ].join(" ")}
-                  >
-                    <div className="sim-control-field__row">
-                      <span>{field.label}</span>
-                      <div className="sim-control-field__value-group">
-                        <span className="sim-control-field__value">
-                          {formatControlDisplayValue(
-                            field,
-                            resolvedControls,
-                            controlValueTime,
-                          )}
-                        </span>
-                        {field.type === "static" ? null : field.type === "toggle" ? (
-                          <button
-                            type="button"
-                            className={[
-                              "sim-control-toggle-switch",
-                              "sim-control-toggle-switch--inline",
-                              resolvedControls[field.key] ? "is-on" : "is-off",
-                            ].join(" ")}
-                            onClick={() =>
-                              handleControlChange(
-                                field.key,
-                                !resolvedControls[field.key],
-                              )
-                            }
-                            aria-pressed={resolvedControls[field.key]}
-                          >
-                            <span className="sim-control-toggle-switch__track">
-                              <span className="sim-control-toggle-switch__thumb" />
-                            </span>
-                          </button>
-                        ) : field.type === "binary-toggle" ? (
-                          <button
-                            type="button"
-                            className={[
-                              "sim-control-toggle-switch",
-                              "sim-control-toggle-switch--inline",
+            </div>
+            <div className="sim-control-panel__body">
+              {swarmUi.controlFields.map((field) => (
+                <div
+                  key={field.key}
+                  className={[
+                    "sim-control-field",
+                    field.type === "toggle" ||
+                    field.type === "binary-toggle" ||
+                    field.type === "cycle-toggle"
+                      ? "sim-control-field--toggle"
+                      : "",
+                  ].join(" ")}
+                >
+                  <div className="sim-control-field__row">
+                    <span>{field.label}</span>
+                    <div className="sim-control-field__value-group">
+                      <span className="sim-control-field__value">
+                        {formatControlDisplayValue(
+                          field,
+                          resolvedControls,
+                          controlValueTime,
+                        )}
+                      </span>
+                      {field.type === "static" ? null : field.type ===
+                        "toggle" ? (
+                        <button
+                          type="button"
+                          className={[
+                            "sim-control-toggle-switch",
+                            "sim-control-toggle-switch--inline",
+                            resolvedControls[field.key] ? "is-on" : "is-off",
+                          ].join(" ")}
+                          onClick={() =>
+                            handleControlChange(
+                              field.key,
+                              !resolvedControls[field.key],
+                            )
+                          }
+                          aria-pressed={resolvedControls[field.key]}
+                        >
+                          <span className="sim-control-toggle-switch__track">
+                            <span className="sim-control-toggle-switch__thumb" />
+                          </span>
+                        </button>
+                      ) : field.type === "binary-toggle" ? (
+                        <button
+                          type="button"
+                          className={[
+                            "sim-control-toggle-switch",
+                            "sim-control-toggle-switch--inline",
+                            resolvedControls[field.key] === field.onValue
+                              ? "is-on"
+                              : "is-off",
+                          ].join(" ")}
+                          onClick={() =>
+                            handleControlChange(
+                              field.key,
                               resolvedControls[field.key] === field.onValue
-                                ? "is-on"
-                                : "is-off",
-                            ].join(" ")}
-                            onClick={() =>
-                              handleControlChange(
-                                field.key,
-                                resolvedControls[field.key] === field.onValue
-                                  ? field.offValue
-                                  : field.onValue,
-                              )
-                            }
-                            aria-pressed={
-                              resolvedControls[field.key] === field.onValue
-                            }
-                          >
-                            <span className="sim-control-toggle-switch__track">
-                              <span className="sim-control-toggle-switch__thumb" />
-                            </span>
-                          </button>
-                        ) : field.type === "cycle-toggle" ? (
-                          (() => {
-                            const values = field.values || [];
-                            const valueIndex = Math.max(
-                              0,
-                              values.indexOf(resolvedControls[field.key]),
-                            );
-                            const visualPositions = field.visualPositions || values.map((_, index) => index);
-                            const visualCount =
-                              field.visualCount ||
-                              Math.max(...visualPositions, values.length - 1) + 1;
-                            const visualIndex = visualPositions[valueIndex] ?? valueIndex;
+                                ? field.offValue
+                                : field.onValue,
+                            )
+                          }
+                          aria-pressed={
+                            resolvedControls[field.key] === field.onValue
+                          }
+                        >
+                          <span className="sim-control-toggle-switch__track">
+                            <span className="sim-control-toggle-switch__thumb" />
+                          </span>
+                        </button>
+                      ) : field.type === "cycle-toggle" ? (
+                        (() => {
+                          const values = field.values || [];
+                          const valueIndex = Math.max(
+                            0,
+                            values.indexOf(resolvedControls[field.key]),
+                          );
+                          const visualPositions =
+                            field.visualPositions ||
+                            values.map((_, index) => index);
+                          const visualCount =
+                            field.visualCount ||
+                            Math.max(...visualPositions, values.length - 1) + 1;
+                          const visualIndex =
+                            visualPositions[valueIndex] ?? valueIndex;
 
-                            return (
-                              <button
-                                type="button"
-                                className="sim-control-cycle-toggle"
-                                style={{
-                                  "--sim-cycle-index": visualIndex,
-                                  "--sim-cycle-count": visualCount,
-                                }}
-                                onClick={() => handleCycleToggleChange(field)}
-                                aria-label={`${field.label} 변경`}
-                              >
-                                <span className="sim-control-cycle-toggle__track">
-                                  {Array.from({ length: visualCount }, (_, index) => (
+                          return (
+                            <button
+                              type="button"
+                              className="sim-control-cycle-toggle"
+                              style={{
+                                "--sim-cycle-index": visualIndex,
+                                "--sim-cycle-count": visualCount,
+                              }}
+                              onClick={() => handleCycleToggleChange(field)}
+                              aria-label={`${field.label} 변경`}
+                            >
+                              <span className="sim-control-cycle-toggle__track">
+                                {Array.from(
+                                  { length: visualCount },
+                                  (_, index) => (
                                     <span
                                       key={index}
                                       className="sim-control-cycle-toggle__marker"
                                     />
-                                  ))}
-                                  <span className="sim-control-cycle-toggle__thumb" />
-                                </span>
-                              </button>
+                                  ),
+                                )}
+                                <span className="sim-control-cycle-toggle__thumb" />
+                              </span>
+                            </button>
+                          );
+                        })()
+                      ) : field.type === "select" ? (
+                        <select
+                          value={resolvedControls[field.key]}
+                          onChange={(event) =>
+                            handleControlChange(field.key, event.target.value)
+                          }
+                        >
+                          {field.options?.map((option) => {
+                            const optionValue =
+                              typeof option === "string"
+                                ? option
+                                : option.value;
+                            const optionLabel =
+                              typeof option === "string"
+                                ? option
+                                : option.label;
+                            return (
+                              <option key={optionValue} value={optionValue}>
+                                {optionLabel}
+                              </option>
                             );
-                          })()
-                        ) : field.type === "select" ? (
-                          <select
-                            value={resolvedControls[field.key]}
-                            onChange={(event) =>
-                              handleControlChange(field.key, event.target.value)
-                            }
-                          >
-                            {field.options?.map((option) => {
-                              const optionValue =
-                                typeof option === "string"
-                                  ? option
-                                  : option.value;
-                              const optionLabel =
-                                typeof option === "string"
-                                  ? option
-                                  : option.label;
-                              return (
-                                <option key={optionValue} value={optionValue}>
-                                  {optionLabel}
-                                </option>
-                              );
-                            })}
-                          </select>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handleControlReset(field.key);
-                            }}
-                            className="sim-control-reset"
-                            aria-label={`${field.label} 초기화`}
-                            title={`${field.label} 초기화`}
-                          >
-                            <img
-                              aria-hidden="true"
-                              src={refreshIconUrl}
-                              alt=""
-                              draggable="false"
-                            />
-                          </button>
-                        )}
-                      </div>
+                          })}
+                        </select>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleControlReset(field.key);
+                          }}
+                          className="sim-control-reset"
+                          aria-label={`${field.label} 초기화`}
+                          title={`${field.label} 초기화`}
+                        >
+                          <img
+                            aria-hidden="true"
+                            src={refreshIconUrl}
+                            alt=""
+                            draggable="false"
+                          />
+                        </button>
+                      )}
                     </div>
-                    {field.type === "toggle" ||
-                    field.type === "binary-toggle" ||
-                    field.type === "cycle-toggle" ||
-                    field.type === "select" ||
-                    field.type === "static" ? null : (
-                      <input
-                        className="sim-control-slider"
-                        type="range"
-                        min={field.min}
-                        max={field.max}
-                        step={
-                          resetVisualValues[field.key] == null
-                            ? field.step
-                            : "any"
-                        }
-                        value={
-                          resetVisualValues[field.key] ?? resolvedControls[field.key]
-                        }
-                        onChange={(event) =>
-                          handleControlChange(field.key, event.target.value)
-                        }
-                        onWheel={(event) =>
-                          handleControlSliderWheel(event, field)
-                        }
-                      />
-                    )}
                   </div>
-                ))}
-              </div>
+                  {field.type === "toggle" ||
+                  field.type === "binary-toggle" ||
+                  field.type === "cycle-toggle" ||
+                  field.type === "select" ||
+                  field.type === "static" ? null : (
+                    <input
+                      className="sim-control-slider"
+                      type="range"
+                      min={field.min}
+                      max={field.max}
+                      step={
+                        resetVisualValues[field.key] == null
+                          ? field.step
+                          : "any"
+                      }
+                      value={
+                        resetVisualValues[field.key] ??
+                        resolvedControls[field.key]
+                      }
+                      onChange={(event) =>
+                        handleControlChange(field.key, event.target.value)
+                      }
+                      onWheel={(event) =>
+                        handleControlSliderWheel(event, field)
+                      }
+                    />
+                  )}
+                </div>
+              ))}
             </div>
           </div>
+        </div>
       ) : null}
       <nav className="sim-animal-dock" aria-label="동물 시뮬레이션 이동">
         {animalDockItems.map((animal) => {
@@ -1411,8 +1425,7 @@ function Sim(props) {
     isPaused,
     inactivityRemainingSeconds,
   } = props;
-  const [batLightIntensityLux, setBatLightIntensityLux] =
-    React.useState(null);
+  const [batLightIntensityLux, setBatLightIntensityLux] = React.useState(null);
   const [spinyLobsterStartHour, setSpinyLobsterStartHour] =
     React.useState(null);
   const [krillLightPhase, setKrillLightPhase] = React.useState(null);
@@ -1427,20 +1440,14 @@ function Sim(props) {
     : 0;
   const batNightOpacity = Math.max(0.08, 1 - batLightProgress * 0.86);
   const batStickyNightOpacity = Math.max(0.04, 1 - batLightProgress * 0.92);
-  const batSurfaceLightProgress = smoothstep(
-    0.46,
-    0.7,
-    1 - batNightOpacity,
-  );
+  const batSurfaceLightProgress = smoothstep(0.46, 0.7, 1 - batNightOpacity);
   const batControlDimProgress = smoothstep(0.62, 0.86, 1 - batNightOpacity);
   const batBrightnessStyle = isBat
     ? {
         "--sim-bright-paper-texture": `url(${skyPaperTextureUrl})`,
         "--sim-bright-sticky-texture": `url(${blueStickyNoteTextureUrl})`,
         "--sim-night-background-opacity": String(batNightOpacity.toFixed(3)),
-        "--sim-night-sticky-opacity": String(
-          batStickyNightOpacity.toFixed(3),
-        ),
+        "--sim-night-sticky-opacity": String(batStickyNightOpacity.toFixed(3)),
         "--sim-paper-grain-opacity": String(
           (0.2 + batNightOpacity * 0.52).toFixed(3),
         ),
@@ -1631,22 +1638,21 @@ function Sim(props) {
     : null;
   const usesDarkControlTheme =
     selectedAnimal === "firefly" || selectedAnimal === "bat";
-  const simStyle =
-    usesDarkControlTheme
-      ? {
-          ...FIREFLY_SIM_THEME,
-          ...simTextureStyle,
-          ...stickyNoteStyle,
-          ...batBrightnessStyle,
-          ...spinyLobsterStyle,
-          ...krillStyle,
-        }
-      : {
-          ...simTextureStyle,
-          ...stickyNoteStyle,
-          ...spinyLobsterStyle,
-          ...krillStyle,
-        };
+  const simStyle = usesDarkControlTheme
+    ? {
+        ...FIREFLY_SIM_THEME,
+        ...simTextureStyle,
+        ...stickyNoteStyle,
+        ...batBrightnessStyle,
+        ...spinyLobsterStyle,
+        ...krillStyle,
+      }
+    : {
+        ...simTextureStyle,
+        ...stickyNoteStyle,
+        ...spinyLobsterStyle,
+        ...krillStyle,
+      };
   const simClassName = [
     "sim",
     usesDarkControlTheme ? "sim--firefly" : "",
@@ -1673,7 +1679,9 @@ function Sim(props) {
 
       if (isKrill) {
         setKrillLightPhase((current) =>
-          Object.is(current, snapshot.lightPhase) ? current : snapshot.lightPhase,
+          Object.is(current, snapshot.lightPhase)
+            ? current
+            : snapshot.lightPhase,
         );
       }
     },
@@ -1767,10 +1775,7 @@ function Sim(props) {
   return (
     <div className={simClassName} style={simStyle}>
       {spinyLobsterBackgroundOverlayStyle ? (
-        <div
-          aria-hidden="true"
-          style={spinyLobsterBackgroundOverlayStyle}
-        />
+        <div aria-hidden="true" style={spinyLobsterBackgroundOverlayStyle} />
       ) : null}
       {krillBackgroundOverlayStyle ? (
         <div aria-hidden="true" style={krillBackgroundOverlayStyle} />

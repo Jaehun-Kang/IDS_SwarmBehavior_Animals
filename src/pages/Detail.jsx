@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { getAnimalDetails } from "../behaviors/animalDetails";
 import RulePreview from "../components/RulePreview";
 import { HOME_SPRITE_ATLASES } from "../data/spriteAtlases";
@@ -16,7 +16,7 @@ import {
   createBookCurlRenderer,
   renderBookCurlTransition,
 } from "../utils/bookCurlWebgl";
-import "../styles/Detail.scss";
+import "../styles/Detail.css";
 
 const SPINY_LOBSTER_FRAME_WIDTH_COMPENSATION = 175 / 165;
 
@@ -64,7 +64,10 @@ const getIntroSpriteState = ({
 
   if (animalId === "grasshopper") {
     const shouldFly = pointerVector.y < 0;
-    const takeoffElapsedMs = Math.max(0, timestampMs - grasshopperFlightStartMs);
+    const takeoffElapsedMs = Math.max(
+      0,
+      timestampMs - grasshopperFlightStartMs,
+    );
     const isTakingOff =
       shouldFly && takeoffElapsedMs < INTRO_GRASSHOPPER_TAKEOFF_MS;
 
@@ -117,20 +120,14 @@ const getIntroAtlas = (animalId, atlas) => {
 };
 
 const applyIntroSpriteOverrides = (animalId, sprite, pointerVector, state) => {
-  if (
-    animalId === "bee" &&
-    pointerVector.y > INTRO_INSECT_IDLE_Y_PX
-  ) {
+  if (animalId === "bee" && pointerVector.y > INTRO_INSECT_IDLE_Y_PX) {
     return {
       ...sprite,
       stage: sprite.stage === "bee_top_fly" ? "bee_top_idle" : "bee_idle",
     };
   }
 
-  if (
-    animalId === "firefly" &&
-    pointerVector.y > INTRO_INSECT_IDLE_Y_PX
-  ) {
+  if (animalId === "firefly" && pointerVector.y > INTRO_INSECT_IDLE_Y_PX) {
     const idleStageByStage = {
       firefly_glow: "firefly_glow_idle",
       firefly_dark: "firefly_dark_idle",
@@ -180,7 +177,8 @@ const applyIntroSpriteOverrides = (animalId, sprite, pointerVector, state) => {
   if (animalId === "spiny_lobster" && state?.forceTop) {
     return {
       ...sprite,
-      rotationDeg: (Math.atan2(pointerVector.y, pointerVector.x) * 180) / Math.PI,
+      rotationDeg:
+        (Math.atan2(pointerVector.y, pointerVector.x) * 180) / Math.PI,
       scaleX: 1,
     };
   }
@@ -828,8 +826,8 @@ const formatBehaviorParameterValue = (value, meta) => {
   const scaled = meta.min + (meta.max - meta.min) * normalized;
   const formatted = scaled.toFixed(meta.decimals);
   const unitSymbolMap = {
-    "퍼센트": "%",
-    "도": "°",
+    퍼센트: "%",
+    도: "°",
   };
   const compactUnits = new Set(["%", "°"]);
   const displayUnit = unitSymbolMap[meta.unit] ?? meta.unit;
@@ -1050,8 +1048,7 @@ function Detail({
   }, [activePageKey, bookSpreads]);
 
   const activePage = activePageIndex >= 0 ? bookSpreads[activePageIndex] : null;
-  const navigationPageIndex =
-    turningTargetPageIndex ?? activePageIndex;
+  const navigationPageIndex = turningTargetPageIndex ?? activePageIndex;
   const turnCapturePage = React.useMemo(() => {
     if (!turnCapturePageKey) {
       return null;
@@ -1122,8 +1119,7 @@ function Detail({
       animalId,
       pointerVector: introPointerVector,
       timestampMs: introAnimationTimeMs,
-      grasshopperFlightStartMs:
-        grasshopperIntroFlightRef.current.startedAtMs,
+      grasshopperFlightStartMs: grasshopperIntroFlightRef.current.startedAtMs,
     });
 
     const resolvedSprite = resolveDomAtlasSprite(resolvedAtlas, {

@@ -6,7 +6,7 @@ import { useParticleCanvas } from "../hooks/useParticleCanvas";
 import { useAnimals } from "../hooks/useAnimals";
 import SpriteAtlas from "../components/SpriteAtlas.jsx";
 import { HOME_SPRITE_ATLASES } from "../data/spriteAtlases";
-import "../styles/Home.scss";
+import "../styles/Home.css";
 
 const HOME_ANIMALS = animals.flatMap((animal) =>
   Array.from({ length: 10 }, (_, index) => ({

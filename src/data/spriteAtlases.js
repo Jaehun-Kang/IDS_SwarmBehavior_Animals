@@ -116,6 +116,7 @@ export const HOME_SPRITE_ATLASES = {
     grid: { columns: 5, rows: 1 },
     baseClassName: "sprite_grasshopper",
     defaultStage: "grasshopper_idle",
+    dockHoverStage: "grasshopper_fly",
     pose: {
       resolve: ({ motion, state, options }) => {
         const directionX = state?.directionX ?? motion.screenVelocity.x;
@@ -190,6 +191,8 @@ export const HOME_SPRITE_ATLASES = {
     grid: { columns: 3, rows: 1 },
     baseClassName: "sprite_ant",
     defaultStage: "ant_top",
+    dockIdleStage: "ant_walk",
+    dockHoverStage: "ant_walk",
     pose: {
       resolve: ({ motion, state, options, profile }) => {
         const forceTop =
@@ -302,9 +305,9 @@ export const HOME_SPRITE_ATLASES = {
   penguin: {
     space: "2d",
     src: penguinSpriteSheetUrl,
-    imageSize: { width: 135, height: 85 },
+    imageSize: { width: 270, height: 85 },
     aspectRatio: "45 / 85",
-    grid: { columns: 3, rows: 1 },
+    grid: { columns: 6, rows: 1 },
     baseClassName: "sprite_penguin",
     defaultStage: "penguin_walk",
     pose: {
@@ -323,6 +326,9 @@ export const HOME_SPRITE_ATLASES = {
       penguin_walk: { frame: { x: 0, y: 0 } },
       penguin_front: { frame: { x: 1, y: 0 } },
       penguin_back: { frame: { x: 2, y: 0 } },
+      penguin_slide: { frame: { x: 3, y: 0 } },
+      penguin_front_slide: { frame: { x: 4, y: 0 } },
+      penguin_back_slide: { frame: { x: 5, y: 0 } },
     },
   },
   bee: {
@@ -333,6 +339,7 @@ export const HOME_SPRITE_ATLASES = {
     grid: { columns: 6, rows: 1 },
     baseClassName: "sprite_bee",
     defaultStage: "bee_fly",
+    dockIdleStage: "bee_idle",
     pose: {
       type: "side_top_mirror_rotate",
       stages: {
@@ -346,6 +353,8 @@ export const HOME_SPRITE_ATLASES = {
       },
     },
     stages: {
+      bee_idle: { frame: { x: 3, y: 0 } },
+      bee_top_idle: { frame: { x: 0, y: 0 } },
       bee_fly: {
         type: "animation",
         frames: [
@@ -372,12 +381,26 @@ export const HOME_SPRITE_ATLASES = {
     grid: { columns: 6, rows: 2 },
     baseClassName: "sprite_firefly",
     defaultStage: "firefly_glow",
+    dockIdleStage: "firefly_glow_idle",
     pose: {
       type: "side_top_mirror_rotate",
       stages: {
-        side: ({ state }) => (state?.glow ? "firefly_glow" : "firefly_dark"),
+        side: ({ state }) =>
+          state?.idle
+            ? state?.glow
+              ? "firefly_glow_idle"
+              : "firefly_dark_idle"
+            : state?.glow
+              ? "firefly_glow"
+              : "firefly_dark",
         top: ({ state }) =>
-          state?.glow ? "firefly_lit_top_fly" : "firefly_dark_top_fly",
+          state?.idle
+            ? state?.glow
+              ? "firefly_lit_top_idle"
+              : "firefly_dark_top_idle"
+            : state?.glow
+              ? "firefly_lit_top_fly"
+              : "firefly_dark_top_fly",
       },
       options: {
         verticalThreshold: 0.95,
@@ -386,6 +409,10 @@ export const HOME_SPRITE_ATLASES = {
       },
     },
     stages: {
+      firefly_glow_idle: { frame: { x: 3, y: 0 } },
+      firefly_dark_idle: { frame: { x: 3, y: 1 } },
+      firefly_lit_top_idle: { frame: { x: 0, y: 0 } },
+      firefly_dark_top_idle: { frame: { x: 0, y: 1 } },
       firefly_glow: {
         type: "animation",
         frames: [
@@ -423,8 +450,8 @@ export const HOME_SPRITE_ATLASES = {
   spiny_lobster: {
     space: "2d",
     src: spinyLobsterSpriteSheetUrl,
-    imageSize: { width: 660, height: 180 },
-    aspectRatio: "165 / 180",
+    imageSize: { width: 700, height: 180 },
+    aspectRatio: "175 / 180",
     grid: { columns: 4, rows: 1 },
     baseClassName: "sprite_spiny_lobster",
     defaultStage: "lobster_swim",
@@ -475,6 +502,17 @@ export const HOME_SPRITE_ATLASES = {
     defaultStage: "krill_swim",
     pose: {
       type: "side_front_back",
+      resolve: ({ motion, state }) => {
+        if (state?.forceSide) {
+          return {
+            stage: "krill_swim",
+            rotation: 0,
+            flipX: motion.flipX,
+          };
+        }
+
+        return null;
+      },
       stages: {
         side: "krill_swim",
         front: "krill_front",

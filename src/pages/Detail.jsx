@@ -18,6 +18,8 @@ import {
 } from "../utils/bookCurlWebgl";
 import "../styles/Detail.scss";
 
+const SPINY_LOBSTER_FRAME_WIDTH_COMPENSATION = 175 / 165;
+
 const bookCoverTextureModules = import.meta.glob(
   "../assets/texture/book_cover/*.webp",
   {
@@ -41,6 +43,9 @@ const BOOK_AUTO_FIRST_TURN_DELAY_MS = 50;
 const DRAG_TURN_THRESHOLD = 72;
 const INTRO_GRASSHOPPER_TAKEOFF_MS = 25;
 const INTRO_ANT_FRONT_RADIUS_PX = 56;
+const INTRO_PENGUIN_CENTER_RADIUS_PX = 70;
+const INTRO_PENGUIN_LOWER_ROW_Y_PX = 70;
+const INTRO_INSECT_IDLE_Y_PX = 0;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
@@ -74,7 +79,10 @@ const getIntroSpriteState = ({
 
   if (animalId === "firefly") {
     const glowCycle = (timestampMs % 1200) / 1200;
-    return { glow: glowCycle < 0.2 || (glowCycle > 0.34 && glowCycle < 0.42) };
+    return {
+      glow: glowCycle < 0.2 || (glowCycle > 0.34 && glowCycle < 0.42),
+      idle: pointerVector.y > INTRO_INSECT_IDLE_Y_PX,
+    };
   }
 
   if (animalId === "spiny_lobster") {
@@ -109,6 +117,34 @@ const getIntroAtlas = (animalId, atlas) => {
 };
 
 const applyIntroSpriteOverrides = (animalId, sprite, pointerVector, state) => {
+  if (
+    animalId === "bee" &&
+    pointerVector.y > INTRO_INSECT_IDLE_Y_PX
+  ) {
+    return {
+      ...sprite,
+      stage: sprite.stage === "bee_top_fly" ? "bee_top_idle" : "bee_idle",
+    };
+  }
+
+  if (
+    animalId === "firefly" &&
+    pointerVector.y > INTRO_INSECT_IDLE_Y_PX
+  ) {
+    const idleStageByStage = {
+      firefly_glow: "firefly_glow_idle",
+      firefly_dark: "firefly_dark_idle",
+      firefly_lit_top_fly: "firefly_lit_top_idle",
+      firefly_dark_top_fly: "firefly_dark_top_idle",
+    };
+
+    return {
+      ...sprite,
+      stage: idleStageByStage[sprite.stage] || sprite.stage,
+      state,
+    };
+  }
+
   if (animalId === "ant") {
     const pointerDistance = Math.hypot(pointerVector.x, pointerVector.y);
     const verticalDominance =
@@ -147,6 +183,35 @@ const applyIntroSpriteOverrides = (animalId, sprite, pointerVector, state) => {
       rotationDeg: (Math.atan2(pointerVector.y, pointerVector.x) * 180) / Math.PI,
       scaleX: 1,
     };
+  }
+
+  if (animalId === "penguin") {
+    const isCenterCell =
+      Math.abs(pointerVector.x) <= INTRO_PENGUIN_CENTER_RADIUS_PX &&
+      Math.abs(pointerVector.y) <= INTRO_PENGUIN_CENTER_RADIUS_PX;
+
+    if (isCenterCell) {
+      return {
+        ...sprite,
+        stage: "penguin_front",
+        rotationDeg: 0,
+        scaleX: 1,
+        scaleY: 1,
+      };
+    }
+
+    if (pointerVector.y > INTRO_PENGUIN_LOWER_ROW_Y_PX) {
+      const isLowerSide =
+        Math.abs(pointerVector.x) > INTRO_PENGUIN_CENTER_RADIUS_PX;
+
+      return {
+        ...sprite,
+        stage: isLowerSide ? "penguin_slide" : "penguin_front_slide",
+        rotationDeg: 90,
+        scaleX: 1,
+        scaleY: pointerVector.x < 0 ? -1 : 1,
+      };
+    }
   }
 
   return sprite;
@@ -901,6 +966,7 @@ function Detail({
   onOpen,
   onBackClick,
   onEnterComplete,
+  inactivityRemainingSeconds,
 }) {
   const [isAnimating, setIsAnimating] = React.useState(true);
   const [activePageKey, setActivePageKey] = React.useState(null);
@@ -1092,6 +1158,15 @@ function Detail({
           frame,
         }),
         "--detail-intro-sprite-ratio": frameRatio,
+        ...(animalId === "spiny_lobster"
+          ? {
+              "--detail-intro-artwork-size": `min(${(
+                74 * SPINY_LOBSTER_FRAME_WIDTH_COMPENSATION
+              ).toFixed(2)}%, ${(
+                24 * SPINY_LOBSTER_FRAME_WIDTH_COMPENSATION
+              ).toFixed(2)}rem)`,
+            }
+          : null),
         aspectRatio: `${frameSize.width} / ${frameSize.height}`,
       },
     };
@@ -2069,7 +2144,7 @@ function Detail({
                       .join(" ")}
                     style={{
                       ...introSprite.style,
-                      transform: `rotate(${introSprite.rotationDeg}deg) scaleX(${introSprite.scaleX})`,
+                      transform: `rotate(${introSprite.rotationDeg}deg) scaleX(${introSprite.scaleX}) scaleY(${introSprite.scaleY ?? 1})`,
                     }}
                   />
                 </div>
@@ -2281,6 +2356,11 @@ function Detail({
           onPointerCancel={handleBookPointerCancel}
           onClick={handleClosedBookOpen}
         >
+          {isOpen && inactivityRemainingSeconds !== null ? (
+            <p className="detail-inactivity-warning" aria-live="polite">
+              {inactivityRemainingSeconds}초 후 처음으로 돌아갑니다
+            </p>
+          ) : null}
           <main
             className="rules-container detail-book"
             style={bookContainerStyle}

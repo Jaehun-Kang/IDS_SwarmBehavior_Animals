@@ -1,14 +1,14 @@
 import * as React from "react";
-import { P5Canvas } from "@p5-wrapper/react";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
+  drawAtlasFrame,
   loadTexturedAtlasCanvas,
   resolveAtlasFrameSize,
 } from "../../utils/spriteAtlas";
 import { resolveCanvasAtlasSprite } from "../../utils/spritePose";
 import {
   applyTransparentCanvasStyle,
-  clearTransparentP5,
+  clearTransparentCanvas2d,
 } from "../../utils/transparentCanvas";
 
 const ATLAS = HOME_SPRITE_ATLASES.ant;
@@ -444,6 +444,8 @@ const CONTROL_FIELDS = [
 const DEFAULT_CONTROL_STATE = { ...PARAMS };
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const getControlField = (key) =>
+  CONTROL_FIELDS.find((field) => field.key === key);
 const lerp = (start, end, amount) => start + (end - start) * amount;
 
 const add = (...vectors) =>
@@ -4735,9 +4737,24 @@ const stepWorld = (world, controls, dt) => {
   }
 };
 
-const drawPheromoneField = (p5, world) => {
-  clearTransparentP5(p5);
-  p5.noStroke();
+const syncCanvasSize = (canvas, ctx) => {
+  const width = canvas.clientWidth || window.innerWidth;
+  const height = canvas.clientHeight || window.innerHeight;
+  const pixelRatio = window.devicePixelRatio || 1;
+  const nextWidth = Math.max(1, Math.round(width * pixelRatio));
+  const nextHeight = Math.max(1, Math.round(height * pixelRatio));
+
+  if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+    canvas.width = nextWidth;
+    canvas.height = nextHeight;
+  }
+
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  return { width, height };
+};
+
+const drawPheromoneField = (ctx, world) => {
+  clearTransparentCanvas2d(ctx, world.width, world.height);
   const drawFieldLayer = (
     field,
     red,
@@ -4774,8 +4791,8 @@ const drawPheromoneField = (p5, world) => {
         const alpha = isActive
           ? 36 + activeIntensity * activeAlphaScale
           : residualAlphaBase + residualIntensity * residualAlphaScale;
-        p5.fill(red, green, blue, alpha);
-        p5.rect(
+        ctx.fillStyle = `rgba(${red}, ${green}, ${blue}, ${alpha / 255})`;
+        ctx.fillRect(
           column * field.cellSizePx,
           row * field.cellSizePx,
           field.cellSizePx,
@@ -4793,25 +4810,39 @@ const drawPheromoneField = (p5, world) => {
   drawFieldLayer(world.recruitmentField, 210, 82, 58, 32, 0, 5, 0.006, 0.02);
 };
 
-const drawBivouac = (p5, world) => {
-  p5.push();
-  p5.noStroke();
-  p5.fill(76, 88, 92, 34);
-  p5.circle(
-    world.trail.colony.x,
-    world.trail.colony.y,
-    world.trail.bivouacRadiusPx * 2.08,
-  );
-  p5.fill(76, 88, 92, 18);
-  p5.circle(
-    world.trail.colony.x,
-    world.trail.colony.y,
-    world.trail.bivouacRadiusPx * 2.52,
-  );
-  p5.pop();
+const drawCircle = (ctx, x, y, radius, fillStyle) => {
+  ctx.fillStyle = fillStyle;
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fill();
 };
 
-const drawAnt = (p5, ant, world, spriteSheet, frameSize, nowMs) => {
+const drawBivouac = (ctx, world) => {
+  drawCircle(
+    ctx,
+    world.trail.colony.x,
+    world.trail.colony.y,
+    world.trail.bivouacRadiusPx * 1.04,
+    "rgba(76, 88, 92, 0.133)",
+  );
+  drawCircle(
+    ctx,
+    world.trail.colony.x,
+    world.trail.colony.y,
+    world.trail.bivouacRadiusPx * 1.26,
+    "rgba(76, 88, 92, 0.071)",
+  );
+};
+
+const drawAnt = (
+  ctx,
+  ant,
+  world,
+  spriteSheet,
+  frameCanvases,
+  frameSize,
+  nowMs,
+) => {
   const velocity = angleToVector(ant.heading);
   const sprite = resolveCanvasAtlasSprite(ATLAS, {
     space: "2d",
@@ -4829,8 +4860,6 @@ const drawAnt = (p5, ant, world, spriteSheet, frameSize, nowMs) => {
   const drawWidth = world.metrics.bodyLengthsToPx(ANT_SPRITE_BODY_LENGTHS);
   const drawHeight =
     drawWidth * (frameSize.height / Math.max(frameSize.width, 1));
-  const sourceX = sprite.frame.x * frameSize.width;
-  const sourceY = sprite.frame.y * frameSize.height;
   const arousalLift =
     ant.arousalTime > 0
       ? Math.sin(nowMs * 0.024 + ant.stageOffset * 0.01) *
@@ -4840,55 +4869,64 @@ const drawAnt = (p5, ant, world, spriteSheet, frameSize, nowMs) => {
   ant.previousScreenPosition = sprite.pose.screenPosition;
 
   if (!spriteSheet) {
-    p5.push();
-    p5.translate(ant.position.x, ant.position.y + arousalLift);
-    p5.rotate(ant.heading);
-    p5.noStroke();
-    p5.fill(70, 42, 18, ant.state === "mill" ? 230 : 210);
-    p5.ellipse(
+    ctx.save();
+    ctx.translate(ant.position.x, ant.position.y + arousalLift);
+    ctx.rotate(ant.heading);
+    ctx.fillStyle =
+      ant.state === "mill" ? "rgba(70, 42, 18, 0.902)" : "rgba(70, 42, 18, 0.824)";
+    ctx.beginPath();
+    ctx.ellipse(
       0,
       0,
-      world.metrics.bodyLengthsToPx(1.05),
-      world.metrics.bodyLengthsToPx(0.52),
+      world.metrics.bodyLengthsToPx(1.05) * 0.5,
+      world.metrics.bodyLengthsToPx(0.52) * 0.5,
+      0,
+      0,
+      Math.PI * 2,
     );
-    p5.pop();
+    ctx.fill();
+    ctx.restore();
     return;
   }
 
-  p5.push();
-  p5.translate(ant.position.x, ant.position.y + arousalLift);
-  p5.rotate(sprite.rotation ?? ant.heading);
-  p5.scale(sprite.flipX ?? 1, 1);
-  if (ant.state === "mill") {
-    p5.tint(228, 112, 62, 235);
-  } else if (ant.trailMode === "recruitment") {
-    p5.tint(255, 232, 205, 235);
-  } else {
-    p5.noTint();
+  ctx.save();
+  ctx.translate(ant.position.x, ant.position.y + arousalLift);
+  ctx.rotate(sprite.rotation ?? ant.heading);
+  ctx.scale(sprite.flipX ?? 1, 1);
+  drawAtlasFrame(ctx, {
+    image: spriteSheet,
+    frameCanvases,
+    frame: sprite.frame,
+    frameSize,
+    dx: -drawWidth * 0.5,
+    dy: -drawHeight * 0.5,
+    dWidth: drawWidth,
+    dHeight: drawHeight,
+  });
+
+  if (ant.state === "mill" || ant.trailMode === "recruitment") {
+    ctx.globalCompositeOperation = "source-atop";
+    ctx.fillStyle =
+      ant.state === "mill"
+        ? "rgba(228, 112, 62, 0.35)"
+        : "rgba(255, 232, 205, 0.28)";
+    ctx.fillRect(-drawWidth * 0.5, -drawHeight * 0.5, drawWidth, drawHeight);
   }
-  p5.drawingContext.drawImage(
-    spriteSheet,
-    sourceX,
-    sourceY,
-    frameSize.width,
-    frameSize.height,
-    -drawWidth * 0.5,
-    -drawHeight * 0.5,
-    drawWidth,
-    drawHeight,
-  );
-  p5.pop();
+
+  ctx.restore();
 };
 
-const drawWorld = (p5, world, spriteSheet, frameSize) => {
-  drawPheromoneField(p5, world);
-  drawBivouac(p5, world);
+const drawWorld = (ctx, world, spriteSheet, frameCanvases, frameSize) => {
+  drawPheromoneField(ctx, world);
+  drawBivouac(ctx, world);
   world.foodPatches.forEach((patch) => {
-    p5.push();
-    p5.noStroke();
-    p5.fill(210, 82, 58, 170);
-    p5.circle(patch.position.x, patch.position.y, patch.radiusPx * 2);
-    p5.pop();
+    drawCircle(
+      ctx,
+      patch.position.x,
+      patch.position.y,
+      patch.radiusPx,
+      "rgba(210, 82, 58, 0.667)",
+    );
   });
   const nowMs = world.time * 1000;
 
@@ -4896,7 +4934,7 @@ const drawWorld = (p5, world, spriteSheet, frameSize) => {
     if (ant.state === "reserve") {
       return;
     }
-    drawAnt(p5, ant, world, spriteSheet, frameSize, nowMs);
+    drawAnt(ctx, ant, world, spriteSheet, frameCanvases, frameSize, nowMs);
   });
 };
 
@@ -4907,23 +4945,21 @@ const sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => {
   };
 
   next.AGENT_COUNT = Math.round(
-    clamp(next.AGENT_COUNT, SIMULATED_RAIDERS_MIN, SIMULATED_RAIDERS_MAX),
+    clamp(
+      next.AGENT_COUNT,
+      getControlField("AGENT_COUNT")?.min,
+      getControlField("AGENT_COUNT")?.max,
+    ),
   );
   next.V_SEARCH_CM_S = clamp(
     next.V_SEARCH_CM_S,
-    bodyLengthsPerSecondToCmPerSecond(4.5, next.BODY_LENGTH_CM),
-    bodyLengthsPerSecondToCmPerSecond(
-      MAX_SPEED_BODY_LENGTHS_S,
-      next.BODY_LENGTH_CM,
-    ),
+    getControlField("V_SEARCH_CM_S")?.min,
+    getControlField("V_SEARCH_CM_S")?.max,
   );
   next.V_MAX_CM_S = clamp(
     next.V_MAX_CM_S,
-    bodyLengthsPerSecondToCmPerSecond(7, next.BODY_LENGTH_CM),
-    bodyLengthsPerSecondToCmPerSecond(
-      MAX_SPEED_BODY_LENGTHS_S,
-      next.BODY_LENGTH_CM,
-    ),
+    getControlField("V_MAX_CM_S")?.min,
+    getControlField("V_MAX_CM_S")?.max,
   );
   next.U_P_DEG_S = clamp(next.U_P_DEG_S, 100, 900);
   next.U_A_INBOUND_DEG_S = clamp(next.U_A_INBOUND_DEG_S, 800, 1600);
@@ -4937,23 +4973,36 @@ const sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => {
     HARD_COLLISION_TURN_DEG_S,
   );
   next.V_MAX_CM_S = Math.max(next.V_MAX_CM_S, next.V_SEARCH_CM_S);
-  next.RC_N_THRESHOLD = clamp(next.RC_N_THRESHOLD, -3, 0);
+  next.RC_N_THRESHOLD = clamp(
+    next.RC_N_THRESHOLD,
+    getControlField("RC_N_THRESHOLD")?.min,
+    getControlField("RC_N_THRESHOLD")?.max,
+  );
   next.GRADIENT_COUPLING_B = clamp(next.GRADIENT_COUPLING_B, 2, 20);
   next.PHEROMONE_HALF_LIFE_MIN = clamp(
     next.PHEROMONE_HALF_LIFE_MIN,
-    5 / 60,
-    180 / 60,
+    getControlField("PHEROMONE_HALF_LIFE_MIN")?.min,
+    getControlField("PHEROMONE_HALF_LIFE_MIN")?.max,
   );
-  next.SENSORY_NOISE_RAD = clamp(next.SENSORY_NOISE_RAD, 0.2, 0.9);
+  next.SENSORY_NOISE_RAD = clamp(
+    next.SENSORY_NOISE_RAD,
+    getControlField("SENSORY_NOISE_RAD")?.min,
+    getControlField("SENSORY_NOISE_RAD")?.max,
+  );
   next.ENABLE_MILL = Boolean(next.ENABLE_MILL);
   return next;
 };
 
 export function App({ controls, onGpuErrorChange, isPaused = false } = {}) {
-  const p5InstanceRef = React.useRef(null);
+  const canvasRef = React.useRef(null);
+  const animationFrameRef = React.useRef(null);
+  const worldRef = React.useRef(null);
+  const lastTimeRef = React.useRef(0);
+  const simulationAccumulatorRef = React.useRef(0);
   const controlsRef = React.useRef(sanitizeControlState(controls));
   const isPausedRef = React.useRef(isPaused);
   const imageRef = React.useRef(null);
+  const frameCanvasesRef = React.useRef(null);
   const frameSizeRef = React.useRef(
     resolveAtlasFrameSize(ATLAS, { width: 64, height: 64 }),
   );
@@ -4978,12 +5027,13 @@ export function App({ controls, onGpuErrorChange, isPaused = false } = {}) {
   React.useEffect(() => {
     let cancelled = false;
 
-    loadTexturedAtlasCanvas(ATLAS).then(({ image, frameSize, canvas }) => {
+    loadTexturedAtlasCanvas(ATLAS).then(({ image, frameSize, frameCanvases, canvas }) => {
       if (cancelled) {
         return;
       }
 
       imageRef.current = canvas || image;
+      frameCanvasesRef.current = frameCanvases;
       frameSizeRef.current = frameSize;
       onGpuErrorChange?.("");
     }).catch(() => {
@@ -4996,108 +5046,111 @@ export function App({ controls, onGpuErrorChange, isPaused = false } = {}) {
 
     return () => {
       cancelled = true;
+      frameCanvasesRef.current = null;
     };
   }, [onGpuErrorChange]);
 
-  const sketch = React.useCallback((p5) => {
-    p5InstanceRef.current = p5;
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return undefined;
+    }
 
-    let world = null;
-    let simulationAccumulator = 0;
+    applyTransparentCanvasStyle(canvas);
 
-    p5.setup = () => {
-      const renderer = p5.createCanvas(p5.windowWidth, p5.windowHeight);
-      p5.frameRate(60);
-      world = createWorld(p5.width, p5.height, controlsRef.current);
-      simulationAccumulator = 0;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return undefined;
+    }
 
-      const canvasElement = renderer?.canvas;
-      if (canvasElement) {
-        applyTransparentCanvasStyle(canvasElement);
-
-        const handlePointerDown = (event) => {
-          if (!world || event.button !== 0) {
-            return;
-          }
-
-          const rect = canvasElement.getBoundingClientRect();
-          addFoodPatch(
-            world,
-            {
-              x: event.clientX - rect.left,
-              y: event.clientY - rect.top,
-            },
-            controlsRef.current,
-          );
-        };
-
-        canvasElement.addEventListener("pointerdown", handlePointerDown);
-      }
-    };
-
-    p5.draw = () => {
-      if (!world) {
+    const handlePointerDown = (event) => {
+      const world = worldRef.current;
+      if (!world || event.button !== 0) {
         return;
       }
 
-      const liveControls = controlsRef.current;
-      const dt = Math.min(p5.deltaTime * 0.001, 0.05);
+      const rect = canvas.getBoundingClientRect();
+      addFoodPatch(
+        world,
+        {
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+        },
+        controlsRef.current,
+      );
+    };
 
-      if (
-        world.width !== p5.width ||
-        world.height !== p5.height
-      ) {
-        world = resizeWorld(world, p5.width, p5.height, liveControls);
-        simulationAccumulator = 0;
+    canvas.addEventListener("pointerdown", handlePointerDown);
+
+    const render = (timestamp) => {
+      const now = timestamp * 0.001;
+      const dt = lastTimeRef.current
+        ? Math.min(now - lastTimeRef.current, 0.05)
+        : 0.016;
+      lastTimeRef.current = now;
+
+      const liveControls = controlsRef.current;
+      const size = syncCanvasSize(canvas, ctx);
+      let world = worldRef.current;
+
+      if (!world) {
+        world = createWorld(size.width, size.height, liveControls);
+        worldRef.current = world;
+        simulationAccumulatorRef.current = 0;
+      } else if (world.width !== size.width || world.height !== size.height) {
+        world = resizeWorld(world, size.width, size.height, liveControls);
+        worldRef.current = world;
+        simulationAccumulatorRef.current = 0;
       }
 
       if (!isPausedRef.current) {
-        simulationAccumulator = Math.min(
-          simulationAccumulator + dt,
+        simulationAccumulatorRef.current = Math.min(
+          simulationAccumulatorRef.current + dt,
           SIMULATION_STEP_S * MAX_SIMULATION_STEPS_PER_FRAME,
         );
 
         let steps = 0;
         while (
-          simulationAccumulator >= SIMULATION_STEP_S &&
+          simulationAccumulatorRef.current >= SIMULATION_STEP_S &&
           steps < MAX_SIMULATION_STEPS_PER_FRAME
         ) {
           stepWorld(world, liveControls, SIMULATION_STEP_S);
-          simulationAccumulator -= SIMULATION_STEP_S;
+          simulationAccumulatorRef.current -= SIMULATION_STEP_S;
           steps += 1;
         }
       }
 
-      drawWorld(p5, world, imageRef.current, frameSizeRef.current);
+      drawWorld(
+        ctx,
+        world,
+        imageRef.current,
+        frameCanvasesRef.current,
+        frameSizeRef.current,
+      );
+
+      animationFrameRef.current = window.requestAnimationFrame(render);
     };
 
-    p5.windowResized = () => {
-      p5.resizeCanvas(p5.windowWidth, p5.windowHeight);
-      if (world) {
-        world = resizeWorld(
-          world,
-          p5.windowWidth,
-          p5.windowHeight,
-          controlsRef.current,
-        );
-        simulationAccumulator = 0;
-      }
-    };
-  }, []);
+    animationFrameRef.current = window.requestAnimationFrame(render);
 
-  React.useEffect(() => {
     return () => {
-      if (p5InstanceRef.current) {
-        try {
-          p5InstanceRef.current.remove();
-        } catch {
-          // ignore
-        }
+      canvas.removeEventListener("pointerdown", handlePointerDown);
+      if (animationFrameRef.current) {
+        window.cancelAnimationFrame(animationFrameRef.current);
       }
+      animationFrameRef.current = null;
+      worldRef.current = null;
+      lastTimeRef.current = 0;
+      simulationAccumulatorRef.current = 0;
     };
   }, []);
 
-  return <P5Canvas key={0} sketch={sketch} />;
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{ width: "100%", height: "100%", display: "block" }}
+    />
+  );
 }
 
 App.ui = {

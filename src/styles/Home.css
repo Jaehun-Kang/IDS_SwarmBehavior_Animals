@@ -77,6 +77,52 @@
   opacity: 1;
   transform: translate3d(-50%, 0, 0);
 }
+.home .home-canvas-flag-notice {
+  position: absolute;
+  left: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 1000003;
+  display: grid;
+  gap: 0.35rem;
+  max-width: min(28rem, 100vw - 2.5rem);
+  padding: 0.875rem 1rem 0.375rem;
+  border-radius: 0.5rem;
+  color: var(--theme-text-strong);
+  font-family: var(--theme-ui-font);
+  font-size: 0.875rem;
+  line-height: 1.35;
+  background: var(--home-paper-texture), rgba(255, 252, 243, 0.92);
+  background-size: 18rem 18rem, 100% 100%;
+  box-shadow: 0 0.875rem 1.75rem rgba(44, 34, 24, 0.14), inset 0 0 1.5rem rgba(120, 86, 45, 0.04);
+  -moz-user-select: none;
+       user-select: none;
+  -webkit-user-select: none;
+}
+.home .home-canvas-flag-notice strong {
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+.home .home-canvas-flag-notice span {
+  color: var(--theme-text-muted);
+}
+.home .home-canvas-flag-notice code {
+  color: var(--theme-text-strong);
+  font-family: var(--theme-ui-font);
+  font-weight: 700;
+  -moz-user-select: text;
+       user-select: text;
+  -webkit-user-select: text;
+}
+.home .home-canvas-flag-notice button {
+  justify-self: end;
+  padding: 0.25rem 0;
+  color: var(--theme-text-strong);
+  font: inherit;
+  font-weight: 700;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
 .home .creature {
   display: grid;
   position: absolute;
@@ -103,7 +149,7 @@
 .home .creature[data-species-id=starling] .sprite_starling {
   width: 100%;
   height: 100%;
-  background: url("../assets/sprite-sheets/starling_1.svg") 0 center no-repeat;
+  background: url("../assets/sprite-sheets/01_starling.svg") 0 center no-repeat;
   background-size: 600% 100%;
 }
 .home .creature[data-species-id=starling] .sprite_starling.starling_fly1 {
@@ -145,7 +191,7 @@
 .home .creature[data-species-id=sardine] .sprite_sardine {
   width: 100%;
   height: 100%;
-  background: url("../assets/sprite-sheets/sardine_1.svg") 0 center no-repeat;
+  background: url("../assets/sprite-sheets/02_sardine.svg") 0 center no-repeat;
   background-size: 300% 100%;
 }
 .home .creature[data-species-id=sardine] .sprite_sardine.sardine_swim1 {
@@ -165,7 +211,7 @@
 .home .creature[data-species-id=grasshopper] .sprite_grasshopper {
   width: 100%;
   height: 100%;
-  background: url("../assets/sprite-sheets/grasshopper_1.svg") 0 center no-repeat;
+  background: url("../assets/sprite-sheets/03_grasshopper.svg") 0 center no-repeat;
   background-size: 500% 100%;
 }
 .home .creature[data-species-id=grasshopper] .sprite_grasshopper.grasshopper_idle {
@@ -196,7 +242,7 @@
 .home .creature[data-species-id=ant] .sprite_ant {
   width: 100%;
   height: 100%;
-  background: url("../assets/sprite-sheets/ant_1.svg") 0 center no-repeat;
+  background: url("../assets/sprite-sheets/04_ant.svg") 0 center no-repeat;
   background-size: 300% 100%;
 }
 .home .creature[data-species-id=ant] .sprite_ant.ant_walk {
@@ -216,7 +262,7 @@
 .home .creature[data-species-id=bat] .sprite_bat {
   width: 100%;
   height: 100%;
-  background: url("../assets/sprite-sheets/bat_1.svg") 0 center no-repeat;
+  background: url("../assets/sprite-sheets/05_bat.svg") 0 center no-repeat;
   background-size: 400% 100%;
 }
 .home .creature[data-species-id=bat] .sprite_bat.bat_fly1 {
@@ -252,7 +298,7 @@
 .home .creature[data-species-id=sheep] .sprite_sheep {
   width: 100%;
   height: 100%;
-  background: url("../assets/sprite-sheets/sheep_1.svg") 0 center no-repeat;
+  background: url("../assets/sprite-sheets/06_sheep.svg") 0 center no-repeat;
   background-size: 300% 100%;
 }
 .home .creature[data-species-id=sheep] .sprite_sheep.sheep_walk {
@@ -272,7 +318,7 @@
 .home .creature[data-species-id=penguin] .sprite_penguin {
   width: 100%;
   height: 100%;
-  background: url("../assets/sprite-sheets/penguin_1.svg") 0 center no-repeat;
+  background: url("../assets/sprite-sheets/07_penguin.svg") 0 center no-repeat;
   background-size: 300% 100%;
 }
 .home .creature[data-species-id=penguin] .sprite_penguin.penguin_walk {
@@ -292,7 +338,7 @@
 .home .creature[data-species-id=bee] .sprite_bee {
   width: 100%;
   height: 100%;
-  background: url("../assets/sprite-sheets/bee_1.svg") 0 center no-repeat;
+  background: url("../assets/sprite-sheets/08_bee.svg") 0 center no-repeat;
   background-size: 600% 100%;
 }
 .home .creature[data-species-id=bee] .sprite_bee.bee_fly {
@@ -325,7 +371,7 @@
 .home .creature[data-species-id=firefly] .sprite_firefly {
   width: 100%;
   height: 100%;
-  background: url("../assets/sprite-sheets/firefly_1.svg") 0 0 no-repeat;
+  background: url("../assets/sprite-sheets/09_firefly.svg") 0 0 no-repeat;
   background-size: 600% 200%;
 }
 .home .creature[data-species-id=firefly] .sprite_firefly.firefly_glow {
@@ -380,7 +426,7 @@
 .home .creature[data-species-id=spiny_lobster] .sprite_spiny_lobster {
   width: 100%;
   height: 100%;
-  background: url("../assets/sprite-sheets/spinylobster_1.svg") 0 center no-repeat;
+  background: url("../assets/sprite-sheets/10_spinylobster.svg") 0 center no-repeat;
   background-size: 400% 100%;
 }
 .home .creature[data-species-id=spiny_lobster] .sprite_spiny_lobster.lobster_swim {
@@ -413,7 +459,7 @@
 .home .creature[data-species-id=krill] .sprite_krill {
   width: 100%;
   height: 100%;
-  background: url("../assets/sprite-sheets/krill_1.svg") 0 center no-repeat;
+  background: url("../assets/sprite-sheets/11_krill.svg") 0 center no-repeat;
   background-size: 200% 100%;
 }
 .home .creature[data-species-id=krill] .sprite_krill.krill_swim {

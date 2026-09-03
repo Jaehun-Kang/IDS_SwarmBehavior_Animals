@@ -190,7 +190,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "IS_DAYTIME",
-    label: "낮/밤 전환",
+    label: "시간대",
     type: "toggle",
     formatValue: (value) => (value ? "낮" : "밤"),
   },
@@ -215,6 +215,12 @@ const SARDINE_UI = {
 };
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const getControlField = (key) =>
+  CONTROL_FIELDS.find((field) => field.key === key);
+const clampControlValue = (key, value) => {
+  const field = getControlField(key);
+  return clamp(value, field?.min, field?.max);
+};
 const lerp = (start, end, amount) => start + (end - start) * amount;
 const smoothstep = (min, max, value) => {
   const t = clamp((value - min) / (max - min), 0, 1);
@@ -304,18 +310,23 @@ const sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => {
     ...rawControls,
   };
 
-  nextControls.BOID_COUNT = Math.round(nextControls.BOID_COUNT);
+  nextControls.BOID_COUNT = Math.round(
+    clampControlValue("BOID_COUNT", nextControls.BOID_COUNT),
+  );
   nextControls.BASE_SPEED = clamp(
     nextControls.BASE_SPEED,
-    bodyLengthsToPx(3.79),
-    bodyLengthsToPx(8.42),
+    getControlField("BASE_SPEED")?.min,
+    getControlField("BASE_SPEED")?.max,
   );
   nextControls.NEIGHBOR_RADIUS = clamp(
     nextControls.NEIGHBOR_RADIUS,
-    bodyLengthsToPx(3.5),
-    bodyLengthsToPx(10.5),
+    getControlField("NEIGHBOR_RADIUS")?.min,
+    getControlField("NEIGHBOR_RADIUS")?.max,
   );
-  nextControls.MIN_SPACING = clamp(nextControls.MIN_SPACING, 0.5, 2.5);
+  nextControls.MIN_SPACING = clampControlValue(
+    "MIN_SPACING",
+    nextControls.MIN_SPACING,
+  );
   nextControls.RANDOM_MODE_MULTIPLIER = clamp(
     nextControls.RANDOM_MODE_MULTIPLIER,
     2,
@@ -375,6 +386,7 @@ varying float vFlipX;
 
 uniform sampler2D uSpriteSheet;
 uniform vec2 uAtlasGrid;
+uniform vec2 uSpriteSheetSize;
 
 mat2 rotate2d(float angle) {
   float s = sin(angle);
@@ -408,10 +420,10 @@ void main() {
   float atlasRows = max(uAtlasGrid.y, 1.0);
   float frameColumn = mod(frameIndex, atlasColumns);
   float frameRow = floor(frameIndex / atlasColumns);
-  vec2 atlasUv = vec2(
-    (spriteUv.x + frameColumn) / atlasColumns,
-    (spriteUv.y + frameRow) / atlasRows
-  );
+  vec2 texelSize = 1.0 / max(uSpriteSheetSize, vec2(1.0));
+  vec2 frameMin = vec2(frameColumn / atlasColumns, frameRow / atlasRows) + texelSize * 0.5;
+  vec2 frameMax = vec2((frameColumn + 1.0) / atlasColumns, (frameRow + 1.0) / atlasRows) - texelSize * 0.5;
+  vec2 atlasUv = mix(frameMin, frameMax, spriteUv);
   vec4 sprite = texture2D(uSpriteSheet, atlasUv);
   float alpha = sprite.a * vColor.a;
 
@@ -427,7 +439,7 @@ void main() {
 const loadTexture = (gl, atlas) =>
   new Promise((resolve, reject) => {
     loadTexturedAtlasCanvas(atlas)
-      .then(({ image, canvas }) => {
+      .then(({ image, imageSize, canvas }) => {
         const textureSource = canvas || image;
 
         const texture = gl.createTexture();
@@ -452,7 +464,12 @@ const loadTexture = (gl, atlas) =>
           textureSource,
         );
         gl.bindTexture(gl.TEXTURE_2D, null);
-        resolve(texture);
+        resolve({
+          texture,
+          width: imageSize?.width || textureSource.width || image.naturalWidth,
+          height:
+            imageSize?.height || textureSource.height || image.naturalHeight,
+        });
       })
       .catch(() => reject(new Error("texture-load-failed")));
   });
@@ -520,6 +537,14 @@ const bindFloatAttribute = (gl, buffer, location, size, values) => {
   gl.vertexAttribPointer(location, size, gl.FLOAT, false, 0, 0);
 };
 
+const deleteWebglTexture = (gl, texture) => {
+  if (!texture || !gl.isTexture(texture)) {
+    return;
+  }
+
+  gl.deleteTexture(texture);
+};
+
 const createRenderer = (gl, maxBoids) => {
   const program = createProgram(
     gl,
@@ -546,6 +571,7 @@ const createRenderer = (gl, maxBoids) => {
       pixelRatio: gl.getUniformLocation(program, "uPixelRatio"),
       spriteSheet: gl.getUniformLocation(program, "uSpriteSheet"),
       atlasGrid: gl.getUniformLocation(program, "uAtlasGrid"),
+      spriteSheetSize: gl.getUniformLocation(program, "uSpriteSheetSize"),
     },
     buffers: {
       position: gl.createBuffer(),
@@ -579,9 +605,7 @@ const destroyRenderer = (gl, renderer) => {
     }
   });
 
-  if (renderer.texture) {
-    gl.deleteTexture(renderer.texture);
-  }
+  deleteWebglTexture(gl, renderer.texture);
 
   if (renderer.program) {
     gl.deleteProgram(renderer.program);
@@ -1069,6 +1093,11 @@ const drawBoids = (gl, renderer, width, height, pixelRatio, boids) => {
     renderer.uniforms.atlasGrid,
     SARDINE_SPRITE_GRID.columns,
     SARDINE_SPRITE_GRID.rows,
+  );
+  gl.uniform2f(
+    renderer.uniforms.spriteSheetSize,
+    renderer.spriteSheetSize?.width || SARDINE_SPRITE_ATLAS.imageSize.width,
+    renderer.spriteSheetSize?.height || SARDINE_SPRITE_ATLAS.imageSize.height,
   );
 
   bindFloatAttribute(
@@ -1610,7 +1639,12 @@ const rebuildBoids = (count, world, viewportWidth, viewportHeight) => {
 };
 
 const syncBoidCount = (boids, count, world, viewportWidth, viewportHeight) => {
-  const targetCount = clamp(Math.round(count), 1, 1800);
+  const countField = getControlField("BOID_COUNT");
+  const targetCount = clamp(
+    Math.round(count),
+    countField?.min,
+    countField?.max,
+  );
   const leaderCutoff = Math.max(
     1,
     Math.round(targetCount * PARAMS.LEADER_RATIO),
@@ -1667,7 +1701,7 @@ const syncBoidCount = (boids, count, world, viewportWidth, viewportHeight) => {
     }
   }
 
-  while (activeCount < targetCount && boids.length < 1800) {
+  while (activeCount < targetCount && boids.length < countField?.max) {
     boids.push(
       createBoid(
         boids.length,
@@ -3131,13 +3165,17 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
     };
 
     loadTexture(gl, SARDINE_SPRITE_ATLAS)
-      .then((texture) => {
+      .then((spriteSheet) => {
         if (disposed) {
-          gl.deleteTexture(texture);
+          deleteWebglTexture(gl, spriteSheet.texture);
           return;
         }
 
-        renderer.texture = texture;
+        renderer.texture = spriteSheet.texture;
+        renderer.spriteSheetSize = {
+          width: spriteSheet.width,
+          height: spriteSheet.height,
+        };
         resizeCanvas();
         boids = rebuildBoids(
           controlsRef.current.BOID_COUNT,

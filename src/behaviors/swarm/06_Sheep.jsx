@@ -1,6 +1,7 @@
 import React from "react";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
+  drawAtlasFrame,
   loadTexturedAtlasCanvas,
   resolveAtlasFrameSize,
 } from "../../utils/spriteAtlas";
@@ -181,6 +182,8 @@ const DEFAULT_CONTROL_STATE = {
 const ATLAS = HOME_SPRITE_ATLASES.sheep;
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const getControlField = (key) =>
+  CONTROL_FIELDS.find((field) => field.key === key);
 const randomBetween = (min, max) => min + Math.random() * (max - min);
 const lerp = (start, end, amount) => start + (end - start) * amount;
 
@@ -339,6 +342,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const canvasRef = React.useRef(null);
   const imageRef = React.useRef(null);
   const rasterCanvasRef = React.useRef(null);
+  const frameCanvasesRef = React.useRef(null);
   const animationFrameRef = React.useRef(0);
   const agentsRef = React.useRef([]);
   const dogRef = React.useRef({
@@ -382,18 +386,22 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   React.useEffect(() => {
     let cancelled = false;
 
-    loadTexturedAtlasCanvas(ATLAS).then(({ image, frameSize, canvas }) => {
+    loadTexturedAtlasCanvas(ATLAS).then(
+      ({ image, frameSize, frameCanvases, canvas }) => {
       if (cancelled) {
         return;
       }
 
       imageRef.current = image;
       frameSizeRef.current = frameSize;
+      frameCanvasesRef.current = frameCanvases;
       rasterCanvasRef.current = canvas;
-    });
+      },
+    );
 
     return () => {
       cancelled = true;
+      frameCanvasesRef.current = null;
       rasterCanvasRef.current = null;
     };
   }, []);
@@ -1639,17 +1647,16 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         ctx.translate(agent.x, agent.y + bobOffset);
         ctx.rotate(sprite.rotation + grazeRotation);
         ctx.scale(sprite.flipX, 1);
-        ctx.drawImage(
+        drawAtlasFrame(ctx, {
           image,
-          sprite.frame.x * frameSize.width,
-          sprite.frame.y * frameSize.height,
-          frameSize.width,
-          frameSize.height,
-          -spriteWidth * 0.5,
-          -spriteHeight * 0.5,
-          spriteWidth,
-          spriteHeight,
-        );
+          frameCanvases: frameCanvasesRef.current,
+          frame: sprite.frame,
+          frameSize,
+          dx: -spriteWidth * 0.5,
+          dy: -spriteHeight * 0.5,
+          dWidth: spriteWidth,
+          dHeight: spriteHeight,
+        });
         ctx.restore();
       });
 
@@ -1698,8 +1705,8 @@ App.sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => ({
   ...(rawControls ?? {}),
   COUNT: clamp(
     Math.round(Number(rawControls?.COUNT ?? DEFAULT_CONTROL_STATE.COUNT)),
-    24,
-    480,
+    getControlField("COUNT")?.min,
+    getControlField("COUNT")?.max,
   ),
   DOG_ENABLED: Boolean(
     rawControls?.DOG_ENABLED ?? DEFAULT_CONTROL_STATE.DOG_ENABLED,
@@ -1709,12 +1716,12 @@ App.sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => ({
   ),
   DOG_PRESSURE: clamp(
     Number(rawControls?.DOG_PRESSURE ?? DEFAULT_CONTROL_STATE.DOG_PRESSURE),
-    0,
-    100,
+    getControlField("DOG_PRESSURE")?.min,
+    getControlField("DOG_PRESSURE")?.max,
   ),
   NOISE: clamp(
     Number(rawControls?.NOISE ?? DEFAULT_CONTROL_STATE.NOISE),
-    0,
-    100,
+    getControlField("NOISE")?.min,
+    getControlField("NOISE")?.max,
   ),
 });

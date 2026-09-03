@@ -66,6 +66,7 @@ function renderSprite(speciesId) {
         atlas={atlas}
         baseClassName={atlas.baseClassName}
         observeClassNameStages
+        renderMode="image"
       />
     );
   }

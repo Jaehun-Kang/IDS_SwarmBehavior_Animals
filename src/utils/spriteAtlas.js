@@ -25,6 +25,27 @@ const loadImage = (src) => {
   return promise;
 };
 
+const loadTransientImage = (src) =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.decoding = "async";
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(`image-load-failed:${src}`));
+    image.src = src;
+  });
+
+const isSvgSource = (src) => /\.svg(?:[?#]|$)/i.test(src || "");
+
+const readSvgText = async (src) => {
+  const response = await fetch(src);
+
+  if (!response.ok) {
+    throw new Error(`svg-load-failed:${src}`);
+  }
+
+  return response.text();
+};
+
 const resolveConfiguredImageSize = (atlas, imageSize) => {
   if (atlas?.imageSize?.width && atlas?.imageSize?.height) {
     return {
@@ -239,6 +260,140 @@ export const getAtlasFrameStyle = ({ atlas, imageSize, frame }) => {
   };
 };
 
+const getFrameKey = (frame) => {
+  const resolvedFrame = toFrameCoordinate(frame) || { x: 0, y: 0 };
+  return `${resolvedFrame.x}:${resolvedFrame.y}`;
+};
+
+export const createAtlasFrameCanvases = (source, frameSize, grid) => {
+  const frames = new Map();
+  const frameWidth = Math.round(frameSize.width);
+  const frameHeight = Math.round(frameSize.height);
+
+  if (frameWidth <= 0 || frameHeight <= 0) {
+    return frames;
+  }
+
+  for (let y = 0; y < grid.rows; y += 1) {
+    for (let x = 0; x < grid.columns; x += 1) {
+      const frameCanvas = document.createElement("canvas");
+      frameCanvas.width = frameWidth;
+      frameCanvas.height = frameHeight;
+
+      const context = frameCanvas.getContext("2d");
+      if (context) {
+        context.clearRect(0, 0, frameWidth, frameHeight);
+        context.drawImage(
+          source,
+          x * frameWidth,
+          y * frameHeight,
+          frameWidth,
+          frameHeight,
+          0,
+          0,
+          frameWidth,
+          frameHeight,
+        );
+      }
+
+      frames.set(`${x}:${y}`, frameCanvas);
+    }
+  }
+
+  return frames;
+};
+
+const createAtlasFrameCanvasesFromSvg = async (src, frameSize, grid) => {
+  const frames = new Map();
+  const frameWidth = Math.round(frameSize.width);
+  const frameHeight = Math.round(frameSize.height);
+
+  if (frameWidth <= 0 || frameHeight <= 0) {
+    return frames;
+  }
+
+  const svgText = await readSvgText(src);
+  const parser = new DOMParser();
+  const serializer = new XMLSerializer();
+
+  for (let y = 0; y < grid.rows; y += 1) {
+    for (let x = 0; x < grid.columns; x += 1) {
+      const svgDocument = parser.parseFromString(svgText, "image/svg+xml");
+      const svg = svgDocument.documentElement;
+
+      svg.setAttribute(
+        "viewBox",
+        `${x * frameWidth} ${y * frameHeight} ${frameWidth} ${frameHeight}`,
+      );
+      svg.setAttribute("width", String(frameWidth));
+      svg.setAttribute("height", String(frameHeight));
+      svg.setAttribute("preserveAspectRatio", "none");
+
+      const serializedSvg = serializer.serializeToString(svg);
+      const objectUrl = URL.createObjectURL(
+        new Blob([serializedSvg], { type: "image/svg+xml" }),
+      );
+
+      try {
+        const image = await loadTransientImage(objectUrl);
+        const frameCanvas = document.createElement("canvas");
+        frameCanvas.width = frameWidth;
+        frameCanvas.height = frameHeight;
+
+        const context = frameCanvas.getContext("2d");
+        if (context) {
+          context.clearRect(0, 0, frameWidth, frameHeight);
+          context.drawImage(image, 0, 0, frameWidth, frameHeight);
+        }
+
+        frames.set(`${x}:${y}`, frameCanvas);
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    }
+  }
+
+  return frames;
+};
+
+export const getAtlasFrameCanvas = (frameCanvases, frame) =>
+  frameCanvases?.get(getFrameKey(frame)) || null;
+
+export const drawAtlasFrame = (
+  context,
+  { image, frameCanvases, frame, frameSize, dx, dy, dWidth, dHeight },
+) => {
+  const frameCanvas = getAtlasFrameCanvas(frameCanvases, frame);
+
+  if (frameCanvas) {
+    context.drawImage(
+      frameCanvas,
+      0,
+      0,
+      frameSize.width,
+      frameSize.height,
+      dx,
+      dy,
+      dWidth,
+      dHeight,
+    );
+    return;
+  }
+
+  const resolvedFrame = toFrameCoordinate(frame) || { x: 0, y: 0 };
+  context.drawImage(
+    image,
+    resolvedFrame.x * frameSize.width,
+    resolvedFrame.y * frameSize.height,
+    frameSize.width,
+    frameSize.height,
+    dx,
+    dy,
+    dWidth,
+    dHeight,
+  );
+};
+
 export const loadTexturedAtlasCanvas = async (atlas) => {
   const cacheKey = [
     atlas?.src,
@@ -252,7 +407,7 @@ export const loadTexturedAtlasCanvas = async (atlas) => {
   }
 
   const promise = loadImage(atlas.src)
-    .then((image) => {
+    .then(async (image) => {
       const width = atlas?.imageSize?.width || image.naturalWidth || image.width || 64;
       const height =
         atlas?.imageSize?.height || image.naturalHeight || image.height || 64;
@@ -265,11 +420,18 @@ export const loadTexturedAtlasCanvas = async (atlas) => {
         context.clearRect(0, 0, width, height);
         context.drawImage(image, 0, 0, width, height);
       }
+      const imageSize = { width, height };
+      const frameSize = resolveAtlasFrameSize(atlas, imageSize);
+      const grid = resolveAtlasGrid(atlas, imageSize);
+      const frameCanvases = isSvgSource(atlas?.src)
+        ? await createAtlasFrameCanvasesFromSvg(atlas.src, frameSize, grid)
+        : createAtlasFrameCanvases(context ? canvas : image, frameSize, grid);
 
       return {
         image,
-        imageSize: { width, height },
-        frameSize: resolveAtlasFrameSize(atlas, { width, height }),
+        imageSize,
+        frameSize,
+        frameCanvases,
         canvas: context ? canvas : null,
       };
     });

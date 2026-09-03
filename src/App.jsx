@@ -6,7 +6,8 @@ import Detail from "./pages/Detail.jsx";
 import { animals } from "./behaviors/animalData";
 
 const DETAIL_ENTER_DURATION = 400;
-const INACTIVITY_TIMEOUT_MS = 6000000;
+const INACTIVITY_TIMEOUT_MS = 60000;
+const INACTIVITY_WARNING_THRESHOLD_MS = 20000;
 
 const ANIMAL_IDS = new Set(animals.map((animal) => animal.id));
 const ANIMAL_ROUTE_SLUGS = {
@@ -32,7 +33,9 @@ const ANIMAL_ROUTE_ALIASES = new Map(
 const animalIdToSlug = (animalId) =>
   animalId ? (ANIMAL_ROUTE_SLUGS[animalId] ?? animalId) : "";
 const animalSlugToId = (slug) =>
-  ANIMAL_ROUTE_ALIASES.get((slug || "").replace(/[\s_-]+/g, "").toLowerCase()) ??
+  ANIMAL_ROUTE_ALIASES.get(
+    (slug || "").replace(/[\s_-]+/g, "").toLowerCase(),
+  ) ??
   ANIMAL_ROUTE_ALIASES.get((slug || "").toLowerCase()) ??
   "";
 const normalizeBasePath = (baseUrl) => {
@@ -109,7 +112,10 @@ function App() {
   );
   const [currentPage, setCurrentPage] = useState(initialRoute.currentPage); // home | sim | detail
   const [savedPosition, setSavedPosition] = useState(null);
-  const [isPaused, setIsPaused] = useState(initialRoute.currentPage === "detail");
+  const [isPaused, setIsPaused] = useState(
+    initialRoute.currentPage === "detail",
+  );
+  const [inactivityRemainingMs, setInactivityRemainingMs] = useState(null);
 
   useEffect(() => {
     if (initialRoute.shouldReplace) {
@@ -141,18 +147,41 @@ function App() {
 
   useEffect(() => {
     let timeoutId;
+    let intervalId;
+    let inactivityDeadline = 0;
+
+    const updateInactivityRemaining = () => {
+      if (currentPage === "home" || inactivityDeadline <= 0) {
+        setInactivityRemainingMs(null);
+        return;
+      }
+
+      const remainingMs = Math.max(
+        0,
+        inactivityDeadline - window.performance.now(),
+      );
+      setInactivityRemainingMs(
+        remainingMs <= INACTIVITY_WARNING_THRESHOLD_MS ? remainingMs : null,
+      );
+    };
 
     const resetInactivityTimeout = () => {
       window.clearTimeout(timeoutId);
 
       if (currentPage === "home") {
+        inactivityDeadline = 0;
+        setInactivityRemainingMs(null);
         return;
       }
+
+      inactivityDeadline = window.performance.now() + INACTIVITY_TIMEOUT_MS;
+      updateInactivityRemaining();
 
       timeoutId = window.setTimeout(() => {
         setIsPaused(false);
         setCurrentPage("home");
         setSelectedAnimal(null);
+        setInactivityRemainingMs(null);
         navigateRoute("home", null);
       }, INACTIVITY_TIMEOUT_MS);
     };
@@ -172,14 +201,21 @@ function App() {
     });
 
     resetInactivityTimeout();
+    intervalId = window.setInterval(updateInactivityRemaining, 250);
 
     return () => {
       window.clearTimeout(timeoutId);
+      window.clearInterval(intervalId);
       activityEvents.forEach((eventName) => {
         window.removeEventListener(eventName, resetInactivityTimeout);
       });
     };
   }, [currentPage]);
+
+  const inactivityRemainingSeconds =
+    inactivityRemainingMs === null
+      ? null
+      : Math.ceil(inactivityRemainingMs / 1000);
 
   function onAnimalClick(e) {
     const animalId = e.currentTarget.dataset.speciesId || e.currentTarget.id;
@@ -239,18 +275,23 @@ function App() {
           onBackClick={onSimBackClick}
           onAnimalSelect={onSimAnimalSelect}
           isPaused={isPaused}
+          inactivityRemainingSeconds={
+            currentPage === "sim" ? inactivityRemainingSeconds : null
+          }
         />
       )}
-      {(currentPage === "sim" || currentPage === "detail") && selectedAnimal && (
-        <Detail
-          animalId={selectedAnimal}
-          enterDuration={DETAIL_ENTER_DURATION}
-          isOpen={currentPage === "detail"}
-          onOpen={onSimDetailClick}
-          onBackClick={onDetailBackClick}
-          onEnterComplete={onDetailEnterComplete}
-        />
-      )}
+      {(currentPage === "sim" || currentPage === "detail") &&
+        selectedAnimal && (
+          <Detail
+            animalId={selectedAnimal}
+            enterDuration={DETAIL_ENTER_DURATION}
+            isOpen={currentPage === "detail"}
+            onOpen={onSimDetailClick}
+            onBackClick={onDetailBackClick}
+            onEnterComplete={onDetailEnterComplete}
+            inactivityRemainingSeconds={inactivityRemainingSeconds}
+          />
+        )}
     </div>
   );
 }

@@ -1,7 +1,10 @@
 import React from "react";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
+  createAtlasFrameCanvases,
+  drawAtlasFrame,
   loadTexturedAtlasCanvas,
+  resolveAtlasGrid,
   resolveAtlasFrameSize,
 } from "../../utils/spriteAtlas";
 import { resolveCanvasAtlasSprite } from "../../utils/spritePose";
@@ -185,6 +188,8 @@ const DEFAULT_CONTROL_STATE = {
 };
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const getControlField = (key) =>
+  CONTROL_FIELDS.find((field) => field.key === key);
 const lerp = (start, end, amount) => start + (end - start) * amount;
 const randomBetween = (min, max) => min + Math.random() * (max - min);
 
@@ -1386,8 +1391,8 @@ const sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => {
 
   nextControls.COUNT = clamp(
     Math.round(nextControls.COUNT),
-    CONTROL_FIELDS[0].min,
-    CONTROL_FIELDS[0].max,
+    getControlField("COUNT")?.min,
+    getControlField("COUNT")?.max,
   );
   nextControls.TIME_SCALE = clamp(
     nextControls.TIME_SCALE,
@@ -1396,13 +1401,13 @@ const sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => {
   );
   nextControls.COUPLING_BETA = clamp(
     nextControls.COUPLING_BETA,
-    CONTROL_FIELDS[1].min,
-    CONTROL_FIELDS[1].max,
+    getControlField("COUPLING_BETA")?.min,
+    getControlField("COUPLING_BETA")?.max,
   );
   nextControls.VISION_RADIUS_M = clamp(
     nextControls.VISION_RADIUS_M,
-    CONTROL_FIELDS[2].min,
-    CONTROL_FIELDS[2].max,
+    getControlField("VISION_RADIUS_M")?.min,
+    getControlField("VISION_RADIUS_M")?.max,
   );
   nextControls.INTERACTION_MODE = ["predator", "light_threat"].includes(
     nextControls.INTERACTION_MODE,
@@ -1422,6 +1427,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const imageRef = React.useRef(null);
   const rasterCanvasRef = React.useRef(null);
   const atlasVariantsRef = React.useRef(null);
+  const frameCanvasesRef = React.useRef(null);
   const glowHaloRef = React.useRef(null);
   const animationFrameRef = React.useRef(0);
   const agentsRef = React.useRef([]);
@@ -1462,7 +1468,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   React.useEffect(() => {
     let cancelled = false;
 
-    loadTexturedAtlasCanvas(ATLAS).then(({ image, imageSize, frameSize, canvas }) => {
+    loadTexturedAtlasCanvas(ATLAS).then(
+      ({ image, imageSize, frameSize, frameCanvases, canvas }) => {
       if (cancelled) {
         return;
       }
@@ -1472,41 +1479,56 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         imageSize?.width || atlasSource.width || image.naturalWidth || 64;
       const atlasHeight =
         imageSize?.height || atlasSource.height || image.naturalHeight || 64;
+      const grid = resolveAtlasGrid(ATLAS, imageSize);
+      const dimCanvas = createTintedAtlasCanvas(
+        atlasSource,
+        atlasWidth,
+        atlasHeight,
+        "rgb(18, 22, 14)",
+        0.34,
+      );
+      const revealedCanvas = createTintedAtlasCanvas(
+        atlasSource,
+        atlasWidth,
+        atlasHeight,
+        "rgb(246, 233, 176)",
+        0.18,
+      );
+      const glowCanvas = createTintedAtlasCanvas(
+        atlasSource,
+        atlasWidth,
+        atlasHeight,
+        "rgb(255, 238, 128)",
+        0.22,
+      );
 
       imageRef.current = image;
       frameSizeRef.current = frameSize;
       rasterCanvasRef.current = atlasSource;
+      frameCanvasesRef.current = frameCanvases;
       atlasVariantsRef.current = {
         base: atlasSource,
-        dim: createTintedAtlasCanvas(
-          atlasSource,
-          atlasWidth,
-          atlasHeight,
-          "rgb(18, 22, 14)",
-          0.34,
+        baseFrames: frameCanvases,
+        dim: dimCanvas,
+        dimFrames: createAtlasFrameCanvases(dimCanvas, frameSize, grid),
+        revealed: revealedCanvas,
+        revealedFrames: createAtlasFrameCanvases(
+          revealedCanvas,
+          frameSize,
+          grid,
         ),
-        revealed: createTintedAtlasCanvas(
-          atlasSource,
-          atlasWidth,
-          atlasHeight,
-          "rgb(246, 233, 176)",
-          0.18,
-        ),
-        glow: createTintedAtlasCanvas(
-          atlasSource,
-          atlasWidth,
-          atlasHeight,
-          "rgb(255, 238, 128)",
-          0.22,
-        ),
+        glow: glowCanvas,
+        glowFrames: createAtlasFrameCanvases(glowCanvas, frameSize, grid),
       };
       glowHaloRef.current = createGlowHaloFrames(atlasSource, frameSize);
-    });
+      },
+    );
 
     return () => {
       cancelled = true;
       rasterCanvasRef.current = null;
       atlasVariantsRef.current = null;
+      frameCanvasesRef.current = null;
       glowHaloRef.current = null;
     };
   }, []);
@@ -1744,7 +1766,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           if (agent.isPerched && agent.threatTimer <= 0) {
             updatePerchedAgent(agent, dt);
             applyPerchedScreenReturn(agent, size.width, size.height, dt);
-            agent.spriteState = { glow: agent.isGlowActive };
+            agent.spriteState = { glow: agent.isGlowActive, idle: true };
             return;
           }
 
@@ -1817,7 +1839,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             PARAMS.DEPTH_MIN - 4,
             PARAMS.DEPTH_MAX + 4,
           );
-          agent.spriteState = { glow: agent.isGlowActive };
+          agent.spriteState = { glow: agent.isGlowActive, idle: false };
         });
       }
 
@@ -1909,6 +1931,14 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             : bodyRevealIntensity > 0.32
               ? (atlasVariants?.revealed ?? image)
               : (atlasVariants?.dim ?? image);
+          const sourceFrameCanvases =
+            sourceImage === atlasVariants?.revealed
+              ? atlasVariants?.revealedFrames
+              : sourceImage === atlasVariants?.dim
+                ? atlasVariants?.dimFrames
+                : sourceImage === atlasVariants?.glow
+                  ? atlasVariants?.glowFrames
+                  : atlasVariants?.baseFrames || frameCanvasesRef.current;
 
           agent.previousScreenPosition = sprite.pose.screenPosition;
 
@@ -1955,17 +1985,16 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
               bodyRevealIntensity,
             );
           }
-          ctx.drawImage(
-            sourceImage,
-            sprite.frame.x * frameSize.width,
-            sprite.frame.y * frameSize.height,
-            frameSize.width,
-            frameSize.height,
-            -drawWidth * 0.5,
-            -drawHeight * 0.5,
-            drawWidth,
-            drawHeight,
-          );
+          drawAtlasFrame(ctx, {
+            image: sourceImage,
+            frameCanvases: sourceFrameCanvases,
+            frame: sprite.frame,
+            frameSize,
+            dx: -drawWidth * 0.5,
+            dy: -drawHeight * 0.5,
+            dWidth: drawWidth,
+            dHeight: drawHeight,
+          });
           ctx.restore();
 
           if (sanitizedControls.SHOW_PHASE_DEBUG) {

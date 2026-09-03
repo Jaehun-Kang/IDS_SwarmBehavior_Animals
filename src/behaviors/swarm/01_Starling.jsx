@@ -155,6 +155,24 @@ const sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => {
     ...rawControls,
   };
 
+  nextControls.BOID_COUNT = Math.round(
+    clampControlValue("BOID_COUNT", nextControls.BOID_COUNT),
+  );
+  nextControls.NEIGHBOR_COUNT = Math.round(
+    clampControlValue("NEIGHBOR_COUNT", nextControls.NEIGHBOR_COUNT),
+  );
+  nextControls.DISTANCE_SCALE = clampControlValue(
+    "DISTANCE_SCALE",
+    nextControls.DISTANCE_SCALE,
+  );
+  nextControls.TARGET_SPEED_MIN_MULTIPLIER = clampControlValue(
+    "TARGET_SPEED_MIN_MULTIPLIER",
+    nextControls.TARGET_SPEED_MIN_MULTIPLIER,
+  );
+  nextControls.TARGET_SPEED_MAX_MULTIPLIER = clampControlValue(
+    "TARGET_SPEED_MAX_MULTIPLIER",
+    nextControls.TARGET_SPEED_MAX_MULTIPLIER,
+  );
   nextControls.TARGET_SPEED_MAX_MULTIPLIER = Math.max(
     nextControls.TARGET_SPEED_MAX_MULTIPLIER,
     nextControls.TARGET_SPEED_MIN_MULTIPLIER,
@@ -162,6 +180,14 @@ const sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => {
   nextControls.TARGET_SPEED_MIN_MULTIPLIER = Math.min(
     nextControls.TARGET_SPEED_MIN_MULTIPLIER,
     nextControls.TARGET_SPEED_MAX_MULTIPLIER,
+  );
+  nextControls.REACTION_MEAN = clampControlValue(
+    "REACTION_MEAN",
+    nextControls.REACTION_MEAN,
+  );
+  nextControls.REFERENCE_LOCK_DURATION = clampControlValue(
+    "REFERENCE_LOCK_DURATION",
+    nextControls.REFERENCE_LOCK_DURATION,
   );
   nextControls.IS_PREDATOR_ACTIVE = Boolean(nextControls.IS_PREDATOR_ACTIVE);
 
@@ -174,6 +200,12 @@ const STARLING_UI = {
 };
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const getControlField = (key) =>
+  CONTROL_FIELDS.find((field) => field.key === key);
+const clampControlValue = (key, value) => {
+  const field = getControlField(key);
+  return clamp(value, field?.min, field?.max);
+};
 const lerp = (start, end, amount) => start + (end - start) * amount;
 const length3D = (vector) => Math.hypot(vector.x, vector.y, vector.z);
 
@@ -590,6 +622,7 @@ varying float vFrame;
 
 uniform sampler2D uSpriteSheet;
 uniform vec2 uAtlasGrid;
+uniform vec2 uSpriteSheetSize;
 
 mat2 rotate2d(float angle) {
   float s = sin(angle);
@@ -617,10 +650,10 @@ void main() {
   float atlasRows = max(uAtlasGrid.y, 1.0);
   float frameColumn = mod(frameIndex, atlasColumns);
   float frameRow = floor(frameIndex / atlasColumns);
-  vec2 atlasUv = vec2(
-    (spriteUv.x + frameColumn) / atlasColumns,
-    (spriteUv.y + frameRow) / atlasRows
-  );
+  vec2 texelSize = 1.0 / max(uSpriteSheetSize, vec2(1.0));
+  vec2 frameMin = vec2(frameColumn / atlasColumns, frameRow / atlasRows) + texelSize * 0.5;
+  vec2 frameMax = vec2((frameColumn + 1.0) / atlasColumns, (frameRow + 1.0) / atlasRows) - texelSize * 0.5;
+  vec2 atlasUv = mix(frameMin, frameMax, spriteUv);
   vec4 sprite = texture2D(uSpriteSheet, atlasUv);
   float glow = (1.0 - smoothstep(0.16, 0.82, length(uv))) * vGlow;
   float alpha = max(sprite.a * vColor.a, glow * 0.28);
@@ -639,7 +672,7 @@ void main() {
 const loadTexture = (gl, atlas) =>
   new Promise((resolve, reject) => {
     loadTexturedAtlasCanvas(atlas)
-      .then(({ image, canvas }) => {
+      .then(({ image, imageSize, canvas }) => {
         const textureSource = canvas || image;
 
         const texture = gl.createTexture();
@@ -664,7 +697,12 @@ const loadTexture = (gl, atlas) =>
           textureSource,
         );
         gl.bindTexture(gl.TEXTURE_2D, null);
-        resolve(texture);
+        resolve({
+          texture,
+          width: imageSize?.width || textureSource.width || image.naturalWidth,
+          height:
+            imageSize?.height || textureSource.height || image.naturalHeight,
+        });
       })
       .catch(() => reject(new Error("texture-load-failed")));
   });
@@ -748,6 +786,7 @@ const initializeRenderer = (gl) => {
       pixelRatio: gl.getUniformLocation(program, "uPixelRatio"),
       spriteSheet: gl.getUniformLocation(program, "uSpriteSheet"),
       atlasGrid: gl.getUniformLocation(program, "uAtlasGrid"),
+      spriteSheetSize: gl.getUniformLocation(program, "uSpriteSheetSize"),
     },
     buffers: {
       position: gl.createBuffer(),
@@ -787,6 +826,14 @@ const bindFloatAttribute = (gl, buffer, location, size, values) => {
   gl.vertexAttribPointer(location, size, gl.FLOAT, false, 0, 0);
 };
 
+const deleteWebglTexture = (gl, texture) => {
+  if (!texture || !gl.isTexture(texture)) {
+    return;
+  }
+
+  gl.deleteTexture(texture);
+};
+
 const destroyRenderer = (gl, renderer) => {
   if (!renderer) {
     return;
@@ -802,12 +849,8 @@ const destroyRenderer = (gl, renderer) => {
     gl.deleteProgram(renderer.program);
   }
 
-  if (renderer.textures) {
-    Object.values(renderer.textures).forEach((texture) => {
-      if (texture) {
-        gl.deleteTexture(texture);
-      }
-    });
+  if (renderer.textures?.spriteSheet) {
+    deleteWebglTexture(gl, renderer.textures.spriteSheet);
   }
 };
 
@@ -882,6 +925,12 @@ const drawBoidsWithWebGL = (gl, renderer, width, height, pixelRatio, boids) => {
     renderer.uniforms.atlasGrid,
     STARLING_SPRITE_GRID.columns,
     STARLING_SPRITE_GRID.rows,
+  );
+  gl.uniform2f(
+    renderer.uniforms.spriteSheetSize,
+    renderer.textures.spriteSheetSize?.width || STARLING_SPRITE_ATLAS.imageSize.width,
+    renderer.textures.spriteSheetSize?.height ||
+      STARLING_SPRITE_ATLAS.imageSize.height,
   );
 
   bindFloatAttribute(
@@ -1927,13 +1976,17 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
     };
 
     loadTexture(gl, STARLING_SPRITE_ATLAS)
-      .then((spriteSheetTexture) => {
+      .then((spriteSheet) => {
         if (isDisposed) {
-          gl.deleteTexture(spriteSheetTexture);
+          deleteWebglTexture(gl, spriteSheet.texture);
           return;
         }
 
-        renderer.textures.spriteSheet = spriteSheetTexture;
+        renderer.textures.spriteSheet = spriteSheet.texture;
+        renderer.textures.spriteSheetSize = {
+          width: spriteSheet.width,
+          height: spriteSheet.height,
+        };
         resizeCanvas();
         window.addEventListener("resize", resizeCanvas);
         window.addEventListener("pointermove", handlePointerMove);

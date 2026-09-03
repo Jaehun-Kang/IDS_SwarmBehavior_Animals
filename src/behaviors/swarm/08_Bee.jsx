@@ -1,6 +1,7 @@
 import React from "react";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
+  drawAtlasFrame,
   loadTexturedAtlasCanvas,
   resolveAtlasFrameSize,
 } from "../../utils/spriteAtlas";
@@ -301,6 +302,8 @@ const THREAT_TYPES = {
 };
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const getControlField = (key) =>
+  CONTROL_FIELDS.find((field) => field.key === key);
 const lerp = (start, end, amount) => start + (end - start) * amount;
 const randomBetween = (min, max) => min + Math.random() * (max - min);
 const cmToPx = (cm) => cm * PARAMS.PIXELS_PER_CM;
@@ -4021,7 +4024,17 @@ const renderEnvironment = (
   void attachedHornetCount;
 };
 
-const renderAgent = (ctx, image, frameSize, agent, index, size, now, dt) => {
+const renderAgent = (
+  ctx,
+  image,
+  frameCanvases,
+  frameSize,
+  agent,
+  index,
+  size,
+  now,
+  dt,
+) => {
   const speed = Math.hypot(agent.vx, agent.vy);
   const isFanning = agent.activityState === ACTIVITY_STATES.FANNING;
   const isCollectingOnFlower =
@@ -4037,6 +4050,7 @@ const renderAgent = (ctx, image, frameSize, agent, index, size, now, dt) => {
       cmToPx(PARAMS.FLOWER_APPROACH_LOCK_RADIUS_CM);
   const topStage = ATLAS.stages.bee_top_fly;
   const topFrames = topStage.frames || [{ x: 1, y: 0 }];
+  const topIdleFrame = ATLAS.stages.bee_top_idle?.frame || topFrames[0];
   const isSurfaceMovingBee =
     agent.activityState === ACTIVITY_STATES.WANDERING ||
     agent.activityState === ACTIVITY_STATES.SETTLING;
@@ -4059,11 +4073,11 @@ const renderAgent = (ctx, image, frameSize, agent, index, size, now, dt) => {
     ) % topFrames.length;
   const frame =
     isCollectingOnFlower || isFlowerApproachLocked
-      ? topFrames[0]
+      ? topIdleFrame
       : isFanning
         ? topFrames[flightFrameIndex]
         : isRestingSurfaceBee
-          ? topFrames[0]
+          ? topIdleFrame
           : topFrames[flightFrameIndex];
   const targetRotation = isCollectingOnFlower
     ? agent.collectingFacingAngle ||
@@ -4180,17 +4194,16 @@ const renderAgent = (ctx, image, frameSize, agent, index, size, now, dt) => {
     0,
   );
   ctx.scale(scale, scale);
-  ctx.drawImage(
+  drawAtlasFrame(ctx, {
     image,
-    frame.x * frameSize.width,
-    frame.y * frameSize.height,
-    frameSize.width,
-    frameSize.height,
-    -frameSize.width * 0.5,
-    -frameSize.height * 0.5,
-    frameSize.width,
-    frameSize.height,
-  );
+    frameCanvases,
+    frame,
+    frameSize,
+    dx: -frameSize.width * 0.5,
+    dy: -frameSize.height * 0.5,
+    dWidth: frameSize.width,
+    dHeight: frameSize.height,
+  });
   ctx.restore();
 };
 
@@ -4198,6 +4211,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const canvasRef = React.useRef(null);
   const imageRef = React.useRef(null);
   const rasterCanvasRef = React.useRef(null);
+  const frameCanvasesRef = React.useRef(null);
   const animationFrameRef = React.useRef(0);
   const agentsRef = React.useRef([]);
   const layoutRef = React.useRef(null);
@@ -4241,18 +4255,22 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   React.useEffect(() => {
     let cancelled = false;
 
-    loadTexturedAtlasCanvas(ATLAS).then(({ image, frameSize, canvas }) => {
+    loadTexturedAtlasCanvas(ATLAS).then(
+      ({ image, frameSize, frameCanvases, canvas }) => {
       if (cancelled) {
         return;
       }
 
       imageRef.current = image;
       frameSizeRef.current = frameSize;
+      frameCanvasesRef.current = frameCanvases;
       rasterCanvasRef.current = canvas;
-    });
+      },
+    );
 
     return () => {
       cancelled = true;
+      frameCanvasesRef.current = null;
       rasterCanvasRef.current = null;
     };
   }, []);
@@ -4521,7 +4539,17 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         );
         sortedAgents.forEach((agent) => {
           const agentIndex = agentsRef.current.indexOf(agent);
-          renderAgent(ctx, image, frameSize, agent, agentIndex, size, now, dt);
+          renderAgent(
+            ctx,
+            image,
+            frameCanvasesRef.current,
+            frameSize,
+            agent,
+            agentIndex,
+            size,
+            now,
+            dt,
+          );
         });
       }
 
@@ -4721,17 +4749,21 @@ App.sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => {
   };
 
   return {
-    COUNT: clamp(Number(next.COUNT) || DEFAULT_CONTROL_STATE.COUNT, 60, 520),
+    COUNT: clamp(
+      Number(next.COUNT) || DEFAULT_CONTROL_STATE.COUNT,
+      getControlField("COUNT")?.min,
+      getControlField("COUNT")?.max,
+    ),
     TEMPERATURE_C: clamp(
       Number(next.TEMPERATURE_C) || DEFAULT_CONTROL_STATE.TEMPERATURE_C,
-      5,
-      42,
+      getControlField("TEMPERATURE_C")?.min,
+      getControlField("TEMPERATURE_C")?.max,
     ),
     IS_THREAT_ACTIVE: Boolean(next.IS_THREAT_ACTIVE),
     SUN_AZIMUTH_DEG: clamp(
       Number(next.SUN_AZIMUTH_DEG) || DEFAULT_CONTROL_STATE.SUN_AZIMUTH_DEG,
-      0,
-      360,
+      getControlField("SUN_AZIMUTH_DEG")?.min,
+      getControlField("SUN_AZIMUTH_DEG")?.max,
     ),
     TARGET_DISTANCE_M: clamp(
       Number(next.TARGET_DISTANCE_M) || DEFAULT_CONTROL_STATE.TARGET_DISTANCE_M,

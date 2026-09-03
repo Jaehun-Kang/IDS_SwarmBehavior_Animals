@@ -1,6 +1,7 @@
 import React from "react";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
+  drawAtlasFrame,
   loadTexturedAtlasCanvas,
   resolveAtlasFrameSize,
 } from "../../utils/spriteAtlas";
@@ -227,6 +228,8 @@ const AGENT_STATES = {
 };
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const getControlField = (key) =>
+  CONTROL_FIELDS.find((field) => field.key === key);
 const randomBetween = (min, max) => min + Math.random() * (max - min);
 
 const wrapAngle = (angle) => {
@@ -472,15 +475,15 @@ const sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => ({
   ...(rawControls ?? {}),
   COUNT: clamp(
     Math.round(rawControls?.COUNT ?? DEFAULT_CONTROL_STATE.COUNT),
-    CONTROL_FIELDS[0].min,
-    CONTROL_FIELDS[0].max,
+    getControlField("COUNT")?.min,
+    getControlField("COUNT")?.max,
   ),
   ATTRACTION_WEIGHT: clamp(
     Number(
       rawControls?.ATTRACTION_WEIGHT ?? DEFAULT_CONTROL_STATE.ATTRACTION_WEIGHT,
     ),
-    0,
-    0.05,
+    getControlField("ATTRACTION_WEIGHT")?.min,
+    getControlField("ATTRACTION_WEIGHT")?.max,
   ),
   ADULT_FLIGHT_MODE: Boolean(
     rawControls?.ADULT_FLIGHT_MODE ?? DEFAULT_CONTROL_STATE.ADULT_FLIGHT_MODE,
@@ -490,13 +493,13 @@ const sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => ({
   ),
   TEMPERATURE_C: clamp(
     Number(rawControls?.TEMPERATURE_C ?? DEFAULT_CONTROL_STATE.TEMPERATURE_C),
-    10,
-    45,
+    getControlField("TEMPERATURE_C")?.min,
+    getControlField("TEMPERATURE_C")?.max,
   ),
   WIND_SPEED_MPS: clamp(
     Number(rawControls?.WIND_SPEED_MPS ?? DEFAULT_CONTROL_STATE.WIND_SPEED_MPS),
-    0,
-    10,
+    getControlField("WIND_SPEED_MPS")?.min,
+    getControlField("WIND_SPEED_MPS")?.max,
   ),
 });
 
@@ -1244,6 +1247,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const canvasRef = React.useRef(null);
   const imageRef = React.useRef(null);
   const rasterCanvasRef = React.useRef(null);
+  const frameCanvasesRef = React.useRef(null);
   const animationFrameRef = React.useRef(0);
   const agentsRef = React.useRef([]);
   const frameSizeRef = React.useRef(
@@ -1263,18 +1267,22 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   React.useEffect(() => {
     let cancelled = false;
 
-    loadTexturedAtlasCanvas(ATLAS).then(({ image, frameSize, canvas }) => {
+    loadTexturedAtlasCanvas(ATLAS).then(
+      ({ image, frameSize, frameCanvases, canvas }) => {
       if (cancelled) {
         return;
       }
 
       imageRef.current = image;
       frameSizeRef.current = frameSize;
+      frameCanvasesRef.current = frameCanvases;
       rasterCanvasRef.current = canvas;
-    });
+      },
+    );
 
     return () => {
       cancelled = true;
+      frameCanvasesRef.current = null;
       rasterCanvasRef.current = null;
     };
   }, []);
@@ -1368,17 +1376,16 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         ctx.translate(renderPosition.x, renderPosition.y + bobOffset);
         ctx.rotate(sprite.rotation);
         ctx.scale(sprite.flipX, 1);
-        ctx.drawImage(
+        drawAtlasFrame(ctx, {
           image,
-          sprite.frame.x * frameSize.width,
-          sprite.frame.y * frameSize.height,
-          frameSize.width,
-          frameSize.height,
-          -drawWidth * 0.5,
-          -drawHeight * 0.5,
-          drawWidth,
-          drawHeight,
-        );
+          frameCanvases: frameCanvasesRef.current,
+          frame: sprite.frame,
+          frameSize,
+          dx: -drawWidth * 0.5,
+          dy: -drawHeight * 0.5,
+          dWidth: drawWidth,
+          dHeight: drawHeight,
+        });
         ctx.restore();
       });
 

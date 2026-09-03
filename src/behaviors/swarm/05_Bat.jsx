@@ -1,7 +1,10 @@
 import React from "react";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
+  createAtlasFrameCanvases,
+  drawAtlasFrame,
   loadTexturedAtlasCanvas,
+  resolveAtlasGrid,
   resolveAtlasFrameSize,
 } from "../../utils/spriteAtlas";
 import { resolveCanvasAtlasSprite } from "../../utils/spritePose";
@@ -190,6 +193,8 @@ const ENTRANCE_ZONE_HEIGHT_RATIO = 1;
 const ENTRANCE_ZONE_ROTATION_RAD = 0;
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const getControlField = (key) =>
+  CONTROL_FIELDS.find((field) => field.key === key);
 const lerp = (start, end, amount) => start + (end - start) * amount;
 const randomBetween = (min, max) => min + Math.random() * (max - min);
 const metersToPx = (meters) => meters * PARAMS.METERS_TO_PIXELS;
@@ -771,9 +776,15 @@ const sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => {
     ...(rawControls ?? {}),
   };
 
-  next.COUNT = Math.round(clamp(next.COUNT, 40, 320));
+  next.COUNT = Math.round(
+    clamp(next.COUNT, getControlField("COUNT")?.min, getControlField("COUNT")?.max),
+  );
   next.IS_EMERGING = Boolean(next.IS_EMERGING);
-  next.LIGHT_INTENSITY_LUX = clamp(next.LIGHT_INTENSITY_LUX, 0, 400);
+  next.LIGHT_INTENSITY_LUX = clamp(
+    next.LIGHT_INTENSITY_LUX,
+    getControlField("LIGHT_INTENSITY_LUX")?.min,
+    getControlField("LIGHT_INTENSITY_LUX")?.max,
+  );
   next.ACOUSTIC_GAIN = clamp(next.ACOUSTIC_GAIN, 0, 2);
   next.EXIT_PULL = clamp(next.EXIT_PULL, 0, 1);
   next.RECOVERY_ACCEL_MPS2 = clamp(next.RECOVERY_ACCEL_MPS2, 2, 8);
@@ -1906,6 +1917,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const imageRef = React.useRef(null);
   const rasterCanvasRef = React.useRef(null);
   const atlasVariantsRef = React.useRef(null);
+  const frameCanvasesRef = React.useRef(null);
   const animationFrameRef = React.useRef(0);
   const agentsRef = React.useRef([]);
   const flashlightToggleRef = React.useRef(false);
@@ -1934,28 +1946,42 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   React.useEffect(() => {
     let cancelled = false;
 
-    loadTexturedAtlasCanvas(ATLAS).then(({ image, frameSize, canvas }) => {
+    loadTexturedAtlasCanvas(ATLAS).then(
+      ({ image, frameSize, frameCanvases, canvas }) => {
       if (cancelled) {
         return;
       }
 
+      const atlasSource = canvas || image;
+      const atlasWidth = canvas?.width || image.naturalWidth || image.width;
+      const atlasHeight = canvas?.height || image.naturalHeight || image.height;
+      const grid = resolveAtlasGrid(ATLAS, {
+        width: atlasWidth,
+        height: atlasHeight,
+      });
+      const dimCanvas = createTintedAtlasCanvas(
+        atlasSource,
+        atlasWidth,
+        atlasHeight,
+        "rgb(12, 13, 14)",
+        0.58,
+      );
+
       imageRef.current = image;
       frameSizeRef.current = frameSize;
       rasterCanvasRef.current = canvas;
+      frameCanvasesRef.current = frameCanvases;
       atlasVariantsRef.current = {
-        dim: createTintedAtlasCanvas(
-          canvas,
-          canvas.width,
-          canvas.height,
-          "rgb(12, 13, 14)",
-          0.58,
-        ),
+        dim: dimCanvas,
+        dimFrames: createAtlasFrameCanvases(dimCanvas, frameSize, grid),
       };
-    });
+      },
+    );
 
     return () => {
       cancelled = true;
       rasterCanvasRef.current = null;
+      frameCanvasesRef.current = null;
       atlasVariantsRef.current = null;
     };
   }, []);
@@ -2112,7 +2138,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       }
 
       const atlasVariants = atlasVariantsRef.current;
-      const dimImage = atlasVariants?.dim ?? image;
+        const dimImage = atlasVariants?.dim ?? image;
       const skyLightRatio = resolveSkyLightRatio(
         resolvedControls.LIGHT_INTENSITY_LUX,
       );
@@ -2224,31 +2250,29 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         ctx.rotate(sprite.rotation);
         ctx.scale(sprite.flipX, flattenScaleY);
         ctx.globalAlpha = phaseAlpha * lerp(0.72, 0.92, skyLightRatio);
-        ctx.drawImage(
-          dimImage,
-          sprite.frame.x * frameSize.width,
-          sprite.frame.y * frameSize.height,
-          frameSize.width,
-          frameSize.height,
-          -drawWidth * 0.5,
-          -drawHeight * 0.5,
-          drawWidth,
-          drawHeight,
-        );
+        drawAtlasFrame(ctx, {
+          image: dimImage,
+          frameCanvases: atlasVariants?.dimFrames,
+          frame: sprite.frame,
+          frameSize,
+          dx: -drawWidth * 0.5,
+          dy: -drawHeight * 0.5,
+          dWidth: drawWidth,
+          dHeight: drawHeight,
+        });
         if (bodyRevealIntensity > 0.01) {
           ctx.globalAlpha =
             phaseAlpha * lerp(0.08, 1, bodyRevealIntensity);
-          ctx.drawImage(
+          drawAtlasFrame(ctx, {
             image,
-            sprite.frame.x * frameSize.width,
-            sprite.frame.y * frameSize.height,
-            frameSize.width,
-            frameSize.height,
-            -drawWidth * 0.5,
-            -drawHeight * 0.5,
-            drawWidth,
-            drawHeight,
-          );
+            frameCanvases: frameCanvasesRef.current,
+            frame: sprite.frame,
+            frameSize,
+            dx: -drawWidth * 0.5,
+            dy: -drawHeight * 0.5,
+            dWidth: drawWidth,
+            dHeight: drawHeight,
+          });
         }
         ctx.restore();
       });

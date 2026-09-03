@@ -576,6 +576,7 @@
 }
 
 .detail-intro-artwork {
+  --detail-intro-artwork-size: min(74%, 24rem);
   position: relative;
   min-height: 0;
   padding-right: 1.75rem;
@@ -583,30 +584,20 @@
   place-items: center;
 }
 .detail-intro-artwork::after {
-  content: "";
-  position: absolute;
-  width: min(74%, 24rem);
-  height: min(74%, 24rem);
-  pointer-events: none;
-  background-image: var(--detail-paper-texture);
-  background-size: 12rem 12rem;
-  mix-blend-mode: multiply;
-  opacity: 0.24;
-  mask-image: var(--detail-artwork-mask);
-  mask-position: center;
-  mask-repeat: no-repeat;
-  mask-size: contain;
-  -webkit-mask-image: var(--detail-artwork-mask);
-  -webkit-mask-position: center;
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-size: contain;
+  content: none;
 }
 
 .detail-intro-artwork .detail-header-artwork__image {
-  width: min(74%, 24rem);
-  height: min(74%, 24rem);
-  -o-object-fit: contain;
-     object-fit: contain;
+  width: min(var(--detail-intro-artwork-size), var(--detail-intro-artwork-size) * var(--detail-intro-sprite-ratio, 1));
+  height: auto;
+  -o-object-fit: initial;
+     object-fit: initial;
+  transform-origin: 50% 50%;
+}
+
+.detail-header-artwork__sprite {
+  background-repeat: no-repeat;
+  will-change: background-position, transform;
 }
 
 .detail-intro-copy {

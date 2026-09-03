@@ -1,6 +1,7 @@
 import React from "react";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
+  drawAtlasFrame,
   loadTexturedAtlasCanvas,
   resolveAtlasFrameSize,
 } from "../../utils/spriteAtlas";
@@ -11,6 +12,7 @@ import {
 } from "../../utils/transparentCanvas";
 
 const ATLAS = HOME_SPRITE_ATLASES.spiny_lobster;
+const SPRITE_WIDTH_COMPENSATION = 175 / 165;
 
 const STATES = {
   FORAGING: "FORAGING",
@@ -206,6 +208,8 @@ const DEFAULT_CONTROL_STATE = {
 };
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const getControlField = (key) =>
+  CONTROL_FIELDS.find((field) => field.key === key);
 const lerp = (start, end, amount) => start + (end - start) * amount;
 const inverseLerp = (value, start, end) => {
   if (Math.abs(end - start) < 1e-6) {
@@ -347,15 +351,24 @@ const syncCanvasSize = (canvas, ctx) => {
 const resolveBehaviorConfig = (controls = DEFAULT_CONTROL_STATE) => {
   const count = clamp(
     Math.round(Number(controls.COUNT)),
-    PARAMS.MIN_COUNT,
-    PARAMS.MAX_COUNT,
+    getControlField("COUNT")?.min,
+    getControlField("COUNT")?.max,
   );
-  const startHour = clamp(Number(controls.START_HOUR), 0, 23);
+  const startHour = clamp(
+    Number(controls.START_HOUR),
+    getControlField("START_HOUR")?.min,
+    getControlField("START_HOUR")?.max,
+  );
   const diseasePressure =
     clamp(Number(controls.DISEASE_PRESSURE), 0, 100) / 100;
   const postalgalRatio = clamp(Number(controls.POSTALGAL_RATIO), 0, 100) / 100;
   const threatActive = Boolean(controls.THREAT_ACTIVE);
-  const queueCohesion = clamp(Number(controls.QUEUE_COHESION), 0, 100) / 100;
+  const queueCohesion =
+    clamp(
+      Number(controls.QUEUE_COHESION),
+      getControlField("QUEUE_COHESION")?.min,
+      getControlField("QUEUE_COHESION")?.max,
+    ) / 100;
   const odorTrails = Boolean(controls.ODOR_TRAILS);
   const migrationUrge = 0.68;
 
@@ -2030,6 +2043,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const canvasRef = React.useRef(null);
   const imageRef = React.useRef(null);
   const rasterCanvasRef = React.useRef(null);
+  const frameCanvasesRef = React.useRef(null);
   const animationFrameRef = React.useRef(0);
   const agentsRef = React.useRef([]);
   const frameSizeRef = React.useRef(
@@ -2059,18 +2073,22 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   React.useEffect(() => {
     let cancelled = false;
 
-    loadTexturedAtlasCanvas(ATLAS).then(({ image, frameSize, canvas }) => {
+    loadTexturedAtlasCanvas(ATLAS).then(
+      ({ image, frameSize, frameCanvases, canvas }) => {
       if (cancelled) {
         return;
       }
 
       imageRef.current = image;
       frameSizeRef.current = frameSize;
+      frameCanvasesRef.current = frameCanvases;
       rasterCanvasRef.current = canvas;
-    });
+      },
+    );
 
     return () => {
       cancelled = true;
+      frameCanvasesRef.current = null;
       rasterCanvasRef.current = null;
     };
   }, []);
@@ -2247,7 +2265,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         });
 
         const bodyScale =
-          resolveAgentRadius(agent.bodySize) /
+          (resolveAgentRadius(agent.bodySize) * SPRITE_WIDTH_COMPENSATION) /
           Math.max(Math.max(frameSize.width, frameSize.height) * 0.5, 1);
         const bobOffset =
           Math.sin(now * 2.2 + index * 0.55) * (agent.inQueue ? 1.2 : 2.8);
@@ -2265,17 +2283,16 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         ctx.translate(agent.x, agent.y + bobOffset);
         ctx.rotate(renderRotation);
         ctx.scale(sprite.flipX * bodyScale, bodyScale);
-        ctx.drawImage(
+        drawAtlasFrame(ctx, {
           image,
-          sprite.frame.x * frameSize.width,
-          sprite.frame.y * frameSize.height,
-          frameSize.width,
-          frameSize.height,
-          -frameSize.width * 0.5,
-          -frameSize.height * 0.5,
-          frameSize.width,
-          frameSize.height,
-        );
+          frameCanvases: frameCanvasesRef.current,
+          frame: sprite.frame,
+          frameSize,
+          dx: -frameSize.width * 0.5,
+          dy: -frameSize.height * 0.5,
+          dWidth: frameSize.width,
+          dHeight: frameSize.height,
+        });
         ctx.restore();
       });
 
@@ -2316,13 +2333,13 @@ App.sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => ({
   ...(rawControls ?? {}),
   COUNT: clamp(
     Math.round(Number(rawControls?.COUNT ?? DEFAULT_CONTROL_STATE.COUNT)),
-    PARAMS.MIN_COUNT,
-    PARAMS.MAX_COUNT,
+    getControlField("COUNT")?.min,
+    getControlField("COUNT")?.max,
   ),
   START_HOUR: clamp(
     Number(rawControls?.START_HOUR ?? DEFAULT_CONTROL_STATE.START_HOUR),
-    0,
-    23,
+    getControlField("START_HOUR")?.min,
+    getControlField("START_HOUR")?.max,
   ),
   DISEASE_PRESSURE: clamp(
     Number(
@@ -2343,8 +2360,8 @@ App.sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => ({
   ),
   QUEUE_COHESION: clamp(
     Number(rawControls?.QUEUE_COHESION ?? DEFAULT_CONTROL_STATE.QUEUE_COHESION),
-    0,
-    100,
+    getControlField("QUEUE_COHESION")?.min,
+    getControlField("QUEUE_COHESION")?.max,
   ),
   ODOR_TRAILS: Boolean(
     rawControls?.ODOR_TRAILS ?? DEFAULT_CONTROL_STATE.ODOR_TRAILS,

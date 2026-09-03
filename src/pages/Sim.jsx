@@ -9,12 +9,14 @@ import grassPaperTextureUrl from "../assets/texture/paper/grass-paper-texture-se
 import oceanSandDarkPaperTextureUrl from "../assets/texture/paper/ocean-sand-dark-paper-texture-seamless.webp";
 import oceanSandPaperTextureUrl from "../assets/texture/paper/ocean-sand-paper-texture-seamless.webp";
 import sandPaperTextureUrl from "../assets/texture/paper/sand-paper-texture-seamless.webp";
+import seaLightPaperTextureUrl from "../assets/texture/paper/sea-light-paper-texture-seamless.webp";
 import seaPaperTextureUrl from "../assets/texture/paper/sea-paper-texture-seamless.webp";
 import skyPaperTextureUrl from "../assets/texture/paper/sky-paper-texture-seamless.webp";
 import snowPaperTextureUrl from "../assets/texture/paper/snow-paper-texture-seamless.webp";
 import soilPaperTextureUrl from "../assets/texture/paper/soil-paper-texture-seamless.webp";
 import blackStickyNoteTextureUrl from "../assets/texture/sticky-note/black-sticky-note-texture-seamless.webp";
 import blueStickyNoteTextureUrl from "../assets/texture/sticky-note/blue-sticky-note-texture-seamless.webp";
+import darkBlueLightStickyNoteTextureUrl from "../assets/texture/sticky-note/dark-blue-light-sticky-note-texture-seamless.webp";
 import darkBlueStickyNoteTextureUrl from "../assets/texture/sticky-note/dark-blue-sticky-note-texture-seamless.webp";
 import darkYellowStickyNoteTextureUrl from "../assets/texture/sticky-note/dark-yellow-sticky-note-texture-seamless.webp";
 import greenStickyNoteTextureUrl from "../assets/texture/sticky-note/green-sticky-note-texture-seamless.webp";
@@ -184,6 +186,15 @@ const CANVAS_POINTER_BLOCK_SELECTOR = [
 const CONTROL_RESET_LERP_DURATION_MS = 320;
 const SPINY_LOBSTER_HOUR_AUTO_ADVANCE_MS = 2000;
 const SPINY_LOBSTER_HOUR_MANUAL_HOLD_MS = 2000;
+const AUTO_ADVANCING_HOUR_CONTROLS = {
+  spiny_lobster: "START_HOUR",
+};
+
+const PHASE_PREVIEW_CONTROLS = {
+  krill: "LIGHT_PHASE",
+};
+
+const KRILL_LIGHT_PHASES = new Set(["day", "sunset", "night", "sunrise"]);
 
 const FIREFLY_SIM_THEME = {
   "--theme-bg": "oklch(0.14 0.015 91.51)",
@@ -226,6 +237,7 @@ const normalizeControlDisplayValue = (field, value) => {
   if (
     field.type === "toggle" ||
     field.type === "binary-toggle" ||
+    field.type === "cycle-toggle" ||
     field.type === "select" ||
     field.type === "static"
   ) {
@@ -255,6 +267,7 @@ const normalizeControlInputValue = (field, value) => {
     !field ||
     field.type === "toggle" ||
     field.type === "binary-toggle" ||
+    field.type === "cycle-toggle" ||
     field.type === "select" ||
     field.type === "static"
   ) {
@@ -316,6 +329,51 @@ const getNightProgressFromHour = (hour) => {
   }
 
   return 0;
+};
+
+const getKrillPhaseVisual = (phase) => {
+  switch (phase) {
+    case "night":
+      return {
+        darkProgress: 1,
+        stickyNightProgress: 1,
+        grainOpacity: 0.46,
+        overlayOpacity: 0,
+        overlayTexture: seaLightPaperTextureUrl,
+        stickyTexture: darkBlueStickyNoteTextureUrl,
+        controlLightProgress: 0,
+      };
+    case "sunset":
+      return {
+        darkProgress: 0.79,
+        stickyNightProgress: 0.52,
+        grainOpacity: 0.55,
+        overlayOpacity: 0.49,
+        overlayTexture: seaLightPaperTextureUrl,
+        stickyTexture: darkBlueStickyNoteTextureUrl,
+        controlLightProgress: 0.28,
+      };
+    case "sunrise":
+      return {
+        darkProgress: 0.79,
+        stickyNightProgress: 0.52,
+        grainOpacity: 0.55,
+        overlayOpacity: 0.49,
+        overlayTexture: seaLightPaperTextureUrl,
+        stickyTexture: darkBlueStickyNoteTextureUrl,
+        controlLightProgress: 0.28,
+      };
+    default:
+      return {
+        darkProgress: 0,
+        stickyNightProgress: 0,
+        grainOpacity: 0.76,
+        overlayOpacity: 0.94,
+        overlayTexture: seaLightPaperTextureUrl,
+        stickyTexture: darkBlueStickyNoteTextureUrl,
+        controlLightProgress: 1,
+      };
+  }
 };
 
 const mixRgb = (from, to, ratio, alpha = null) => {
@@ -382,6 +440,9 @@ const swarmModules = generateSwarmModules();
 
 function AnimalDockItem({ animal, atlas, isActive, onAnimalSelect }) {
   const [isAnimated, setIsAnimated] = React.useState(false);
+  const dockStage = isAnimated
+    ? atlas?.dockHoverStage || atlas?.defaultStage
+    : atlas?.dockIdleStage || atlas?.defaultStage;
 
   return (
     <button
@@ -402,7 +463,7 @@ function AnimalDockItem({ animal, atlas, isActive, onAnimalSelect }) {
         {atlas ? (
           <SpriteAtlas
             atlas={atlas}
-            stage={atlas.defaultStage}
+            stage={dockStage}
             baseClassName={atlas.baseClassName}
             animated={isAnimated}
             renderMode="image"
@@ -426,6 +487,7 @@ function SwarmCanvas({
   onDetailClick,
   onAnimalSelect,
   isPaused,
+  inactivityRemainingSeconds,
   onControlSnapshot,
 }) {
   const [SwarmComponent, setSwarmComponent] = React.useState(null);
@@ -446,6 +508,7 @@ function SwarmCanvas({
   const controlSnapshotFrameRef = React.useRef(null);
   const pendingControlSnapshotRef = React.useRef(null);
   const lastSpinyLobsterHourInteractionAtRef = React.useRef(0);
+  const cycleToggleDirectionRef = React.useRef({});
 
   const loadSwarmModule = React.useCallback(
     async (attempt = 0) => {
@@ -680,9 +743,16 @@ function SwarmCanvas({
             : null;
         }
 
-        if (animalId === "spiny_lobster") {
-          const nextStartHour = Number(nextControls?.START_HOUR);
-          return Number.isFinite(nextStartHour) ? nextStartHour : null;
+        const phaseControlKey = PHASE_PREVIEW_CONTROLS[animalId];
+        if (phaseControlKey) {
+          const nextPhase = nextControls?.[phaseControlKey];
+          return KRILL_LIGHT_PHASES.has(nextPhase) ? nextPhase : null;
+        }
+
+        const hourControlKey = AUTO_ADVANCING_HOUR_CONTROLS[animalId];
+        if (hourControlKey) {
+          const nextHour = Number(nextControls?.[hourControlKey]);
+          return Number.isFinite(nextHour) ? nextHour : null;
         }
 
         return null;
@@ -712,11 +782,13 @@ function SwarmCanvas({
         }
 
         lastControlSnapshotRef.current = pendingValue;
-        onControlSnapshot(
-          animalId === "bat"
-            ? { lightIntensityLux: pendingValue }
-            : { startHour: pendingValue },
-        );
+        if (animalId === "bat") {
+          onControlSnapshot({ lightIntensityLux: pendingValue });
+        } else if (PHASE_PREVIEW_CONTROLS[animalId]) {
+          onControlSnapshot({ lightPhase: pendingValue });
+        } else {
+          onControlSnapshot({ startHour: pendingValue });
+        }
       });
     },
     [animalId, onControlSnapshot],
@@ -724,7 +796,9 @@ function SwarmCanvas({
 
   React.useEffect(() => {
     if (
-      (animalId !== "bat" && animalId !== "spiny_lobster") ||
+      (animalId !== "bat" &&
+        !AUTO_ADVANCING_HOUR_CONTROLS[animalId] &&
+        !PHASE_PREVIEW_CONTROLS[animalId]) ||
       !resolvedControls
     ) {
       return;
@@ -736,7 +810,8 @@ function SwarmCanvas({
   const hasControls = Boolean(controls);
 
   React.useEffect(() => {
-    if (animalId !== "spiny_lobster" || !hasControls || isPaused) {
+    const hourControlKey = AUTO_ADVANCING_HOUR_CONTROLS[animalId];
+    if (!hourControlKey || !hasControls || isPaused) {
       return undefined;
     }
 
@@ -758,13 +833,13 @@ function SwarmCanvas({
           return current;
         }
 
-        const currentHour = Number(current.START_HOUR);
+        const currentHour = Number(current[hourControlKey]);
         const nextHour =
           ((Number.isFinite(currentHour) ? Math.round(currentHour) : 0) + 1) %
           24;
         const nextControls = {
           ...current,
-          START_HOUR: nextHour,
+          [hourControlKey]: nextHour,
         };
         const sanitizedControls = sanitizeControls
           ? sanitizeControls(nextControls)
@@ -835,11 +910,14 @@ function SwarmCanvas({
           : rawValue;
     const nextValue = normalizeControlInputValue(field, parsedValue);
 
+    const hourControlKey = AUTO_ADVANCING_HOUR_CONTROLS[animalId];
+    const phaseControlKey = PHASE_PREVIEW_CONTROLS[animalId];
     const shouldPreviewControl =
       (animalId === "bat" && key === "LIGHT_INTENSITY_LUX") ||
-      (animalId === "spiny_lobster" && key === "START_HOUR");
+      key === hourControlKey ||
+      key === phaseControlKey;
 
-    if (animalId === "spiny_lobster" && key === "START_HOUR") {
+    if (key === hourControlKey) {
       lastSpinyLobsterHourInteractionAtRef.current = window.performance.now();
     }
 
@@ -908,6 +986,39 @@ function SwarmCanvas({
     handleControlChange(field.key, nextValue);
   };
 
+  const handleCycleToggleChange = (field) => {
+    const values = field.values || [];
+    if (values.length === 0) {
+      return;
+    }
+
+    const currentValue = resolvedControls?.[field.key];
+    const currentIndex = Math.max(0, values.indexOf(currentValue));
+    if (field.cycleMode === "loop") {
+      handleControlChange(field.key, values[(currentIndex + 1) % values.length]);
+      return;
+    }
+
+    const directionKey = `${animalId}:${field.key}`;
+    let direction = cycleToggleDirectionRef.current[directionKey] ?? 1;
+
+    if (currentIndex >= values.length - 1) {
+      direction = -1;
+    } else if (currentIndex <= 0) {
+      direction = 1;
+    }
+
+    const nextIndex = clamp(currentIndex + direction, 0, values.length - 1);
+    if (nextIndex >= values.length - 1) {
+      direction = -1;
+    } else if (nextIndex <= 0) {
+      direction = 1;
+    }
+
+    cycleToggleDirectionRef.current[directionKey] = direction;
+    handleControlChange(field.key, values[nextIndex]);
+  };
+
   const handleControlReset = (key) => {
     if (!swarmUi?.defaultControlState || !resolvedControls) {
       return;
@@ -934,7 +1045,8 @@ function SwarmCanvas({
       return;
     }
 
-    if (animalId === "spiny_lobster" && key === "START_HOUR") {
+    const hourControlKey = AUTO_ADVANCING_HOUR_CONTROLS[animalId];
+    if (key === hourControlKey) {
       lastSpinyLobsterHourInteractionAtRef.current = window.performance.now();
     }
 
@@ -969,7 +1081,8 @@ function SwarmCanvas({
 
       const shouldPreviewControl =
         (animalId === "bat" && key === "LIGHT_INTENSITY_LUX") ||
-        (animalId === "spiny_lobster" && key === "START_HOUR");
+        key === hourControlKey ||
+        key === PHASE_PREVIEW_CONTROLS[animalId];
 
       if (shouldPreviewControl) {
         const nextPreviewControls = {
@@ -1075,154 +1188,200 @@ function SwarmCanvas({
           ref={controlPanelRef}
           className="sim-control-panel sim-overlay-panel"
         >
+          <div className="sim-control-paper">
+            {inactivityRemainingSeconds !== null ? (
+              <p className="sim-inactivity-warning" aria-live="polite">
+                {inactivityRemainingSeconds}초 후 처음으로 돌아갑니다
+              </p>
+            ) : null}
+          </div>
           <div className="sim-control-panel__content">
-            <div className="sim-control-panel__header">
-              <div className="theme-panel-title sim-control-panel__title">
-                시뮬레이션 옵션
-                {/* Simulation Params */}
+              <div className="sim-control-panel__header">
+                <div className="theme-panel-title sim-control-panel__title">
+                  시뮬레이션 옵션
+                  {/* Simulation Params */}
+                </div>
+              </div>
+              <div className="sim-control-panel__body">
+                {swarmUi.controlFields.map((field) => (
+                  <div
+                    key={field.key}
+                    className={[
+                      "sim-control-field",
+                      field.type === "toggle" ||
+                      field.type === "binary-toggle" ||
+                      field.type === "cycle-toggle"
+                        ? "sim-control-field--toggle"
+                        : "",
+                    ].join(" ")}
+                  >
+                    <div className="sim-control-field__row">
+                      <span>{field.label}</span>
+                      <div className="sim-control-field__value-group">
+                        <span className="sim-control-field__value">
+                          {formatControlDisplayValue(
+                            field,
+                            resolvedControls,
+                            controlValueTime,
+                          )}
+                        </span>
+                        {field.type === "static" ? null : field.type === "toggle" ? (
+                          <button
+                            type="button"
+                            className={[
+                              "sim-control-toggle-switch",
+                              "sim-control-toggle-switch--inline",
+                              resolvedControls[field.key] ? "is-on" : "is-off",
+                            ].join(" ")}
+                            onClick={() =>
+                              handleControlChange(
+                                field.key,
+                                !resolvedControls[field.key],
+                              )
+                            }
+                            aria-pressed={resolvedControls[field.key]}
+                          >
+                            <span className="sim-control-toggle-switch__track">
+                              <span className="sim-control-toggle-switch__thumb" />
+                            </span>
+                          </button>
+                        ) : field.type === "binary-toggle" ? (
+                          <button
+                            type="button"
+                            className={[
+                              "sim-control-toggle-switch",
+                              "sim-control-toggle-switch--inline",
+                              resolvedControls[field.key] === field.onValue
+                                ? "is-on"
+                                : "is-off",
+                            ].join(" ")}
+                            onClick={() =>
+                              handleControlChange(
+                                field.key,
+                                resolvedControls[field.key] === field.onValue
+                                  ? field.offValue
+                                  : field.onValue,
+                              )
+                            }
+                            aria-pressed={
+                              resolvedControls[field.key] === field.onValue
+                            }
+                          >
+                            <span className="sim-control-toggle-switch__track">
+                              <span className="sim-control-toggle-switch__thumb" />
+                            </span>
+                          </button>
+                        ) : field.type === "cycle-toggle" ? (
+                          (() => {
+                            const values = field.values || [];
+                            const valueIndex = Math.max(
+                              0,
+                              values.indexOf(resolvedControls[field.key]),
+                            );
+                            const visualPositions = field.visualPositions || values.map((_, index) => index);
+                            const visualCount =
+                              field.visualCount ||
+                              Math.max(...visualPositions, values.length - 1) + 1;
+                            const visualIndex = visualPositions[valueIndex] ?? valueIndex;
+
+                            return (
+                              <button
+                                type="button"
+                                className="sim-control-cycle-toggle"
+                                style={{
+                                  "--sim-cycle-index": visualIndex,
+                                  "--sim-cycle-count": visualCount,
+                                }}
+                                onClick={() => handleCycleToggleChange(field)}
+                                aria-label={`${field.label} 변경`}
+                              >
+                                <span className="sim-control-cycle-toggle__track">
+                                  {Array.from({ length: visualCount }, (_, index) => (
+                                    <span
+                                      key={index}
+                                      className="sim-control-cycle-toggle__marker"
+                                    />
+                                  ))}
+                                  <span className="sim-control-cycle-toggle__thumb" />
+                                </span>
+                              </button>
+                            );
+                          })()
+                        ) : field.type === "select" ? (
+                          <select
+                            value={resolvedControls[field.key]}
+                            onChange={(event) =>
+                              handleControlChange(field.key, event.target.value)
+                            }
+                          >
+                            {field.options?.map((option) => {
+                              const optionValue =
+                                typeof option === "string"
+                                  ? option
+                                  : option.value;
+                              const optionLabel =
+                                typeof option === "string"
+                                  ? option
+                                  : option.label;
+                              return (
+                                <option key={optionValue} value={optionValue}>
+                                  {optionLabel}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleControlReset(field.key);
+                            }}
+                            className="sim-control-reset"
+                            aria-label={`${field.label} 초기화`}
+                            title={`${field.label} 초기화`}
+                          >
+                            <img
+                              aria-hidden="true"
+                              src={refreshIconUrl}
+                              alt=""
+                              draggable="false"
+                            />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {field.type === "toggle" ||
+                    field.type === "binary-toggle" ||
+                    field.type === "cycle-toggle" ||
+                    field.type === "select" ||
+                    field.type === "static" ? null : (
+                      <input
+                        className="sim-control-slider"
+                        type="range"
+                        min={field.min}
+                        max={field.max}
+                        step={
+                          resetVisualValues[field.key] == null
+                            ? field.step
+                            : "any"
+                        }
+                        value={
+                          resetVisualValues[field.key] ?? resolvedControls[field.key]
+                        }
+                        onChange={(event) =>
+                          handleControlChange(field.key, event.target.value)
+                        }
+                        onWheel={(event) =>
+                          handleControlSliderWheel(event, field)
+                        }
+                      />
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="sim-control-panel__body">
-              {swarmUi.controlFields.map((field) => (
-                <div
-                  key={field.key}
-                  className={[
-                    "sim-control-field",
-                    field.type === "toggle" || field.type === "binary-toggle"
-                      ? "sim-control-field--toggle"
-                      : "",
-                  ].join(" ")}
-                >
-                  <div className="sim-control-field__row">
-                    <span>{field.label}</span>
-                    <div className="sim-control-field__value-group">
-                      <span className="sim-control-field__value">
-                        {formatControlDisplayValue(
-                          field,
-                          resolvedControls,
-                          controlValueTime,
-                        )}
-                      </span>
-                      {field.type === "static" ? null : field.type === "toggle" ? (
-                        <button
-                          type="button"
-                          className={[
-                            "sim-control-toggle-switch",
-                            "sim-control-toggle-switch--inline",
-                            resolvedControls[field.key] ? "is-on" : "is-off",
-                          ].join(" ")}
-                          onClick={() =>
-                            handleControlChange(
-                              field.key,
-                              !resolvedControls[field.key],
-                            )
-                          }
-                          aria-pressed={resolvedControls[field.key]}
-                        >
-                          <span className="sim-control-toggle-switch__track">
-                            <span className="sim-control-toggle-switch__thumb" />
-                          </span>
-                        </button>
-                      ) : field.type === "binary-toggle" ? (
-                        <button
-                          type="button"
-                          className={[
-                            "sim-control-toggle-switch",
-                            "sim-control-toggle-switch--inline",
-                            resolvedControls[field.key] === field.onValue
-                              ? "is-on"
-                              : "is-off",
-                          ].join(" ")}
-                          onClick={() =>
-                            handleControlChange(
-                              field.key,
-                              resolvedControls[field.key] === field.onValue
-                                ? field.offValue
-                                : field.onValue,
-                            )
-                          }
-                          aria-pressed={
-                            resolvedControls[field.key] === field.onValue
-                          }
-                        >
-                          <span className="sim-control-toggle-switch__track">
-                            <span className="sim-control-toggle-switch__thumb" />
-                          </span>
-                        </button>
-                      ) : field.type === "select" ? (
-                        <select
-                          value={resolvedControls[field.key]}
-                          onChange={(event) =>
-                            handleControlChange(field.key, event.target.value)
-                          }
-                        >
-                          {field.options?.map((option) => {
-                            const optionValue =
-                              typeof option === "string"
-                                ? option
-                                : option.value;
-                            const optionLabel =
-                              typeof option === "string"
-                                ? option
-                                : option.label;
-                            return (
-                              <option key={optionValue} value={optionValue}>
-                                {optionLabel}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleControlReset(field.key);
-                          }}
-                          className="sim-control-reset"
-                          aria-label={`${field.label} 초기화`}
-                          title={`${field.label} 초기화`}
-                        >
-                          <img
-                            aria-hidden="true"
-                            src={refreshIconUrl}
-                            alt=""
-                            draggable="false"
-                          />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {field.type === "toggle" ||
-                  field.type === "binary-toggle" ||
-                  field.type === "select" ||
-                  field.type === "static" ? null : (
-                    <input
-                      className="sim-control-slider"
-                      type="range"
-                      min={field.min}
-                      max={field.max}
-                      step={
-                        resetVisualValues[field.key] == null
-                          ? field.step
-                          : "any"
-                      }
-                      value={
-                        resetVisualValues[field.key] ?? resolvedControls[field.key]
-                      }
-                      onChange={(event) =>
-                        handleControlChange(field.key, event.target.value)
-                      }
-                      onWheel={(event) =>
-                        handleControlSliderWheel(event, field)
-                      }
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
           </div>
-        </div>
       ) : null}
       <nav className="sim-animal-dock" aria-label="동물 시뮬레이션 이동">
         {animalDockItems.map((animal) => {
@@ -1250,16 +1409,19 @@ function Sim(props) {
     onDetailClick,
     onAnimalSelect,
     isPaused,
+    inactivityRemainingSeconds,
   } = props;
   const [batLightIntensityLux, setBatLightIntensityLux] =
     React.useState(null);
   const [spinyLobsterStartHour, setSpinyLobsterStartHour] =
     React.useState(null);
+  const [krillLightPhase, setKrillLightPhase] = React.useState(null);
   const animalLabel = selectedAnimal ? animalNames[selectedAnimal] : "";
   const textureUrl = selectedAnimal ? SIM_TEXTURES[selectedAnimal] : null;
   const stickyNote = selectedAnimal ? SIM_STICKY_NOTES[selectedAnimal] : null;
   const isBat = selectedAnimal === "bat";
   const isSpinyLobster = selectedAnimal === "spiny_lobster";
+  const isKrill = selectedAnimal === "krill";
   const batLightProgress = isBat
     ? clamp01(((batLightIntensityLux ?? 1.4) - 1.4) / (400 - 1.4))
     : 0;
@@ -1386,6 +1548,72 @@ function Sim(props) {
         transition: "opacity 180ms linear",
       }
     : null;
+  const krillPhaseVisual = isKrill
+    ? getKrillPhaseVisual(krillLightPhase ?? "day")
+    : null;
+  const krillStyle = krillPhaseVisual
+    ? {
+        "--sim-bright-sticky-texture": `url(${darkBlueLightStickyNoteTextureUrl})`,
+        "--sim-night-sticky-opacity": String(
+          krillPhaseVisual.stickyNightProgress.toFixed(3),
+        ),
+        "--sim-sticky-texture": `url(${krillPhaseVisual.stickyTexture})`,
+        "--sim-paper-grain-opacity": String(
+          krillPhaseVisual.grainOpacity.toFixed(3),
+        ),
+        "--sim-sticky-text": mixRgb(
+          [33, 48, 64],
+          [238, 250, 245],
+          Math.max(0.78, krillPhaseVisual.darkProgress),
+          (0.92 + krillPhaseVisual.darkProgress * 0.06).toFixed(3),
+        ),
+        "--sim-sticky-muted": mixRgb(
+          [54, 77, 98],
+          [198, 228, 221],
+          Math.max(0.72, krillPhaseVisual.darkProgress),
+          (0.72 + krillPhaseVisual.darkProgress * 0.08).toFixed(3),
+        ),
+        "--sim-sticky-strong": mixRgb(
+          [19, 38, 58],
+          [250, 255, 247],
+          Math.max(0.84, krillPhaseVisual.darkProgress),
+        ),
+        "--sim-control-dim": mixRgb(
+          [0, 0, 0],
+          [250, 255, 247],
+          1 - krillPhaseVisual.controlLightProgress,
+          (0.075 + krillPhaseVisual.darkProgress * 0.065).toFixed(3),
+        ),
+        "--sim-control-dim-soft": mixRgb(
+          [0, 0, 0],
+          [250, 255, 247],
+          1 - krillPhaseVisual.controlLightProgress,
+          (0.055 + krillPhaseVisual.darkProgress * 0.045).toFixed(3),
+        ),
+        "--sim-control-dim-active": mixRgb(
+          [0, 0, 0],
+          [250, 255, 247],
+          1 - krillPhaseVisual.controlLightProgress,
+          (0.1 + krillPhaseVisual.darkProgress * 0.1).toFixed(3),
+        ),
+        "--sim-control-reset-filter":
+          krillPhaseVisual.darkProgress > 0.42
+            ? FIREFLY_SIM_THEME["--sim-control-reset-filter"]
+            : "brightness(0) saturate(100%) opacity(0.92)",
+      }
+    : null;
+  const krillBackgroundOverlayStyle = krillPhaseVisual
+    ? {
+        position: "absolute",
+        inset: 0,
+        zIndex: 0,
+        pointerEvents: "none",
+        background: `url(${krillPhaseVisual.overlayTexture})`,
+        backgroundSize: "544px 544px",
+        opacity: String(krillPhaseVisual.overlayOpacity.toFixed(3)),
+        transition: "opacity 180ms linear",
+      }
+    : null;
   const simTextureStyle = textureUrl
     ? {
         "--sim-paper-texture": `url(${textureUrl})`,
@@ -1411,8 +1639,14 @@ function Sim(props) {
           ...stickyNoteStyle,
           ...batBrightnessStyle,
           ...spinyLobsterStyle,
+          ...krillStyle,
         }
-      : { ...simTextureStyle, ...stickyNoteStyle, ...spinyLobsterStyle };
+      : {
+          ...simTextureStyle,
+          ...stickyNoteStyle,
+          ...spinyLobsterStyle,
+          ...krillStyle,
+        };
   const simClassName = [
     "sim",
     usesDarkControlTheme ? "sim--firefly" : "",
@@ -1436,8 +1670,14 @@ function Sim(props) {
           Object.is(current, snapshot.startHour) ? current : snapshot.startHour,
         );
       }
+
+      if (isKrill) {
+        setKrillLightPhase((current) =>
+          Object.is(current, snapshot.lightPhase) ? current : snapshot.lightPhase,
+        );
+      }
     },
-    [isBat, isSpinyLobster],
+    [isBat, isSpinyLobster, isKrill],
   );
 
   React.useEffect(() => {
@@ -1447,7 +1687,10 @@ function Sim(props) {
     if (!isSpinyLobster) {
       setSpinyLobsterStartHour(null);
     }
-  }, [isBat, isSpinyLobster]);
+    if (!isKrill) {
+      setKrillLightPhase(null);
+    }
+  }, [isBat, isSpinyLobster, isKrill]);
 
   React.useEffect(() => {
     if (PRELOAD_TEXTURE_URLS.length === 0) {
@@ -1529,6 +1772,9 @@ function Sim(props) {
           style={spinyLobsterBackgroundOverlayStyle}
         />
       ) : null}
+      {krillBackgroundOverlayStyle ? (
+        <div aria-hidden="true" style={krillBackgroundOverlayStyle} />
+      ) : null}
       {selectedAnimal && (
         <SwarmCanvas
           key={selectedAnimal}
@@ -1538,8 +1784,11 @@ function Sim(props) {
           onDetailClick={onDetailClick}
           onAnimalSelect={onAnimalSelect}
           isPaused={isPaused}
+          inactivityRemainingSeconds={inactivityRemainingSeconds}
           onControlSnapshot={
-            isBat || isSpinyLobster ? handleControlSnapshot : undefined
+            isBat || isSpinyLobster || isKrill
+              ? handleControlSnapshot
+              : undefined
           }
         />
       )}

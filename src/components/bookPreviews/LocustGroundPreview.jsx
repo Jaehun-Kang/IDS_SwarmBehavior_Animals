@@ -1,18 +1,17 @@
 import React from "react";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
-import { loadTexturedAtlasCanvas, getAtlasFrameCanvas, resolveStageFrameSequence } from "../../utils/spriteAtlas";
+import { loadTexturedAtlasCanvas, getAtlasFrameCanvas } from "../../utils/spriteAtlas";
+import { resolveCanvasAtlasSprite } from "../../utils/spritePose";
 import { createBookCanvasLoop } from "../../utils/bookCanvasLoop.js";
 import { createLocustGroundModel, advanceLocustGround, locustGroundPose, locustFoodTargets } from "./locustGroundModel.js";
 
 const atlas = HOME_SPRITE_ATLASES.grasshopper;
-const idle = resolveStageFrameSequence(atlas, "grasshopper_idle").frames[0];
-const jump = resolveStageFrameSequence(atlas, "grasshopper_jump").frames[0];
 export default function LocustGroundPreview({ controls, ruleGroup }) {
   const canvasRef = React.useRef(null), controlsRef = React.useRef(controls);
   const [error, setError] = React.useState("");
   React.useEffect(() => { controlsRef.current = controls; }, [controls]);
   React.useEffect(() => {
-    let model, idleFrame, jumpFrame, disposed = false, pointer = null;
+    let model, frameCanvases, disposed = false, pointer = null;
     const canvas = canvasRef.current;
     const interactive = ruleGroup.interaction === "food_threat";
     const move = event => {
@@ -48,12 +47,17 @@ export default function LocustGroundPreview({ controls, ruleGroup }) {
         }
         for (let i = 0; i < model.agents.length; i++) {
           locustGroundPose(model, i, pose);
-          const left = Math.cos(pose.heading) < 0;
+          const direction = { x: Math.cos(pose.heading), y: Math.sin(pose.heading) };
+          const sprite = resolveCanvasAtlasSprite(atlas, {
+            space: "2d", position: pose, velocity: direction,
+            state: { isJumping: pose.state === "hop", directionX: direction.x, directionY: direction.y },
+            profile: "simulation", timestampMs: model.time * 1000,
+          });
           context.save();
           context.translate(pose.x * scale, (pose.y - pose.z) * scale);
-          context.rotate(pose.heading - (left ? Math.PI : 0));
-          context.scale(left ? -1 : 1, pose.state === "prepare" ? 0.9 : 1);
-          context.drawImage(pose.state === "hop" ? jumpFrame : idleFrame,
+          context.rotate(sprite.rotation);
+          context.scale(sprite.flipX, 1);
+          context.drawImage(getAtlasFrameCanvas(frameCanvases, sprite.frame),
             -size / 2, -size / 2, size, size * 110 / 115);
           context.restore();
         }
@@ -61,9 +65,7 @@ export default function LocustGroundPreview({ controls, ruleGroup }) {
     });
     loadTexturedAtlasCanvas(atlas).then(result => {
       if (disposed) return;
-      idleFrame = getAtlasFrameCanvas(result.frameCanvases, idle);
-      jumpFrame = getAtlasFrameCanvas(result.frameCanvases, jump);
-      if (!idleFrame || !jumpFrame) throw new Error("locust-frame-missing");
+      frameCanvases = result.frameCanvases;
       loop.start();
     }).catch(() => { if (!disposed) setError("메뚜기 이미지를 불러오지 못했습니다."); });
     return () => {

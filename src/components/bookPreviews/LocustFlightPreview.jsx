@@ -1,6 +1,7 @@
 import React from "react";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
-import { loadTexturedAtlasCanvas, getAtlasFrameCanvas, resolveStageFrameSequence } from "../../utils/spriteAtlas";
+import { loadTexturedAtlasCanvas, getAtlasFrameCanvas } from "../../utils/spriteAtlas";
+import { resolveCanvasAtlasSprite } from "../../utils/spritePose";
 import { createBookCanvasLoop } from "../../utils/bookCanvasLoop.js";
 import { createLocustFlight, advanceLocustFlight, locustFlightPose, locustFlightViewport } from "./locustFlightModel.js";
 const atlas = HOME_SPRITE_ATLASES.grasshopper;
@@ -9,7 +10,7 @@ export default function LocustFlightPreview({ controls, ruleGroup }) {
   const [error, setError] = React.useState("");
   React.useEffect(() => { controlsRef.current = controls; }, [controls]);
   React.useEffect(() => {
-    let model, frames, disposed = false;
+    let model, frameCanvases, disposed = false;
     const pose = {};
     const loop = createBookCanvasLoop(canvasRef.current, {
       onResize: ({ width, height }) => { model = createLocustFlight(width/height); },
@@ -30,24 +31,24 @@ export default function LocustFlightPreview({ controls, ruleGroup }) {
         }
         for (let i=0;i<model.agents.length;i++) {
           locustFlightPose(model,i,pose);
-          const left=Math.cos(pose.heading)<0;
-          const frame=pose.activity<0.05 ? frames.idle[0] : pose.activity<0.3 ? frames.jump[0]
-            : frames.fly[Math.floor((model.time+i*0.037)/0.12)%frames.fly.length];
+          const direction = { x: Math.cos(pose.heading), y: Math.sin(pose.heading) };
+          const sprite = resolveCanvasAtlasSprite(atlas, {
+            space: "2d", position: pose, velocity: direction,
+            state: { isFlying: pose.activity >= 0.05, directionX: direction.x, directionY: direction.y },
+            profile: "simulation", timestampMs: model.time * 1000, animationOffsetMs: i * 37,
+          });
           const size=scale*(0.8+pose.activity*0.15);
           context.save();
           context.translate((pose.x-view.x)*scale,(pose.y-view.y)*scale);
-          context.rotate(pose.heading-(left?Math.PI:0)); context.scale(left?-1:1,1);
-          context.drawImage(frame,-size/2,-size/2,size,size*110/115);
+          context.rotate(sprite.rotation); context.scale(sprite.flipX,1);
+          context.drawImage(getAtlasFrameCanvas(frameCanvases, sprite.frame),-size/2,-size/2,size,size*110/115);
           context.restore();
         }
       },
     });
     loadTexturedAtlasCanvas(atlas).then(result=>{
       if(disposed) return;
-      frames={};
-      for(const [key,stage] of [["idle","grasshopper_idle"],["jump","grasshopper_jump"],["fly","grasshopper_fly"]])
-        frames[key]=resolveStageFrameSequence(atlas,stage).frames.map(f=>getAtlasFrameCanvas(result.frameCanvases,f));
-      if(Object.values(frames).flat().some(f=>!f)) throw new Error("locust-flight-frame-missing");
+      frameCanvases = result.frameCanvases;
       loop.start();
     }).catch(()=>{if(!disposed) setError("메뚜기 이미지를 불러오지 못했습니다.");});
     return ()=>{disposed=true;loop.dispose();};

@@ -7,9 +7,14 @@ import LocustGroundPreview from "./bookPreviews/LocustGroundPreview";
 import LocustFlightPreview from "./bookPreviews/LocustFlightPreview";
 import AntExplorationPreview from "./bookPreviews/AntExplorationPreview";
 import BatFlightPreview from "./bookPreviews/BatFlightPreview";
+import SheepMovementPreview from "./bookPreviews/SheepMovementPreview";
 import { resolveRuleControls } from "../utils/bookControls.js";
 
 const PREVIEW_COMPONENTS = {
+  sheep_movement: SheepMovementPreview,
+  sheep_neighbors: SheepMovementPreview,
+  sheep_leaders: SheepMovementPreview,
+  sheep_threat: SheepMovementPreview,
   starling_flight: StarlingFlightPreview,
   starling_interactions: StarlingInteractionPreview,
   starling_turns: StarlingTurnPreview,

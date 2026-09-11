@@ -1,4 +1,5 @@
 import * as React from "react";
+import { ANT_SIGNAL_COLORS } from "../../data/antSignalColors.js";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
@@ -4804,11 +4805,11 @@ const drawPheromoneField = (ctx, world) => {
   };
 
   if (world.foodPatches.length === 0) {
-    drawFieldLayer(world.field, 238, 180, 62, 16, 0, 2, 0.04, 0.22);
+    drawFieldLayer(world.field, ...ANT_SIGNAL_COLORS.trail, 173, 0, 36, 0.04, 0.22);
   } else {
-    drawFieldLayer(world.field, 238, 180, 62, 14, 0, 3, 0.035, 0.18);
+    drawFieldLayer(world.field, ...ANT_SIGNAL_COLORS.trail, 173, 0, 36, 0.035, 0.18);
   }
-  drawFieldLayer(world.recruitmentField, 210, 82, 58, 32, 0, 5, 0.006, 0.02);
+  drawFieldLayer(world.recruitmentField, ...ANT_SIGNAL_COLORS.recruitment, 181, 0, 36, 0.006, 0.02);
 };
 
 const drawCircle = (ctx, x, y, radius, fillStyle) => {
@@ -4844,6 +4845,8 @@ const drawAnt = (
   frameSize,
   nowMs,
 ) => {
+  if (!spriteSheet) return;
+
   const velocity = angleToVector(ant.heading);
   const sprite = resolveCanvasAtlasSprite(ATLAS, {
     space: "2d",
@@ -4868,27 +4871,6 @@ const drawAnt = (
       : 0;
 
   ant.previousScreenPosition = sprite.pose.screenPosition;
-
-  if (!spriteSheet) {
-    ctx.save();
-    ctx.translate(ant.position.x, ant.position.y + arousalLift);
-    ctx.rotate(ant.heading);
-    ctx.fillStyle =
-      ant.state === "mill" ? "rgba(70, 42, 18, 0.902)" : "rgba(70, 42, 18, 0.824)";
-    ctx.beginPath();
-    ctx.ellipse(
-      0,
-      0,
-      world.metrics.bodyLengthsToPx(1.05) * 0.5,
-      world.metrics.bodyLengthsToPx(0.52) * 0.5,
-      0,
-      0,
-      Math.PI * 2,
-    );
-    ctx.fill();
-    ctx.restore();
-    return;
-  }
 
   ctx.save();
   ctx.translate(ant.position.x, ant.position.y + arousalLift);

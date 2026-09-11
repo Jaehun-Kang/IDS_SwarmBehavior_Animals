@@ -28,6 +28,8 @@ export function advanceBatReturn(m, controls, elapsed, pointer = null) {
         dy += oy / Math.max(d, 0.1) * threat * 3;
       }
       if (a.x < m.width - 2) a.entered = true;
+      const wallOffset = clamp((Math.abs(a.y - m.height / 2) - 1.5) / 1.5, 0, 1);
+      dx += Math.max(0, 14 - a.x) * wallOffset * 1.5;
       if (a.entered && a.x > m.width - 8) dx -= Math.max(0, a.x - m.width + 8) * 0.3;
       dy += Math.max(0, 6 - a.y) * 0.3 - Math.max(0, a.y - m.height + 6) * 0.3;
       const targetSpeed = clamp(controls.entry_speed ?? 3, 1, 6) +
@@ -38,7 +40,7 @@ export function advanceBatReturn(m, controls, elapsed, pointer = null) {
       a.y += Math.sin(a.heading) * a.speed * STEP;
     }
     m.agents = m.agents.map(a => {
-      if (a.x >= -3) return a;
+      if (a.x >= -3 || Math.abs(a.y - m.height / 2) > 3.5) return a;
       m.returned++;
       return spawn(m, m.nextId++);
     });

@@ -799,8 +799,7 @@ function SwarmCanvas({
 
   React.useEffect(() => {
     if (
-      (animalId !== "bat" &&
-        !PHASE_PREVIEW_CONTROLS[animalId]) ||
+      (animalId !== "bat" && !PHASE_PREVIEW_CONTROLS[animalId]) ||
       !resolvedControls
     ) {
       return;
@@ -1319,10 +1318,19 @@ function SwarmCanvas({
                       className="sim-control-slider"
                       type="range"
                       style={{
-                        "--sim-range-progress": `${Math.max(0, Math.min(100,
-                          ((Number(resetVisualValues[field.key] ?? resolvedControls[field.key]) - field.min) /
-                            Math.max(field.max - field.min, Number.EPSILON)) * 100,
-                        ))}%`,
+                        "--sim-range-progress": `${Math.max(
+                          0,
+                          Math.min(
+                            100,
+                            ((Number(
+                              resetVisualValues[field.key] ??
+                                resolvedControls[field.key],
+                            ) -
+                              field.min) /
+                              Math.max(field.max - field.min, Number.EPSILON)) *
+                              100,
+                          ),
+                        )}%`,
                       }}
                       min={field.min}
                       max={field.max}
@@ -1446,9 +1454,7 @@ function Sim(props) {
       }
     : null;
   const spinyNightProgress = isSpinyLobster
-    ? getSpinyLobsterPhaseNightProgress(
-        spinyLobsterCircadianPhase ?? "night",
-      )
+    ? getSpinyLobsterPhaseNightProgress(spinyLobsterCircadianPhase ?? "night")
     : 0;
   const spinyControlDimAlpha = 0.105 + spinyNightProgress * 0.075;
   const spinyControlDimSoftAlpha = 0.075 + spinyNightProgress * 0.055;

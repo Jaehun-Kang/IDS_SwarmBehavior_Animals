@@ -31,7 +31,8 @@ const { chromium } = require('C:/Users/user/.cache/codex-runtimes/codex-primary-
         await page.waitForTimeout(2500);
       }
       const spread = page.locator('.detail-book-spread:not(.detail-book-spread--capture)');
-      assert.equal(await spread.locator('input[type=range]').count(), 3);
+      const controlCount = animal === 'Bat' && ruleIndex === 3 ? 2 : 3;
+      assert.equal(await spread.locator('input[type=range]').count(), controlCount);
       const canvas = spread.locator('.rule-preview__canvas');
       const sample = () => canvas.evaluate(c => {
         const data = c.getContext('2d').getImageData(0,0,c.width,c.height).data;
@@ -44,7 +45,7 @@ const { chromium } = require('C:/Users/user/.cache/codex-runtimes/codex-primary-
       const after = await sample();
       assert.ok(before.pixels > 0 && after.pixels > 0);
       assert.notEqual(before.checksum, after.checksum);
-      for (let index = 0; index < 3; index++) {
+      for (let index = 0; index < controlCount; index++) {
         const slider = spread.locator('input[type=range]').nth(index);
         const value = await slider.getAttribute('max');
         await slider.fill(value);
@@ -78,7 +79,7 @@ const { chromium } = require('C:/Users/user/.cache/codex-runtimes/codex-primary-
         await spread.locator('input[type=range]').first().fill('0');
         await page.waitForTimeout(4000);
       }
-      if (ruleIndex === 3 && animal === 'Sardine') {
+      if (ruleIndex === 3 && ['Sardine', 'Bat', 'Sheep'].includes(animal)) {
         const box = await canvas.boundingBox();
         await page.evaluate(() => { window.previewStrokes = 0; });
         await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
@@ -88,7 +89,7 @@ const { chromium } = require('C:/Users/user/.cache/codex-runtimes/codex-primary-
       await page.waitForTimeout(1000);
       if (animal === 'Bat' && (ruleIndex === 1 || ruleIndex === 2)) await page.waitForTimeout(20000);
       await page.screenshot({ path: `C:/Users/user/AppData/Local/Temp/${animal}-book-${width}-${ruleIndex}.png` });
-      if (ruleIndex === 3 && animal === 'Sardine') {
+      if (ruleIndex === 3 && ['Sardine', 'Bat', 'Sheep'].includes(animal)) {
         await page.mouse.move(0, 0);
         await page.waitForTimeout(200);
         await page.evaluate(() => { window.previewStrokes = 0; });

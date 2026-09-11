@@ -1,4 +1,5 @@
 import React from "react";
+import { ANT_SIGNAL_COLORS } from "../../data/antSignalColors.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import { loadTexturedAtlasCanvas, getAtlasFrameCanvas, resolveStageFrameSequence } from "../../utils/spriteAtlas";
 import { createBookCanvasLoop } from "../../utils/bookCanvasLoop.js";
@@ -38,7 +39,9 @@ export default function AntExplorationPreview({ controls, ruleGroup }) {
         if (model.showTrail || model.traffic || controlsRef.current.deposit_strength !== undefined) {
           if (revision !== model.field.revision) {
             for (let i = 0; i < model.field.values.length; i++) {
-              pixels.data[i * 4] = 119; pixels.data[i * 4 + 1] = 89; pixels.data[i * 4 + 2] = 28;
+              pixels.data[i * 4] = ANT_SIGNAL_COLORS.trail[0];
+              pixels.data[i * 4 + 1] = ANT_SIGNAL_COLORS.trail[1];
+              pixels.data[i * 4 + 2] = ANT_SIGNAL_COLORS.trail[2];
               pixels.data[i * 4 + 3] = antTrailAlpha(model.field.values[i]);
             }
             trailContext.putImageData(pixels, 0, 0);

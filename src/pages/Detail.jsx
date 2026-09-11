@@ -44,7 +44,6 @@ const BOOK_OPEN_DELAY_MS = 720;
 const BOOK_CLOSE_DELAY_MS = 720;
 const BOOK_AUTO_FIRST_TURN_DELAY_MS = 50;
 const DRAG_TURN_THRESHOLD = 72;
-const INTRO_GRASSHOPPER_TAKEOFF_MS = 25;
 const DETAIL_PRINTED_FONT =
   '"Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", Arial, sans-serif';
 const INTRO_HOME_STEER_WEIGHT = 0.075;
@@ -55,8 +54,6 @@ const INTRO_BOUNDARY_MARGIN_RATIO = 0.12;
 const INTRO_BOUNDARY_STEER_WEIGHT = 0.16;
 const INTRO_DASHLESS_ANIMAL_IDS = new Set(["sardine", "krill"]);
 const INTRO_DIRECT_POINTER_ANIMAL_IDS = new Set(["sardine", "krill"]);
-const INTRO_GRASSHOPPER_JUMP_CYCLE_MS = 920;
-const INTRO_GRASSHOPPER_JUMP_STAGE_RATIO = 0.24;
 const INTRO_PENGUIN_WADDLE_RATE = (Math.PI * 2) / 0.6;
 const INTRO_PENGUIN_SIDE_SWAY_DEG = 1.1;
 const INTRO_PENGUIN_FRONT_BACK_SWAY_DEG = 1.8;
@@ -242,7 +239,7 @@ const getIntroSpriteState = ({
   animalId,
   pointerVector,
   timestampMs,
-  grasshopperFlightStartMs,
+  introAnimal,
 }) => {
   if (animalId === "starling") {
     return {
@@ -252,28 +249,12 @@ const getIntroSpriteState = ({
   }
 
   if (animalId === "grasshopper") {
-    const shouldFly = Math.hypot(pointerVector.x, pointerVector.y) > 0.35;
-    const jumpPhase =
-      (timestampMs % INTRO_GRASSHOPPER_JUMP_CYCLE_MS) /
-      INTRO_GRASSHOPPER_JUMP_CYCLE_MS;
-    const isJumping =
-      shouldFly &&
-      (jumpPhase < INTRO_GRASSHOPPER_JUMP_STAGE_RATIO ||
-        jumpPhase > 1 - INTRO_GRASSHOPPER_JUMP_STAGE_RATIO * 0.55);
-    const takeoffElapsedMs = Math.max(
-      0,
-      timestampMs - grasshopperFlightStartMs,
-    );
-    const isTakingOff =
-      shouldFly && takeoffElapsedMs < INTRO_GRASSHOPPER_TAKEOFF_MS;
-
+    const isJumping = introAnimal?.spriteType === "grasshopper_jump";
     return {
-      directionX: pointerVector.x,
-      directionY: pointerVector.y,
-      isFlying: shouldFly,
+      directionX: isJumping ? introAnimal.jumpDirX : pointerVector.x,
+      directionY: isJumping ? introAnimal.jumpDirY : pointerVector.y,
       isJumping,
-      isTakingOff,
-      jumpProgress: jumpPhase,
+      isFlying: Boolean(introAnimal?.introAtHome) && pointerVector.y < 0,
     };
   }
 
@@ -350,23 +331,6 @@ const applyIntroSpriteOverrides = (
         (sprite.rotationDeg || 0) +
         getIntroPenguinWaddleRotation(introAnimal, sprite, timestampMs),
       scaleY: 1,
-    };
-  }
-
-  if (animalId === "grasshopper") {
-    const direction = normalizeVector(pointerVector.x, pointerVector.y);
-    let rotationDeg = (Math.atan2(direction.y, direction.x) * 180) / Math.PI;
-    let scaleX = 1;
-
-    if (Math.abs(rotationDeg) > 90) {
-      scaleX = -1;
-      rotationDeg = rotationDeg > 0 ? rotationDeg - 180 : rotationDeg + 180;
-    }
-
-    return {
-      ...sprite,
-      rotationDeg,
-      scaleX,
     };
   }
 
@@ -1039,10 +1003,6 @@ function Detail({
   const didAutoFirstTurnRef = React.useRef(false);
   const pendingCloseAfterCoverRef = React.useRef(false);
   const closeBookFromCoverRef = React.useRef(null);
-  const grasshopperIntroFlightRef = React.useRef({
-    isFlying: false,
-    startedAtMs: 0,
-  });
 
   const ruleSpreads = React.useMemo(() => {
     return Array.isArray(animal?.rules)
@@ -1141,22 +1101,11 @@ function Detail({
       return null;
     }
     const resolvedAtlas = getIntroAtlas(animalId, introAtlas);
-    if (animalId === "grasshopper") {
-      const shouldFly = Math.hypot(introPointerVector.x, introPointerVector.y) > 0.35;
-
-      if (shouldFly !== grasshopperIntroFlightRef.current.isFlying) {
-        grasshopperIntroFlightRef.current = {
-          isFlying: shouldFly,
-          startedAtMs: shouldFly ? introAnimationTimeMs : 0,
-        };
-      }
-    }
-
     const introState = getIntroSpriteState({
       animalId,
       pointerVector: introPointerVector,
       timestampMs: introAnimationTimeMs,
-      grasshopperFlightStartMs: grasshopperIntroFlightRef.current.startedAtMs,
+      introAnimal: introHomeAnimalRef.current,
     });
 
     const resolvedSprite = resolveDomAtlasSprite(resolvedAtlas, {
@@ -1304,10 +1253,6 @@ function Detail({
   }, [animalId]);
 
   React.useEffect(() => {
-    grasshopperIntroFlightRef.current = {
-      isFlying: false,
-      startedAtMs: 0,
-    };
     introPointerTargetRef.current = {
       x: 0,
       y: 0,
@@ -1373,6 +1318,10 @@ function Detail({
           introAnimal.y = homeY;
           introAnimal.width = spriteWidth;
           introAnimal.height = spriteHeight;
+          if (animalId === "grasshopper") {
+            introAnimal.jumpStartX = introAnimal.jumpTargetX = homeX;
+            introAnimal.jumpStartY = introAnimal.jumpTargetY = homeY;
+          }
           setIntroAnimalSpeed(introAnimal, animalId);
           disableIntroDash(animalId, introAnimal);
           introHomeAnimalRef.current = introAnimal;
@@ -1398,6 +1347,33 @@ function Detail({
         const dx = targetCenterX - animalCenterX;
         const dy = targetCenterY - animalCenterY;
         const distance = Math.hypot(dx, dy);
+        if (animalId === "grasshopper") {
+          introAnimal.introAtHome = !target.isInsideBook && distance < 2.5;
+        }
+
+        if (animalId === "grasshopper" && !target.isInsideBook) {
+          // Finish the current hop, then return without scheduling another random jump.
+          introAnimal.nextJumpAt = Infinity;
+          if (introAnimal.spriteType === "grasshopper_jump") {
+            behavior.update(introAnimal, { width: rect.width, height: rect.height });
+          } else {
+            const step = Math.min(distance * 0.08, resolveIntroBaseSpeed(animalId) * 1.1);
+            introAnimal.x += distance > 0 ? dx / distance * step : 0;
+            introAnimal.y += distance > 0 ? dy / distance * step : 0;
+            introAnimal.jumpStartX = introAnimal.jumpTargetX = introAnimal.x;
+            introAnimal.jumpStartY = introAnimal.jumpTargetY = introAnimal.y;
+            introAnimal.vx = introAnimal.vy = 0;
+          }
+          setIntroPointerVector(distance > 2.5
+            ? { x: dx, y: dy }
+            : { x: target.lookX, y: target.lookY });
+          setIntroSpriteOffset({ x: introAnimal.x - homeX, y: introAnimal.y - homeY });
+          animationFrameId = window.requestAnimationFrame(updateAnimationTime);
+          return;
+        }
+        if (animalId === "grasshopper" && !Number.isFinite(introAnimal.nextJumpAt)) {
+          introAnimal.nextJumpAt = introAnimal.time + 1;
+        }
 
         if (distance > 0.01) {
           const baseSpeed = resolveIntroBaseSpeed(animalId);
@@ -1518,6 +1494,8 @@ function Detail({
               y: target.lookY,
             });
           }
+        } else if (animalId === "grasshopper") {
+          setIntroPointerVector({ x: introAnimal.jumpDirX, y: introAnimal.jumpDirY });
         } else if (speed > 0.01) {
           setIntroPointerVector({
             x: introAnimal.vx,

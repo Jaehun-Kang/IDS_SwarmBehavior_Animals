@@ -32,4 +32,4 @@ export function antTrailTurn(field, x, y, heading, sensitivity) {
   const right = Math.atan(sense(heading + Math.PI / 4) * 4);
   return (right - left) * clamp(sensitivity / 100, 0, 1) * 2;
 }
-export const antTrailAlpha = concentration => Math.round(180 * (1 - Math.exp(-Math.max(0, concentration) * 2)));
+export const antTrailAlpha = concentration => Math.round(102 * (1 - Math.exp(-Math.max(0, concentration) * 4)));

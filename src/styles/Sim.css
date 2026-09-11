@@ -622,10 +622,10 @@
   height: 16px;
   margin-top: -5px;
   box-sizing: border-box;
-  border: 2px solid rgba(255, 255, 255, 0.92);
+  border: 0;
   border-radius: 50%;
-  background: var(--sim-range-active);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 2px 5px rgba(0, 0, 0, 0.18);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: none;
 }
 .sim .sim-control-slider::-moz-range-track {
   height: 6px;
@@ -638,10 +638,10 @@
   width: 16px;
   height: 16px;
   box-sizing: border-box;
-  border: 2px solid rgba(255, 255, 255, 0.92);
+  border: 0;
   border-radius: 50%;
-  background: var(--sim-range-active);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 2px 5px rgba(0, 0, 0, 0.18);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: none;
 }
 .sim .sim-control-slider::-moz-range-progress {
   height: 6px;

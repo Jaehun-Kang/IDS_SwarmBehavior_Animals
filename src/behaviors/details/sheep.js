@@ -1,0 +1,58 @@
+export const SHEEP_DETAILS = {
+  korean: "메리노양", english: "Merino Sheep", scientific: "Ovis aries",
+  rules: [{
+    id: "individual_movement", previewId: "sheep_movement", category: "쉬고 걷고 달리기",
+    behaviors: [
+      { id: "breed", name: "메리노 품종",
+        description: "메리노는 가축 양의 한 품종이다. 무리 생활을 하며, 풀을 찾는 동안 느리게 흩어졌다가 빠르게 다시 모이기도 한다." },
+      { id: "pause_duration", name: "가다 서기",
+        description: "양은 계속 걷기만 하지 않고 움직임과 멈춤을 번갈아 보인다. 이동을 멈췄다는 사실만으로 풀을 먹는지, 서서 쉬는지, 누워 있는지를 구분할 수는 없다.",
+        parameter: { label: "멈추는 시간", unit: "초", min: 0, max: 12, step: 1, decimals: 0, defaultValue: 5 } },
+      { id: "walk_speed", name: "느린 걷기",
+        description: "풀을 찾는 양은 조금씩 걸으며 주변으로 퍼진다. 멀리 이동할 때의 걸음과 방목 중의 느린 걸음은 속도가 다르다.",
+        parameter: { label: "걷는 속도", unit: "미터/초", min: 0.05, max: 0.3, step: 0.05, decimals: 2, defaultValue: 0.15 } },
+      { id: "run_speed", name: "빠르게 이동하기",
+        description: "양은 떨어진 무리에 다시 합류할 때 빠르게 이동하기도 한다. 이런 움직임은 가까이 위협이 보이지 않을 때도 나타난다.",
+        parameter: { label: "달리는 속도", unit: "미터/초", min: 0.5, max: 2, step: 0.1, decimals: 1, defaultValue: 1.5 } },
+    ],
+  }, {
+    id: "neighbor_movement", previewId: "sheep_neighbors", category: "이웃과 함께 움직이기",
+    behaviors: [
+      { id: "start_influence", name: "함께 출발하기",
+        description: "이웃이 움직이기 시작하면 다른 양도 따라 출발하기 쉽다. 앞쪽에서 움직이는 이웃은 출발을 유도하는 자극이 된다.",
+        parameter: { label: "출발 자극", unit: "퍼센트", min: 0, max: 100, step: 5, decimals: 0, defaultValue: 60 } },
+      { id: "stop_influence", name: "멈춤 이어가기",
+        description: "이동하던 양은 뒤쪽 이웃이 멈추면 함께 멈추기도 한다. 출발과 멈춤은 서로 다른 이웃의 움직임에 영향을 받는다.",
+        parameter: { label: "정지 자극", unit: "퍼센트", min: 0, max: 100, step: 5, decimals: 0, defaultValue: 60 } },
+      { id: "personal_space", name: "간격 조절하기",
+        description: "양은 이웃과 함께 움직이면서도 서로 부딪히지 않도록 간격을 조절한다. 가까운 이웃에 반응하는 행동이 무리를 유지하는 데 도움이 된다.",
+        parameter: { label: "가까운 간격", unit: "미터", min: 1, max: 3, step: 0.1, decimals: 1, defaultValue: 1.5 } },
+    ],
+  }, {
+    id: "leaders", previewId: "sheep_leaders", category: "행렬과 선두",
+    behaviors: [
+      { id: "leader_speed", name: "줄지어 걷기",
+        description: "양은 넓은 목초지에서도 줄지어 이동하기도 한다. 무리의 크기와 상황에 따라 여러 줄을 이루거나 흩어지며, 항상 한 줄로 걷는 것은 아니다.",
+        parameter: { label: "선두 이동 속도", unit: "미터/초", min: 0.5, max: 1.5, step: 0.1, decimals: 1, defaultValue: 1 } },
+      { id: "following_response", name: "앞선 양 따라가기",
+        description: "함께 이동할 때는 앞선 양의 위치 변화가 뒤따르는 양의 움직임을 이끈다. 이런 추종 관계는 한 번의 이동 동안 이어질 수 있다.",
+        parameter: { label: "추종 반응", unit: "퍼센트", min: 20, max: 100, step: 5, decimals: 0, defaultValue: 70 } },
+      { id: "episode_duration", name: "달라지는 선두",
+        description: "이동을 멈췄다가 다시 출발할 때 다른 양이 선두에 서기도 한다. 작은 무리에서 관찰된 이런 교대가 모든 양 떼에 고정된 우두머리가 없다는 뜻은 아니다.",
+        parameter: { label: "한 번의 이동 시간", unit: "초", min: 5, max: 25, step: 1, decimals: 0, defaultValue: 15 } },
+    ],
+  }, {
+    id: "dog_threat", previewId: "sheep_threat", category: "양몰이 개에 반응하기",
+    behaviors: [
+      { id: "dog_response", name: "개 피하기",
+        description: "양몰이 개가 다가오면 양은 위협을 느끼고 거리를 벌린다. 반응은 개의 위치와 움직임, 양 떼의 상태에 따라 달라진다.",
+        parameter: { label: "개 회피 반응", unit: "퍼센트", min: 0, max: 100, step: 5, decimals: 0, defaultValue: 70 } },
+      { id: "group_response", name: "이웃과 모이기",
+        description: "개가 접근할 때 양은 이웃 쪽으로 모이면서 함께 이동하기도 한다. 무리로 모이는 움직임과 개에게서 멀어지는 움직임이 함께 나타난다.",
+        parameter: { label: "모이는 반응", unit: "퍼센트", min: 0, max: 100, step: 5, decimals: 0, defaultValue: 60 } },
+      { id: "recovery_time", name: "위협 이후",
+        description: "개가 멀어지면 양의 움직임도 달라진다. 다시 느리게 움직이거나 멈출 수 있으며, 모든 양이 같은 순간에 진정되는 것은 아니다.",
+        parameter: { label: "진정되는 시간", unit: "초", min: 1, max: 8, step: 0.5, decimals: 1, defaultValue: 3 } },
+    ],
+  }],
+};

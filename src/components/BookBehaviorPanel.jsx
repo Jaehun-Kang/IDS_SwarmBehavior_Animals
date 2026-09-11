@@ -30,9 +30,6 @@ export default function BookBehaviorPanel({ ruleGroup, controls, accentColor, on
                         style={{
                           "--detail-range-progress": `${getParameterProgress(value, parameter)}%`,
                           "--detail-range-accent": accentColor,
-                          WebkitAppearance: "auto",
-                          appearance: "auto",
-                          accentColor,
                         }}
                         aria-label={`${behavior.name} ${parameter.label}`}
                         onChange={(event) => onChange(behavior.id,

@@ -1,0 +1,56 @@
+export const FIREFLY_DETAILS={
+  korean:"동기반딧불이",english:"Synchronous Firefly",scientific:"Photinus carolinus",
+  rules:[{
+    id:"individual_light",previewId:"firefly_individual",category:"한 마리의 빛",
+    behaviors:[
+      {id:"flash_interval",name:"여러 번 이어서 반짝이기",
+        description:"수컷은 짧은 반짝임을 여러 번 이어서 보낸다. 한 차례 신호가 끝나면 한동안 빛을 내지 않다가 다시 반짝인다.",
+        parameter:{label:"연속 점멸 간격",unit:"초",min:0.4,max:0.7,step:0.05,decimals:2,defaultValue:0.55}},
+      {id:"wait_spread",name:"달라지는 대기 시간",
+        description:"혼자 떨어져 있는 개체는 다음 신호를 시작하기까지 기다리는 시간이 일정하지 않다. 짧은 반짝임의 간격과 신호 묶음 사이의 긴 대기는 서로 다르다.",
+        parameter:{label:"화면 속 대기 시간 변동 폭",unit:"초",min:0,max:20,step:1,decimals:0,defaultValue:8}},
+      {id:"flying_ratio",name:"날거나 앉아서 빛내기",
+        description:"반딧불이는 날면서도, 잎이나 줄기에 머문 채로도 빛을 낸다. 불이 켜질 때마다 반드시 날아오르는 것은 아니다.",
+        parameter:{label:"비행하는 개체 비율",unit:"퍼센트",min:0,max:100,step:5,decimals:0,defaultValue:35}},
+    ],
+  },{
+    id:"neighbor_light",previewId:"firefly_coupling",category:"빛을 보고 맞추기",
+    behaviors:[
+      {id:"sight_range",name:"이웃의 빛 보기",
+        description:"반딧불이는 주변에서 보이는 빛에 반응한다. 빛이 닿는 범위는 거리뿐 아니라 주변의 지형과 식물에도 영향을 받는다.",
+        parameter:{label:"화면 속 빛 감지 범위",unit:"퍼센트",min:0,max:100,step:5,decimals:0,defaultValue:45}},
+      {id:"coupling",name:"반짝이는 때 맞추기",
+        description:"이웃의 신호에 반응하면서 반짝이는 때가 가까워진다. 무리의 빛은 한꺼번에 켜지기도 하고, 작은 시간차를 두고 퍼져 나가기도 한다.",
+        parameter:{label:"이웃 신호 반응 강도",unit:"퍼센트",min:0,max:100,step:5,decimals:0,defaultValue:80}},
+      {id:"occlusion",name:"잎 사이로 이어지는 빛",
+        description:"잎에 가려진 빛은 가까이 있어도 보이지 않을 수 있다. 이러한 시야의 차이는 무리 안에서 신호가 퍼지는 모습과 관련이 있다.",
+        parameter:{label:"화면 속 시야 가림",unit:"퍼센트",min:0,max:100,step:5,decimals:0,defaultValue:40}},
+    ],
+  },{
+    id:"courtship_light",previewId:"firefly_courtship",category:"짝을 찾는 신호",
+    behaviors:[
+      {id:"male_spread",name:"수컷이 보내는 신호",
+        description:"수컷은 여러 번 이어지는 빛으로 짝을 찾는다. 주변 수컷의 신호가 맞춰지면 암컷이 같은 종의 신호를 알아보기 쉬워진다.",
+        parameter:{label:"수컷 신호 시작 시차",unit:"초",min:0,max:2,step:0.1,decimals:1,defaultValue:0.1}},
+      {id:"response_delay",name:"암컷의 응답",
+        description:"낮은 식물이나 낙엽 사이의 암컷은 수컷의 신호 뒤에 응답한다. 짝을 받아들이는 암컷은 보통 두 번의 짧은 빛을 보내며, 접근이 이어지면 신호가 달라지기도 한다.",
+        parameter:{label:"화면 속 응답 대기",unit:"초",min:1,max:5,step:0.5,decimals:1,defaultValue:3}},
+      {id:"approach_speed",name:"응답한 곳으로 접근하기",
+        description:"수컷은 암컷의 빛이 보인 곳으로 다가간다. 암컷 바로 위가 아니라 근처에 내려앉은 뒤 걸어서 접근하기도 한다.",
+        parameter:{label:"화면 속 접근 속도",unit:"배",min:1,max:4,step:0.5,decimals:1,defaultValue:2}},
+    ],
+  },{
+    id:"environment_light",previewId:"firefly_environment",category:"환경과 방해",
+    behaviors:[
+      {id:"artificial_light",name:"어둠을 바꾸는 조명",
+        description:"주변의 인공 조명은 구애를 위한 점멸 활동을 줄일 수 있다. 영향은 빛의 색과 밝기, 비추는 조건에 따라 달라진다.",
+        parameter:{label:"화면 속 조명 영향",unit:"퍼센트",min:0,max:100,step:5,decimals:0,defaultValue:0}},
+      {id:"disturbed_share",name:"갇혔을 때의 빛",
+        description:"거미줄이나 물에 갇힌 개체는 평소의 구애 신호와 다른 빛을 보내기도 한다. 약 1.5~3초마다 한 번 또는 두 번의 빛을 내는 모습이 관찰된다.",
+        parameter:{label:"갇힌 개체 비율",unit:"퍼센트",min:0,max:100,step:10,decimals:0,defaultValue:0}},
+      {id:"recovery_time",name:"다시 시작하는 신호",
+        description:"갇힌 상태에서 벗어난 수컷은 잠시 회복한 뒤 평소의 구애 신호를 다시 보내기도 한다. 개별 점멸의 회복과 무리 전체의 동기화는 구분해야 한다.",
+        parameter:{label:"화면 속 회복 대기",unit:"초",min:1,max:8,step:0.5,decimals:1,defaultValue:3}},
+    ],
+  }],
+};

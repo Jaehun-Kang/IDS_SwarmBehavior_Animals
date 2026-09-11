@@ -31,7 +31,7 @@ const { chromium } = require('C:/Users/user/.cache/codex-runtimes/codex-primary-
         await page.waitForTimeout(2500);
       }
       const spread = page.locator('.detail-book-spread:not(.detail-book-spread--capture)');
-      const controlCount = animal === 'Bat' && ruleIndex === 3 ? 2 : 3;
+      const controlCount = (animal === 'Bat' && ruleIndex === 3) || (animal === 'CaribbeanSpinyLobster' && ruleIndex === 0) ? 2 : 3;
       assert.equal(await spread.locator('input[type=range]').count(), controlCount);
       const canvas = spread.locator('.rule-preview__canvas');
       const sample = () => canvas.evaluate(c => {
@@ -46,6 +46,11 @@ const { chromium } = require('C:/Users/user/.cache/codex-runtimes/codex-primary-
       if (animal === 'EmperorPenguin' && ruleIndex === 2) {
         for (let i=0;i<30 && after.checksum===before.checksum;i++) {
           await page.waitForTimeout(500); after=await sample();
+        }
+      }
+      if (animal === 'SynchronousFirefly' || (animal === 'CaribbeanSpinyLobster' && ruleIndex === 5)) {
+        for (let i=0;i<150 && after.checksum===before.checksum;i++) {
+          await page.waitForTimeout(100); after=await sample();
         }
       }
       assert.ok(before.pixels > 0 && after.pixels > 0);

@@ -5,6 +5,10 @@ import { ANT_DETAILS } from "./details/ant.js";
 import { BAT_DETAILS } from "./details/bat.js";
 import { SHEEP_DETAILS } from "./details/sheep.js";
 import { PENGUIN_DETAILS } from "./details/penguin.js";
+import { BEE_DETAILS } from "./details/bee.js";
+import { FIREFLY_DETAILS } from "./details/firefly.js";
+import { SPINY_LOBSTER_DETAILS } from "./details/spinyLobster.js";
+import { KRILL_DETAILS } from "./details/krill.js";
 
 // 각 동물별 상세 정보 (이름, 학명, 설명 등)
 export const ANIMAL_DETAILS = {
@@ -15,30 +19,10 @@ export const ANIMAL_DETAILS = {
   bat: BAT_DETAILS,
   sheep: SHEEP_DETAILS,
   penguin: PENGUIN_DETAILS,
-  bee: {
-    korean: "재래꿀벌",
-    english: "Eastern Honey Bee",
-    scientific: "Apis cerana Fabricius",
-    rules: [],
-  },
-  firefly: {
-    korean: "동기반딧불이",
-    english: "Synchronous Firefly",
-    scientific: "Photinus carolinus",
-    rules: [],
-  },
-  spiny_lobster: {
-    korean: "카리브해닭새우",
-    english: "Caribbean Spiny Lobster",
-    scientific: "Panulirus argus",
-    rules: [],
-  },
-  krill: {
-    korean: "남극크릴",
-    english: "Antarctic Krill",
-    scientific: "Euphausia superba",
-    rules: [],
-  },
+  bee: BEE_DETAILS,
+  firefly: FIREFLY_DETAILS,
+  spiny_lobster: SPINY_LOBSTER_DETAILS,
+  krill: KRILL_DETAILS,
 };
 
 /**

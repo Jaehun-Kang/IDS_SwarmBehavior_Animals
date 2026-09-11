@@ -1,6 +1,9 @@
 ﻿import React from "react";
 import { getAnimalDetails } from "../behaviors/animalDetails";
+import { behaviorMap } from "../behaviors/animalData";
 import RulePreview from "../components/RulePreview";
+import BookBehaviorPanel from "../components/BookBehaviorPanel";
+import { resolveRuleControls } from "../utils/bookControls.js";
 import { HOME_SPRITE_ATLASES } from "../data/spriteAtlases";
 import chevronLeftIconUrl from "../assets/icons/chevron-left.svg";
 import chevronRightIconUrl from "../assets/icons/chevron-right.svg";
@@ -42,12 +45,198 @@ const BOOK_CLOSE_DELAY_MS = 720;
 const BOOK_AUTO_FIRST_TURN_DELAY_MS = 50;
 const DRAG_TURN_THRESHOLD = 72;
 const INTRO_GRASSHOPPER_TAKEOFF_MS = 25;
-const INTRO_ANT_FRONT_RADIUS_PX = 56;
-const INTRO_PENGUIN_CENTER_RADIUS_PX = 70;
-const INTRO_PENGUIN_LOWER_ROW_Y_PX = 70;
-const INTRO_INSECT_IDLE_Y_PX = 0;
+const DETAIL_PRINTED_FONT =
+  '"Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", Arial, sans-serif';
+const INTRO_HOME_STEER_WEIGHT = 0.075;
+const INTRO_POINTER_STEER_WEIGHT = 0.095;
+const INTRO_POINTER_MAX_SPEED_RATIO = 1.25;
+const INTRO_POINTER_TURN_RADIUS_RATIO = 1.85;
+const INTRO_BOUNDARY_MARGIN_RATIO = 0.12;
+const INTRO_BOUNDARY_STEER_WEIGHT = 0.16;
+const INTRO_DASHLESS_ANIMAL_IDS = new Set(["sardine", "krill"]);
+const INTRO_DIRECT_POINTER_ANIMAL_IDS = new Set(["sardine", "krill"]);
+const INTRO_GRASSHOPPER_JUMP_CYCLE_MS = 920;
+const INTRO_GRASSHOPPER_JUMP_STAGE_RATIO = 0.24;
+const INTRO_PENGUIN_WADDLE_RATE = (Math.PI * 2) / 0.6;
+const INTRO_PENGUIN_SIDE_SWAY_DEG = 1.1;
+const INTRO_PENGUIN_FRONT_BACK_SWAY_DEG = 1.8;
+const INTRO_BASE_SPEED_BY_ANIMAL = {
+  starling: 1.55,
+  sardine: 1.5,
+  grasshopper: 1.45,
+  ant: 1.35,
+  bat: 1.45,
+  sheep: 1.25,
+  penguin: 1.28,
+  bee: 1.45,
+  firefly: 1.35,
+  spiny_lobster: 1.3,
+  krill: 1.45,
+};
+const INTRO_ANIMATION_DURATION_SCALE = {
+  starling: 1.85,
+  grasshopper: 1.4,
+  bat: 1.65,
+  bee: 1.9,
+  firefly: 1.9,
+};
+
+const ANIMAL_ACCENT_COLORS = {
+  starling: "rgb(27 81 108)",
+  sardine: "rgb(52 69 79)",
+  grasshopper: "rgb(156 133 0)",
+  ant: "rgb(171 114 39)",
+  bat: "rgb(135 114 97)",
+  sheep: "rgb(151 133 84)",
+  penguin: "rgb(220 98 50)",
+  bee: "rgb(179 122 4)",
+  firefly: "rgb(134 141 0)",
+  spiny_lobster: "rgb(198 93 89)",
+  krill: "rgb(104 137 184)",
+};
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+const normalizeVector = (x, y, fallback = { x: 1, y: 0 }) => {
+  const length = Math.hypot(x, y);
+
+  if (length < 0.001) {
+    return fallback;
+  }
+
+  return {
+    x: x / length,
+    y: y / length,
+  };
+};
+
+const lerpAngle = (current, target, amount) => {
+  const diff = Math.atan2(Math.sin(target - current), Math.cos(target - current));
+
+  return current + diff * amount;
+};
+
+const resolveIntroBaseSpeed = (animalId) =>
+  INTRO_BASE_SPEED_BY_ANIMAL[animalId] ?? 1.45;
+
+const setIntroAnimalSpeed = (animal, animalId) => {
+  const speed = resolveIntroBaseSpeed(animalId);
+  const direction = normalizeVector(animal.vx || 1, animal.vy || 0);
+
+  animal.baseSpeed = speed;
+  animal.vx = direction.x * speed;
+  animal.vy = direction.y * speed;
+};
+
+const limitIntroAnimalSpeed = (animal, maxSpeed) => {
+  const speed = Math.hypot(animal.vx || 0, animal.vy || 0);
+
+  if (speed <= maxSpeed || speed < 0.001) {
+    return;
+  }
+
+  const scale = maxSpeed / speed;
+  animal.vx *= scale;
+  animal.vy *= scale;
+};
+
+const disableIntroDash = (animalId, animal) => {
+  if (!INTRO_DASHLESS_ANIMAL_IDS.has(animalId)) {
+    return;
+  }
+
+  animal.isDashing = false;
+  animal.dashTimer = 0;
+  animal.dashMultiplier = 1;
+  animal.nextDashAt = Number.POSITIVE_INFINITY;
+};
+
+const shouldUseDirectIntroPointer = (animalId) =>
+  INTRO_DIRECT_POINTER_ANIMAL_IDS.has(animalId);
+
+const getIntroPenguinWaddleRotation = (introAnimal, sprite, timestampMs) => {
+  const swayDeg =
+    sprite.stage === "penguin_walk"
+      ? INTRO_PENGUIN_SIDE_SWAY_DEG
+      : INTRO_PENGUIN_FRONT_BACK_SWAY_DEG;
+  const phaseOffset = introAnimal?.waddlePhaseOffset || 0;
+
+  return (
+    Math.sin(timestampMs * 0.001 * INTRO_PENGUIN_WADDLE_RATE + phaseOffset) *
+    swayDeg
+  );
+};
+
+const applyIntroBoundarySteer = (
+  animal,
+  animalId,
+  rect,
+  spriteWidth,
+  spriteHeight,
+) => {
+  const margin = Math.max(
+    Math.min(rect.width, rect.height) * INTRO_BOUNDARY_MARGIN_RATIO,
+    Math.max(spriteWidth, spriteHeight) * 0.75,
+  );
+  const centerX = animal.x + spriteWidth * 0.5;
+  const centerY = animal.y + spriteHeight * 0.5;
+  let steerX = 0;
+  let steerY = 0;
+
+  if (centerX < margin) {
+    steerX += (margin - centerX) / margin;
+  } else if (centerX > rect.width - margin) {
+    steerX -= (centerX - (rect.width - margin)) / margin;
+  }
+
+  if (centerY < margin) {
+    steerY += (margin - centerY) / margin;
+  } else if (centerY > rect.height - margin) {
+    steerY -= (centerY - (rect.height - margin)) / margin;
+  }
+
+  if (Math.hypot(steerX, steerY) < 0.001) {
+    return;
+  }
+
+  const speed = Math.max(
+    resolveIntroBaseSpeed(animalId),
+    Math.hypot(animal.vx || 0, animal.vy || 0),
+  );
+  const currentDirection = normalizeVector(animal.vx || 1, animal.vy || 0);
+  const inwardDirection = normalizeVector(steerX, steerY, currentDirection);
+  const nextDirection = normalizeVector(
+    currentDirection.x * (1 - INTRO_BOUNDARY_STEER_WEIGHT) +
+      inwardDirection.x * INTRO_BOUNDARY_STEER_WEIGHT,
+    currentDirection.y * (1 - INTRO_BOUNDARY_STEER_WEIGHT) +
+      inwardDirection.y * INTRO_BOUNDARY_STEER_WEIGHT,
+    currentDirection,
+  );
+
+  animal.vx = nextDirection.x * speed;
+  animal.vy = nextDirection.y * speed;
+};
+
+const containIntroAnimalInBook = (animal, rect, spriteWidth, spriteHeight) => {
+  const maxX = Math.max(0, rect.width - spriteWidth);
+  const maxY = Math.max(0, rect.height - spriteHeight);
+  const nextX = clamp(animal.x, 0, maxX);
+  const nextY = clamp(animal.y, 0, maxY);
+
+  if (nextX !== animal.x) {
+    animal.vx =
+      nextX <= 0 ? Math.abs(animal.vx || 0) : -Math.abs(animal.vx || 0);
+    animal.vx *= 0.45;
+    animal.x = nextX;
+  }
+
+  if (nextY !== animal.y) {
+    animal.vy =
+      nextY <= 0 ? Math.abs(animal.vy || 0) : -Math.abs(animal.vy || 0);
+    animal.vy *= 0.45;
+    animal.y = nextY;
+  }
+};
 
 const getIntroSpriteState = ({
   animalId,
@@ -63,7 +252,14 @@ const getIntroSpriteState = ({
   }
 
   if (animalId === "grasshopper") {
-    const shouldFly = pointerVector.y < 0;
+    const shouldFly = Math.hypot(pointerVector.x, pointerVector.y) > 0.35;
+    const jumpPhase =
+      (timestampMs % INTRO_GRASSHOPPER_JUMP_CYCLE_MS) /
+      INTRO_GRASSHOPPER_JUMP_CYCLE_MS;
+    const isJumping =
+      shouldFly &&
+      (jumpPhase < INTRO_GRASSHOPPER_JUMP_STAGE_RATIO ||
+        jumpPhase > 1 - INTRO_GRASSHOPPER_JUMP_STAGE_RATIO * 0.55);
     const takeoffElapsedMs = Math.max(
       0,
       timestampMs - grasshopperFlightStartMs,
@@ -75,8 +271,9 @@ const getIntroSpriteState = ({
       directionX: pointerVector.x,
       directionY: pointerVector.y,
       isFlying: shouldFly,
+      isJumping,
       isTakingOff,
-      jumpProgress: isTakingOff ? 0.12 : 1,
+      jumpProgress: jumpPhase,
     };
   }
 
@@ -84,7 +281,7 @@ const getIntroSpriteState = ({
     const glowCycle = (timestampMs % 1200) / 1200;
     return {
       glow: glowCycle < 0.2 || (glowCycle > 0.34 && glowCycle < 0.42),
-      idle: pointerVector.y > INTRO_INSECT_IDLE_Y_PX,
+      idle: false,
     };
   }
 
@@ -119,58 +316,21 @@ const getIntroAtlas = (animalId, atlas) => {
   return atlas;
 };
 
-const applyIntroSpriteOverrides = (animalId, sprite, pointerVector, state) => {
-  if (animalId === "bee" && pointerVector.y > INTRO_INSECT_IDLE_Y_PX) {
-    return {
-      ...sprite,
-      stage: sprite.stage === "bee_top_fly" ? "bee_top_idle" : "bee_idle",
-    };
-  }
-
-  if (animalId === "firefly" && pointerVector.y > INTRO_INSECT_IDLE_Y_PX) {
-    const idleStageByStage = {
-      firefly_glow: "firefly_glow_idle",
-      firefly_dark: "firefly_dark_idle",
-      firefly_lit_top_fly: "firefly_lit_top_idle",
-      firefly_dark_top_fly: "firefly_dark_top_idle",
-    };
-
-    return {
-      ...sprite,
-      stage: idleStageByStage[sprite.stage] || sprite.stage,
-      state,
-    };
-  }
-
+const applyIntroSpriteOverrides = (
+  animalId,
+  sprite,
+  pointerVector,
+  state,
+  introAnimal,
+  timestampMs,
+) => {
   if (animalId === "ant") {
-    const pointerDistance = Math.hypot(pointerVector.x, pointerVector.y);
-    const verticalDominance =
-      Math.abs(pointerVector.y) >= Math.abs(pointerVector.x) * 0.82;
-
-    if (pointerDistance <= INTRO_ANT_FRONT_RADIUS_PX) {
-      return {
-        ...sprite,
-        stage: "ant_front",
-        rotationDeg: 0,
-        scaleX: 1,
-      };
-    }
-
-    if (verticalDominance) {
-      return {
-        ...sprite,
-        stage: "ant_top",
-        rotationDeg:
-          (Math.atan2(pointerVector.y, pointerVector.x) * 180) / Math.PI,
-        scaleX: 1,
-      };
-    }
-
     return {
       ...sprite,
-      stage: "ant_walk",
-      rotationDeg: 0,
-      scaleX: pointerVector.x < 0 ? -1 : 1,
+      stage: "ant_top",
+      rotationDeg:
+        (Math.atan2(pointerVector.y, pointerVector.x) * 180) / Math.PI,
+      scaleX: 1,
     };
   }
 
@@ -184,44 +344,40 @@ const applyIntroSpriteOverrides = (animalId, sprite, pointerVector, state) => {
   }
 
   if (animalId === "penguin") {
-    const isCenterCell =
-      Math.abs(pointerVector.x) <= INTRO_PENGUIN_CENTER_RADIUS_PX &&
-      Math.abs(pointerVector.y) <= INTRO_PENGUIN_CENTER_RADIUS_PX;
+    return {
+      ...sprite,
+      rotationDeg:
+        (sprite.rotationDeg || 0) +
+        getIntroPenguinWaddleRotation(introAnimal, sprite, timestampMs),
+      scaleY: 1,
+    };
+  }
 
-    if (isCenterCell) {
-      return {
-        ...sprite,
-        stage: "penguin_front",
-        rotationDeg: 0,
-        scaleX: 1,
-        scaleY: 1,
-      };
+  if (animalId === "grasshopper") {
+    const direction = normalizeVector(pointerVector.x, pointerVector.y);
+    let rotationDeg = (Math.atan2(direction.y, direction.x) * 180) / Math.PI;
+    let scaleX = 1;
+
+    if (Math.abs(rotationDeg) > 90) {
+      scaleX = -1;
+      rotationDeg = rotationDeg > 0 ? rotationDeg - 180 : rotationDeg + 180;
     }
 
-    if (pointerVector.y > INTRO_PENGUIN_LOWER_ROW_Y_PX) {
-      const isLowerSide =
-        Math.abs(pointerVector.x) > INTRO_PENGUIN_CENTER_RADIUS_PX;
-
-      return {
-        ...sprite,
-        stage: isLowerSide ? "penguin_slide" : "penguin_front_slide",
-        rotationDeg: 90,
-        scaleX: 1,
-        scaleY: pointerVector.x < 0 ? -1 : 1,
-      };
-    }
+    return {
+      ...sprite,
+      rotationDeg,
+      scaleX,
+    };
   }
 
   return sprite;
 };
 
 const getIntroSpriteFrameSequence = (animalId, stage, sequence) => {
-  if (sequence.frames?.length > 1) {
-    return sequence;
-  }
+  let nextSequence = sequence;
 
   if (animalId === "bat" && stage === "bat_fly3") {
-    return {
+    nextSequence = {
       ...sequence,
       frames: [
         { x: 2, y: 0 },
@@ -231,7 +387,17 @@ const getIntroSpriteFrameSequence = (animalId, stage, sequence) => {
     };
   }
 
-  return sequence;
+  const durationScale = INTRO_ANIMATION_DURATION_SCALE[animalId];
+
+  if (!durationScale || nextSequence.frames?.length <= 1) {
+    return nextSequence;
+  }
+
+  return {
+    ...nextSequence,
+    durationMs: Math.round((nextSequence.durationMs || 120) * durationScale),
+    fps: nextSequence.fps ? nextSequence.fps / durationScale : nextSequence.fps,
+  };
 };
 
 const getIntroSpriteFrame = (sequence, timestampMs) => {
@@ -625,12 +791,13 @@ const captureHtmlNodeWithSvg = (node, coverTextureUrl) =>
     waitForImages(clonedNode)
       .then(() => {
         const styleText = getDocumentStyleText();
-        const html = `
-          <div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;height:${height}px;">
-            <style>${styleText}</style>
-            ${clonedNode.outerHTML}
-          </div>
-        `;
+        const container = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
+        container.setAttribute("style", `width:${width}px;height:${height}px;`);
+        const style = document.createElementNS("http://www.w3.org/1999/xhtml", "style");
+        style.textContent = styleText;
+        container.append(style, clonedNode);
+        // SVG requires XML-safe void elements and escaped text, including range inputs.
+        const html = new XMLSerializer().serializeToString(container);
         const svg = `
           <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
             <foreignObject width="100%" height="100%">${html}</foreignObject>
@@ -689,151 +856,6 @@ const refreshSnapshotTextures = (renderer, fromSnapshot, toSnapshot) => {
     fromImage: didRefreshFrom ? fromSnapshot.image : null,
     toImage: didRefreshTo ? toSnapshot.image : null,
   });
-};
-
-const getBehaviorParameterMeta = (behavior) => {
-  const name = behavior?.name || "";
-
-  if (/항속|속력|속도/.test(name)) {
-    return {
-      label: "목표 속도",
-      unit: "미터/초",
-      min: 7,
-      max: 12,
-      decimals: 1,
-    };
-  }
-
-  if (/배제|거리|구역|간격/.test(name)) {
-    return {
-      label: "최소 거리",
-      unit: "미터",
-      min: 0.3,
-      max: 0.6,
-      decimals: 2,
-    };
-  }
-
-  if (/반응|지연|시간/.test(name)) {
-    return {
-      label: "반응 지연",
-      unit: "초",
-      min: 0.03,
-      max: 0.12,
-      decimals: 3,
-    };
-  }
-
-  if (/위상|이웃/.test(name)) {
-    return {
-      label: "참조 이웃 수",
-      unit: "마리",
-      min: 3,
-      max: 10,
-      decimals: 0,
-    };
-  }
-
-  if (/시야/.test(name)) {
-    return {
-      label: "시야 편향",
-      unit: "퍼센트",
-      min: 0,
-      max: 100,
-      decimals: 0,
-    };
-  }
-
-  if (/회피/.test(name)) {
-    return {
-      label: "회피 우선도",
-      unit: "퍼센트",
-      min: 0,
-      max: 100,
-      decimals: 0,
-    };
-  }
-
-  if (/정렬|응집/.test(name)) {
-    return {
-      label: "동조 강도",
-      unit: "퍼센트",
-      min: 0,
-      max: 100,
-      decimals: 0,
-    };
-  }
-
-  if (/반경|회전/.test(name)) {
-    return {
-      label: "회전 민감도",
-      unit: "퍼센트",
-      min: 0,
-      max: 100,
-      decimals: 0,
-    };
-  }
-
-  if (/뱅킹|고도|기울/.test(name)) {
-    return { label: "기울기 각도", unit: "도", min: 0, max: 45, decimals: 0 };
-  }
-
-  if (/전파|파/.test(name)) {
-    return {
-      label: "전파 속도",
-      unit: "미터/초",
-      min: 20,
-      max: 40,
-      decimals: 0,
-    };
-  }
-
-  if (/형태|종횡/.test(name)) {
-    return {
-      label: "형태 비율",
-      unit: "퍼센트",
-      min: 0,
-      max: 100,
-      decimals: 0,
-    };
-  }
-
-  if (/밀도/.test(name)) {
-    return {
-      label: "밀도 차이",
-      unit: "퍼센트",
-      min: 0,
-      max: 100,
-      decimals: 0,
-    };
-  }
-
-  if (/시작|가장자리/.test(name)) {
-    return {
-      label: "가장자리 영향",
-      unit: "퍼센트",
-      min: 0,
-      max: 100,
-      decimals: 0,
-    };
-  }
-
-  return { label: "영향 정도", unit: "퍼센트", min: 0, max: 100, decimals: 0 };
-};
-
-const formatBehaviorParameterValue = (value, meta) => {
-  const normalized = clamp(Number(value) || 0, 0, 100) / 100;
-  const scaled = meta.min + (meta.max - meta.min) * normalized;
-  const formatted = scaled.toFixed(meta.decimals);
-  const unitSymbolMap = {
-    퍼센트: "%",
-    도: "°",
-  };
-  const compactUnits = new Set(["%", "°"]);
-  const displayUnit = unitSymbolMap[meta.unit] ?? meta.unit;
-  const separator = compactUnits.has(displayUnit) ? "" : " ";
-
-  return `${formatted}${separator}${displayUnit}`;
 };
 
 const easeInOutCubic = (value) =>
@@ -982,13 +1004,28 @@ function Detail({
     x: 1,
     y: 0,
   });
+  const [introSpriteOffset, setIntroSpriteOffset] = React.useState({
+    x: 0,
+    y: 0,
+  });
   const [introAnimationTimeMs, setIntroAnimationTimeMs] = React.useState(0);
   const bookOpenTimerRef = React.useRef(null);
   const bookCloseTimerRef = React.useRef(null);
   const bookLaunchFrameRef = React.useRef(null);
   const bookTransitionLockRef = React.useRef(false);
+  const introPointerTargetRef = React.useRef({
+    x: 0,
+    y: 0,
+    isInsideBook: false,
+    lookX: 1,
+    lookY: 0,
+  });
+  const introHomeAnimalRef = React.useRef(null);
+  const introHomeAnimalIdRef = React.useRef(null);
   const [previewControls, setPreviewControls] = React.useState({});
   const animal = getAnimalDetails(animalId);
+  const animalAccentColor =
+    ANIMAL_ACCENT_COLORS[animalId] || "rgb(80 62 42)";
   const introAtlas = HOME_SPRITE_ATLASES[animalId];
   const coverTextureUrl = getBookCoverTexture(animalId);
   const coverTextureCssValue = getCssImageValue(coverTextureUrl);
@@ -1105,7 +1142,7 @@ function Detail({
     }
     const resolvedAtlas = getIntroAtlas(animalId, introAtlas);
     if (animalId === "grasshopper") {
-      const shouldFly = introPointerVector.y < 0;
+      const shouldFly = Math.hypot(introPointerVector.x, introPointerVector.y) > 0.35;
 
       if (shouldFly !== grasshopperIntroFlightRef.current.isFlying) {
         grasshopperIntroFlightRef.current = {
@@ -1132,6 +1169,8 @@ function Detail({
       resolvedSprite,
       introPointerVector,
       introState,
+      introHomeAnimalRef.current,
+      introAnimationTimeMs,
     );
     const sequence = getIntroSpriteFrameSequence(
       animalId,
@@ -1176,25 +1215,51 @@ function Detail({
     }
 
     const rect = node.getBoundingClientRect();
+    const bookRect = pageSurfaceRef.current?.getBoundingClientRect();
+    const isInsideBook =
+      bookRect &&
+      clientX >= bookRect.left &&
+      clientX <= bookRect.right &&
+      clientY >= bookRect.top &&
+      clientY <= bookRect.bottom;
+
+    const artworkHomeX = rect.left + rect.width * 0.74;
+    const artworkHomeY = rect.top + rect.height * 0.42;
     const nextVector = {
-      x: clientX - (rect.left + rect.width * 0.5),
-      y: clientY - (rect.top + rect.height * 0.5),
+      x: clientX - artworkHomeX,
+      y: clientY - artworkHomeY,
     };
 
-    if (Math.hypot(nextVector.x, nextVector.y) < 1) {
-      return;
+    if (isInsideBook) {
+      const targetInsetX = rect.width * INTRO_BOUNDARY_MARGIN_RATIO;
+      const targetInsetY = rect.height * INTRO_BOUNDARY_MARGIN_RATIO;
+      const targetX = clamp(
+        clientX,
+        rect.left + targetInsetX,
+        rect.right - targetInsetX,
+      );
+      const targetY = clamp(
+        clientY,
+        rect.top + targetInsetY,
+        rect.bottom - targetInsetY,
+      );
+
+      introPointerTargetRef.current = {
+        x: targetX - rect.left,
+        y: targetY - rect.top,
+        isInsideBook: true,
+        lookX: nextVector.x,
+        lookY: nextVector.y,
+      };
+    } else {
+      introPointerTargetRef.current = {
+        x: rect.width * 0.74,
+        y: rect.height * 0.42,
+        isInsideBook: false,
+        lookX: nextVector.x,
+        lookY: nextVector.y,
+      };
     }
-
-    setIntroPointerVector((current) => {
-      if (
-        Math.abs(current.x - nextVector.x) < 0.5 &&
-        Math.abs(current.y - nextVector.y) < 0.5
-      ) {
-        return current;
-      }
-
-      return nextVector;
-    });
   }, []);
 
   const clearTurnCanvas = React.useCallback(() => {
@@ -1243,6 +1308,19 @@ function Detail({
       isFlying: false,
       startedAtMs: 0,
     };
+    introPointerTargetRef.current = {
+      x: 0,
+      y: 0,
+      isInsideBook: false,
+      lookX: 1,
+      lookY: 0,
+    };
+    introHomeAnimalRef.current = null;
+    introHomeAnimalIdRef.current = null;
+    setIntroSpriteOffset({
+      x: 0,
+      y: 0,
+    });
   }, [activePageKey, animalId]);
 
   React.useEffect(() => {
@@ -1270,6 +1348,211 @@ function Detail({
 
     const updateAnimationTime = (timestampMs) => {
       setIntroAnimationTimeMs(timestampMs);
+      const node = introArtworkRef.current;
+      const behavior = behaviorMap[animalId];
+
+      if (node && behavior?.init && behavior?.update) {
+        const rect = node.getBoundingClientRect();
+        const spriteWidth = Math.max(36, rect.width * 0.12);
+        const spriteHeight = Math.max(24, rect.height * 0.12);
+        const homeX = rect.width * 0.74 - spriteWidth * 0.5;
+        const homeY = rect.height * 0.42 - spriteHeight * 0.5;
+
+        if (
+          !introHomeAnimalRef.current ||
+          introHomeAnimalIdRef.current !== animalId
+        ) {
+          const introAnimal = behavior.init(
+            { width: rect.width, height: rect.height },
+            spriteWidth,
+            spriteHeight,
+          );
+
+          introAnimal.isHome = true;
+          introAnimal.x = homeX;
+          introAnimal.y = homeY;
+          introAnimal.width = spriteWidth;
+          introAnimal.height = spriteHeight;
+          setIntroAnimalSpeed(introAnimal, animalId);
+          disableIntroDash(animalId, introAnimal);
+          introHomeAnimalRef.current = introAnimal;
+          introHomeAnimalIdRef.current = animalId;
+        }
+
+        const introAnimal = introHomeAnimalRef.current;
+        introAnimal.width = spriteWidth;
+        introAnimal.height = spriteHeight;
+        introAnimal.time = (introAnimal.time || 0) + 1;
+        introAnimal.baseSpeed = resolveIntroBaseSpeed(animalId);
+        disableIntroDash(animalId, introAnimal);
+
+        const target = introPointerTargetRef.current;
+        const animalCenterX = introAnimal.x + spriteWidth * 0.5;
+        const animalCenterY = introAnimal.y + spriteHeight * 0.5;
+        const targetCenterX = target.isInsideBook
+          ? target.x
+          : rect.width * 0.74;
+        const targetCenterY = target.isInsideBook
+          ? target.y
+          : rect.height * 0.42;
+        const dx = targetCenterX - animalCenterX;
+        const dy = targetCenterY - animalCenterY;
+        const distance = Math.hypot(dx, dy);
+
+        if (distance > 0.01) {
+          const baseSpeed = resolveIntroBaseSpeed(animalId);
+          const currentDirection = normalizeVector(
+            introAnimal.vx || 1,
+            introAnimal.vy || 0,
+          );
+          let desiredDirection = normalizeVector(dx, dy, currentDirection);
+
+          if (
+            target.isInsideBook &&
+            !shouldUseDirectIntroPointer(animalId)
+          ) {
+            const turnRadius =
+              Math.max(spriteWidth, spriteHeight) *
+              INTRO_POINTER_TURN_RADIUS_RATIO;
+            const proximity = clamp(1 - distance / turnRadius, 0, 1);
+
+            if (proximity > 0) {
+              const tangentDirection = normalizeVector(
+                -desiredDirection.y,
+                desiredDirection.x,
+                currentDirection,
+              );
+              const awayDirection = normalizeVector(
+                -desiredDirection.x,
+                -desiredDirection.y,
+                currentDirection,
+              );
+
+              desiredDirection = normalizeVector(
+                desiredDirection.x * (1 - proximity) +
+                  tangentDirection.x * (0.9 * proximity) +
+                  awayDirection.x * (0.38 * proximity),
+                desiredDirection.y * (1 - proximity) +
+                  tangentDirection.y * (0.9 * proximity) +
+                  awayDirection.y * (0.38 * proximity),
+                currentDirection,
+              );
+            }
+          }
+
+          const desiredSpeed =
+            baseSpeed * (target.isInsideBook ? INTRO_POINTER_MAX_SPEED_RATIO : 1.1);
+          const steerWeight = target.isInsideBook
+            ? INTRO_POINTER_STEER_WEIGHT
+            : INTRO_HOME_STEER_WEIGHT;
+          const desiredVx = desiredDirection.x * desiredSpeed;
+          const desiredVy = desiredDirection.y * desiredSpeed;
+
+          introAnimal.vx += (desiredVx - introAnimal.vx) * steerWeight;
+          introAnimal.vy += (desiredVy - introAnimal.vy) * steerWeight;
+        }
+
+        applyIntroBoundarySteer(
+          introAnimal,
+          animalId,
+          rect,
+          spriteWidth,
+          spriteHeight,
+        );
+        limitIntroAnimalSpeed(
+          introAnimal,
+          resolveIntroBaseSpeed(animalId) * (target.isInsideBook ? 1.45 : 1.2),
+        );
+
+        if (shouldUseDirectIntroPointer(animalId)) {
+          const currentHeading = Number.isFinite(introAnimal.heading)
+            ? introAnimal.heading
+            : Math.atan2(introAnimal.vy || 0, introAnimal.vx || 1);
+          const targetHeading = Math.atan2(dy, dx || 1);
+          const nextHeading = lerpAngle(currentHeading, targetHeading, 0.16);
+          const swimSpeed =
+            resolveIntroBaseSpeed(animalId) *
+            (target.isInsideBook ? INTRO_POINTER_MAX_SPEED_RATIO : 1.1);
+
+          introAnimal.heading = nextHeading;
+          introAnimal.targetHeading = targetHeading;
+          introAnimal.vx = Math.cos(nextHeading) * swimSpeed;
+          introAnimal.vy = Math.sin(nextHeading) * swimSpeed;
+          introAnimal.x += introAnimal.vx;
+          introAnimal.y += introAnimal.vy;
+        } else {
+          const updateRect =
+            animalId === "firefly"
+              ? {
+                  width: rect.width + spriteWidth * 2,
+                  height: rect.height + spriteHeight * 2,
+                }
+              : {
+                  width: rect.width,
+                  height: rect.height,
+                };
+
+          behavior.update(introAnimal, updateRect);
+        }
+
+        disableIntroDash(animalId, introAnimal);
+        limitIntroAnimalSpeed(
+          introAnimal,
+          resolveIntroBaseSpeed(animalId) * (target.isInsideBook ? 1.45 : 1.2),
+        );
+        containIntroAnimalInBook(
+          introAnimal,
+          rect,
+          spriteWidth,
+          spriteHeight,
+        );
+
+        const speed = Math.hypot(introAnimal.vx || 0, introAnimal.vy || 0);
+
+        if (!target.isInsideBook && distance < 2.5) {
+          introAnimal.vx *= 0.76;
+          introAnimal.vy *= 0.76;
+          if (Math.hypot(target.lookX || 0, target.lookY || 0) > 1) {
+            setIntroPointerVector({
+              x: target.lookX,
+              y: target.lookY,
+            });
+          }
+        } else if (speed > 0.01) {
+          setIntroPointerVector({
+            x: introAnimal.vx,
+            y: introAnimal.vy,
+          });
+        }
+
+        setIntroSpriteOffset({
+          x: introAnimal.x - homeX,
+          y: introAnimal.y - homeY,
+        });
+
+        animationFrameId = window.requestAnimationFrame(updateAnimationTime);
+        return;
+      }
+
+      setIntroSpriteOffset((current) => {
+        const target = introPointerTargetRef.current;
+        const fallbackTarget = target.isInsideBook
+          ? { x: target.x, y: target.y }
+          : { x: 0, y: 0 };
+        const next = {
+          x: current.x + (fallbackTarget.x - current.x) * 0.08,
+          y: current.y + (fallbackTarget.y - current.y) * 0.08,
+        };
+
+        if (
+          Math.abs(next.x - current.x) < 0.05 &&
+          Math.abs(next.y - current.y) < 0.05
+        ) {
+          return current;
+        }
+
+        return next;
+      });
       animationFrameId = window.requestAnimationFrame(updateAnimationTime);
     };
 
@@ -1278,7 +1561,7 @@ function Detail({
     return () => {
       window.cancelAnimationFrame(animationFrameId);
     };
-  }, [activePageKey, introAtlas, isOpen]);
+  }, [activePageKey, animalId, introAtlas, isOpen]);
 
   React.useEffect(() => {
     window.clearTimeout(bookOpenTimerRef.current);
@@ -1988,20 +2271,6 @@ function Detail({
     finishInteractiveTurn({ shouldComplete: false });
   };
 
-  const updatePreviewControl = (name, value) => {
-    if (!activePage?.key) {
-      return;
-    }
-
-    setPreviewControls((current) => ({
-      ...current,
-      [activePage.key]: {
-        ...current[activePage.key],
-        [name]: Number(value),
-      },
-    }));
-  };
-
   const getPageRenderData = (page) => {
     const pageIndex = bookSpreads.findIndex((item) => item.key === page?.key);
     const ruleIndex = Math.max(0, pageIndex - 2);
@@ -2010,26 +2279,15 @@ function Detail({
         ? null
         : page?.type === "intro"
           ? null
-          : 3 + ruleIndex * 2;
+          : 2 + ruleIndex * 2;
     const pageRightNumber =
       page?.type === "cover"
         ? null
         : page?.type === "intro"
           ? null
           : pageLeftNumber + 1;
-    const pagePreviewControls = previewControls[page?.key] || {
-      ruleStrength: 68,
-      responseRange: 54,
-    };
-    const pageBehaviorControlValues = Object.entries(pagePreviewControls)
-      .filter(([key]) => key.startsWith("behavior_"))
-      .map(([, value]) => Number(value))
-      .filter(Number.isFinite);
-    const pageBehaviorAverage =
-      pageBehaviorControlValues.length > 0
-        ? pageBehaviorControlValues.reduce((sum, value) => sum + value, 0) /
-          pageBehaviorControlValues.length
-        : 62;
+    const controlKey = `${animalId}:${page?.key}`;
+    const pagePreviewControls = resolveRuleControls(page?.ruleGroup, previewControls[controlKey]);
 
     return {
       pageIndex,
@@ -2037,11 +2295,7 @@ function Detail({
       leftNumber: pageLeftNumber,
       rightNumber: pageRightNumber,
       previewControls: pagePreviewControls,
-      resolvedControls: {
-        ...pagePreviewControls,
-        ruleStrength: pagePreviewControls.ruleStrength ?? pageBehaviorAverage,
-        responseRange: pagePreviewControls.responseRange ?? pageBehaviorAverage,
-      },
+      controlKey,
     };
   };
 
@@ -2050,26 +2304,15 @@ function Detail({
       leftNumber,
       rightNumber,
       previewControls: pagePreviewControls,
-      resolvedControls,
+      controlKey,
     } = getPageRenderData(page);
     const idSuffix = isCapture ? "-capture" : "";
     const handleParameterChange = (name, value) => {
-      if (!isCapture) {
-        updatePreviewControl(name, value);
-      }
-    };
-
-    const handleParameterWheel = (event, name, value) => {
-      event.stopPropagation();
-
-      const current = Number(value);
-      if (!Number.isFinite(current)) {
-        return;
-      }
-
-      const direction = event.deltaY > 0 ? -1 : 1;
-      const step = event.shiftKey ? 5 : 1;
-      handleParameterChange(name, clamp(current + direction * step, 0, 100));
+      if (isCapture) return;
+      setPreviewControls((current) => ({
+        ...current,
+        [controlKey]: { ...current[controlKey], [name]: value },
+      }));
     };
 
     if (page?.type === "cover") {
@@ -2120,40 +2363,63 @@ function Detail({
           ref={surfaceRef}
           style={bookSpreadStyle}
         >
+          {introSprite ? (
+            <div
+              ref={isCapture ? null : introArtworkRef}
+              className="detail-intro-artwork detail-intro-artwork--spread"
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                inset: 0,
+                zIndex: 1,
+                pointerEvents: "none",
+              }}
+            >
+              <span
+                className={[
+                  "detail-header-artwork__image",
+                  "detail-header-artwork__sprite",
+                  introAtlas.baseClassName,
+                  introSprite.stage,
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                style={{
+                  ...introSprite.style,
+                  position: "absolute",
+                  left: "74%",
+                  top: "42%",
+                  transform: `translate(-50%, -50%) translate(${introSpriteOffset.x}px, ${introSpriteOffset.y}px) rotate(${introSprite.rotationDeg || 0}deg) scaleX(${introSprite.scaleX}) scaleY(${introSprite.scaleY ?? 1})`,
+                  transformOrigin:
+                    animalId === "penguin" ? "50% 100%" : undefined,
+                }}
+              />
+            </div>
+          ) : null}
           <div className="detail-book-page detail-book-page--inside-cover" />
           <div className="detail-book-page detail-book-page--intro">
             <div className="detail-page-inner detail-page-inner--intro">
-              {introSprite ? (
-                <div
-                  ref={isCapture ? null : introArtworkRef}
-                  className="detail-intro-artwork"
-                  aria-hidden="true"
-                >
-                  <span
-                    className={[
-                      "detail-header-artwork__image",
-                      "detail-header-artwork__sprite",
-                      introAtlas.baseClassName,
-                      introSprite.stage,
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    style={{
-                      ...introSprite.style,
-                      transform: `rotate(${introSprite.rotationDeg}deg) scaleX(${introSprite.scaleX}) scaleY(${introSprite.scaleY ?? 1})`,
-                    }}
-                  />
-                </div>
-              ) : null}
+              <div className="detail-intro-artwork" aria-hidden="true" />
               <div className="detail-intro-copy">
                 <h1
                   id={`detail-intro-title${idSuffix}`}
                   className="theme-page-title"
+                  style={{ color: animalAccentColor }}
                 >
                   {animal.korean}
                 </h1>
-                <p className="detail-english">{animal.english}</p>
-                <p className="detail-scientific">{animal.scientific}</p>
+                <p
+                  className="detail-english"
+                  style={{ color: animalAccentColor }}
+                >
+                  {animal.english}
+                </p>
+                <p
+                  className="detail-scientific"
+                  style={{ color: animalAccentColor }}
+                >
+                  {animal.scientific}
+                </p>
               </div>
             </div>
           </div>
@@ -2184,7 +2450,7 @@ function Detail({
               <RulePreview
                 animalId={animalId}
                 ruleGroup={page.ruleGroup}
-                previewControls={resolvedControls}
+                previewControls={pagePreviewControls}
               />
             )}
             <span className="detail-page-number detail-page-number--left">
@@ -2197,75 +2463,27 @@ function Detail({
                 <h2
                   id={`detail-page-title-${page.key}${idSuffix}`}
                   className="rule-category"
+                  style={{ color: animalAccentColor }}
                 >
                   {page.ruleGroup.category}
                 </h2>
-                <p className="rule-title">{page.ruleGroup.title}</p>
+                <p
+                  className="rule-title"
+                  style={{ color: animalAccentColor }}
+                >
+                  {page.ruleGroup.title}
+                </p>
                 {page.ruleGroup.summary ? (
                   <p className="rule-summary">{page.ruleGroup.summary}</p>
                 ) : null}
               </div>
 
-              <section
-                className="detail-parameter-panel"
-                aria-label="규칙 조절"
-              >
-                <div className="behaviors-list">
-                  <div className="behaviors-group">
-                    {page.ruleGroup.behaviors.map((behavior, idx) => {
-                      const parameterName = `behavior_${idx}`;
-                      const parameterValue =
-                        pagePreviewControls[parameterName] ?? 50;
-                      const parameterMeta = getBehaviorParameterMeta(behavior);
-
-                      return (
-                        <article key={idx} className="behavior-item">
-                          <h3 className="behavior-name">{behavior.name}</h3>
-                          <div className="behavior-body">
-                            <p className="behavior-description">
-                              {behavior.description}
-                            </p>
-                            <label className="detail-parameter-row">
-                              <span className="detail-parameter-row__label">
-                                {parameterMeta.label}
-                              </span>
-                              <span className="detail-parameter-row__value">
-                                {formatBehaviorParameterValue(
-                                  parameterValue,
-                                  parameterMeta,
-                                )}
-                              </span>
-                              <input
-                                type="range"
-                                min="0"
-                                max="100"
-                                value={parameterValue}
-                                style={{
-                                  "--detail-range-progress": `${parameterValue}%`,
-                                }}
-                                aria-label={`${behavior.name} ${parameterMeta.label}`}
-                                onChange={(event) =>
-                                  handleParameterChange(
-                                    parameterName,
-                                    event.target.value,
-                                  )
-                                }
-                                onWheel={(event) =>
-                                  handleParameterWheel(
-                                    event,
-                                    parameterName,
-                                    parameterValue,
-                                  )
-                                }
-                              />
-                            </label>
-                          </div>
-                        </article>
-                      );
-                    })}
-                  </div>
-                </div>
-              </section>
+              <BookBehaviorPanel
+                ruleGroup={page.ruleGroup}
+                controls={pagePreviewControls}
+                accentColor={animalAccentColor}
+                onChange={handleParameterChange}
+              />
               <span className="detail-page-number detail-page-number--right">
                 {rightNumber}
               </span>
@@ -2322,6 +2540,8 @@ function Detail({
       style={{
         "--detail-cover-texture": coverTextureCssValue,
         "--detail-paper-texture": `url(${paperTextureUrl})`,
+        "--detail-animal-accent": animalAccentColor,
+        "--detail-printed-font": DETAIL_PRINTED_FONT,
       }}
       onClick={handleBackdropClick}
       onDragStart={(event) => event.preventDefault()}

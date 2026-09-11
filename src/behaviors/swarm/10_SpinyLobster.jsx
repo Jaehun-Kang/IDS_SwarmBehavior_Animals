@@ -1,4 +1,5 @@
 import React from "react";
+import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
   drawAtlasFrame,
@@ -18,6 +19,7 @@ const STATES = {
   FORAGING: "FORAGING",
   MIGRATING: "MIGRATING",
   SEEKING_SHELTER: "SEEKING_SHELTER",
+  VACATING: "VACATING",
   SHELTERING: "SHELTERING",
   DEFENDING: "DEFENDING",
   OFFSHORE_EXIT: "OFFSHORE_EXIT",
@@ -27,6 +29,28 @@ const PHASES = {
   ALGAL_PHASE: "ALGAL_PHASE",
   TRANSITIONAL: "TRANSITIONAL",
   POSTALGAL: "POSTALGAL",
+};
+
+const CIRCADIAN_PHASES = {
+  DAY: "day",
+  DUSK: "dusk",
+  NIGHT: "night",
+  DAWN: "dawn",
+};
+
+const CIRCADIAN_PHASE_HOURS = {
+  [CIRCADIAN_PHASES.DAY]: 12,
+  [CIRCADIAN_PHASES.DUSK]: 19,
+  [CIRCADIAN_PHASES.NIGHT]: 22,
+  [CIRCADIAN_PHASES.DAWN]: 5,
+};
+
+const DISEASE_STAGES = {
+  HEALTHY: "HEALTHY",
+  LATENT: "LATENT",
+  DETECTABLE: "DETECTABLE",
+  CONTAGIOUS: "CONTAGIOUS",
+  REMOVED: "REMOVED",
 };
 
 const DIRECT_FINDING_PARAMS = {
@@ -44,7 +68,7 @@ const DIRECT_FINDING_PARAMS = {
 };
 
 const INFERRED_PARAMS = {
-  SHELTER_SEARCH_WINDOW_HOURS: 4,
+  SHELTER_SEARCH_WINDOW_HOURS: 5,
   FORAGING_RADIUS_CM: 150,
   SHELTER_CAPACITY_MIN: 4,
   SHELTER_CAPACITY_MAX: 9,
@@ -66,6 +90,7 @@ const INFERRED_PARAMS = {
 const PARAMS = {
   DEFAULT_COUNT: 36,
   DEFAULT_START_HOUR: 20,
+  DEFAULT_CIRCADIAN_PHASE: CIRCADIAN_PHASES.NIGHT,
   DEFAULT_QUEUE_TARGET_DISTANCE_CM:
     DIRECT_FINDING_PARAMS.QUEUE_TARGET_DISTANCE_CM,
   DEFAULT_QUEUE_BRAKE_DISTANCE_CM:
@@ -82,7 +107,7 @@ const PARAMS = {
   DEFAULT_DISEASE_REPULSION_WEIGHT: INFERRED_PARAMS.DISEASE_REPULSION_WEIGHT,
   DEFAULT_DISEASE_PRESSURE: 7,
   DEFAULT_POSTALGAL_RATIO: 100,
-  DEFAULT_THREAT_ACTIVE: false,
+  DEFAULT_THREAT_ACTIVE: true,
   DEFAULT_QUEUE_COHESION: 72,
   DEFAULT_ODOR_TRAILS: true,
   MIN_COUNT: 12,
@@ -104,7 +129,18 @@ const PARAMS = {
   QUEUE_AHEAD_ALIGNMENT_MIN: 0.18,
   QUEUE_HEADING_ALIGNMENT_MIN: 0.12,
   QUEUE_TRAIL_WIDTH_CM: 5.5,
+  QUEUE_CONTACT_MAX_RATIO: 30 / 16,
+  QUEUE_REACQUIRE_RATIO: 34 / 16,
+  QUEUE_CHASE_SPEED_SCALE: 1.12,
+  QUEUE_FOLLOW_DELAY_S: 0.34,
+  QUEUE_HISTORY_DURATION_S: 1.6,
   QUEUE_REACQUIRE_DISTANCE_CM: 96,
+  NIGHT_DEPARTURE_LEADERS: 2,
+  NIGHT_DEPARTURE_LEADER_GAP_S: 0.7,
+  NIGHT_DEPARTURE_STAGGER_MIN_S: 0.9,
+  NIGHT_DEPARTURE_STAGGER_MAX_S: 1.8,
+  SHELTER_SEARCH_STAGGER_MIN_S: 0.6,
+  SHELTER_SEARCH_STAGGER_MAX_S: 1.4,
   MIGRATION_ROUTE_PULL_WEIGHT: 1.38,
   MIGRATION_LEADER_WANDER_WEIGHT: 0.16,
   MIGRATION_TARGET_MARGIN_PX: 92,
@@ -129,11 +165,43 @@ const PARAMS = {
   INITIAL_MIGRATION_START_RATIO: 1,
   HEALTHY_CHEM_STRENGTH: 1.1,
   DISEASE_CHEM_STRENGTH: 2.8,
+  DISEASE_DETECTABLE_START_S: 16,
+  DISEASE_CONTAGIOUS_START_S: 28,
+  DISEASE_MORTALITY_MIN_S: 25,
+  DISEASE_MORTALITY_MAX_S: 55,
+  DISEASE_PREDATION_CULL_RATE_S: 0.035,
+  DISEASE_RESIDUAL_DECAY_S: 13,
+  DISEASE_RESIDUAL_MIN_STRENGTH: 0.035,
+  HOMING_MEMORY_WEIGHT: 0.65,
+  HOMING_OLFACTORY_WEIGHT: 0.35,
+  HOMING_WANDER_WEIGHT: 0.12,
+  MEMORY_FIDELITY_DEFAULT: 0.95,
+  MEMORY_FIDELITY_MIN: 0.72,
+  HEALTHY_CHEM_DECAY_S: 8,
+  DISEASE_CHEM_DECAY_S: 13,
+  CHEMICAL_TRAIL_EMIT_INTERVAL_S: 0.22,
+  CHEMICAL_FIELD_CELL_SIZE_PX: 5.5,
+  CHEMICAL_FIELD_SATURATION: 3,
+  HEALTHY_CHEM_DIFFUSION_ALPHA_S: 0.42,
+  DISEASE_CHEM_DIFFUSION_ALPHA_S: 0.5,
+  CHEMICAL_FIELD_FLOW_ALPHA_S: 0.72,
+  CHEMICAL_FIELD_NOISE_CUTOFF: 0.006,
+  CHEMICAL_TRAIL_DAY_ALPHA_MULTIPLIER: 1.75,
+  SHELTER_CHEM_PULSE_MIN_S: 1.5,
+  SHELTER_CHEM_PULSE_MAX_S: 3,
+  INFECTED_POSTLARVAL_INFLOW_INTERVAL_S: 24,
   WANDER_TURN_RATE_RAD_S: 0.95,
   WANDER_JITTER_RATE_RAD_S: 0.7,
   WANDER_PULL_WEIGHT: 0.58,
+  WANDER_NOISE_RATE_S: 0.38,
+  WANDER_NOISE_AMPLITUDE: 0.72,
   BOUNDARY_MARGIN_PX: 34,
-  BOUNDARY_STEER_WEIGHT: 1.8,
+  BOUNDARY_SOFT_MARGIN_PX: 104,
+  BOUNDARY_SOFT_STEER_WEIGHT: 2.2,
+  BOUNDARY_SOFT_TURN_RATE_RAD_S: 1.15,
+  BOUNDARY_CONTAIN_MARGIN_PX: 16,
+  BOUNDARY_OUTWARD_DAMPING: 0.55,
+  SPATIAL_GRID_CELL_SIZE_PX: 64,
   QUEUE_DOCKING_ENTRY_MARGIN_PX: 24,
   QUEUE_DOCKING_SPAWN_STEP_PX: 24,
   OFFSHORE_EXIT_REMOVE_MARGIN_PX: 128,
@@ -144,6 +212,8 @@ const PARAMS = {
   THREAT_ROSETTE_RADIUS_CM: 42,
   THREAT_CENTER_PULL: 1.35,
   THREAT_TANGENTIAL_WEIGHT: 0.18,
+  THREAT_SHELTER_INSIDE_RATIO: 0.92,
+  THREAT_SHELTER_NEAR_MARGIN_PX: 74,
   LOCAL_THREAT_RADIUS_PX: 150,
   LOCAL_THREAT_RELEASE_RADIUS_PX: 220,
   LOCAL_THREAT_REJOIN_DELAY_S: 1.15,
@@ -151,6 +221,8 @@ const PARAMS = {
   TAIL_FLIP_DISTANCE_RATIO: 0.44,
   TAIL_FLIP_IMPULSE_CM_S: 42,
   TAIL_FLIP_COOLDOWN_S: 0.72,
+  HEADING_TURN_RATE_RAD_S: 2.2,
+  THREAT_HEADING_TURN_RATE_RAD_S: 1.35,
   ANTENNA_LENGTH_CM: 14,
   ALGAE_COVER_RADIUS_CM: 80,
   DEBUG_OVERLAY_ALPHA: 0.16,
@@ -162,8 +234,8 @@ const CONTROL_FIELDS = [
   {
     key: "THREAT_ACTIVE",
     label: "마우스 상호작용",
-    type: "toggle",
-    formatValue: (value) => (value ? "포식자" : "없음"),
+    type: "static",
+    formatValue: () => "포식자",
   },
   {
     key: "COUNT",
@@ -172,14 +244,6 @@ const CONTROL_FIELDS = [
     max: PARAMS.MAX_COUNT,
     step: 1,
     formatValue: (value) => `${Math.round(value)} 마리`,
-  },
-  {
-    key: "START_HOUR",
-    label: "시간대",
-    min: 0,
-    max: 23,
-    step: 1,
-    formatValue: (value) => `${Math.round(value)}시`,
   },
   {
     key: "QUEUE_COHESION",
@@ -195,11 +259,33 @@ const CONTROL_FIELDS = [
     type: "toggle",
     formatValue: (value) => (value ? "표시" : "숨김"),
   },
+  {
+    key: "CIRCADIAN_PHASE",
+    label: "시간대",
+    type: "cycle-toggle",
+    values: [
+      CIRCADIAN_PHASES.DAWN,
+      CIRCADIAN_PHASES.DAY,
+      CIRCADIAN_PHASES.DUSK,
+      CIRCADIAN_PHASES.NIGHT,
+    ],
+    visualCount: 4,
+    cycleMode: "loop",
+    formatValue: (value) =>
+      value === CIRCADIAN_PHASES.DUSK
+        ? "해질녘"
+        : value === CIRCADIAN_PHASES.NIGHT
+          ? "밤"
+          : value === CIRCADIAN_PHASES.DAWN
+            ? "새벽"
+            : "낮",
+  },
 ];
 
 const DEFAULT_CONTROL_STATE = {
   COUNT: PARAMS.DEFAULT_COUNT,
   START_HOUR: PARAMS.DEFAULT_START_HOUR,
+  CIRCADIAN_PHASE: PARAMS.DEFAULT_CIRCADIAN_PHASE,
   DISEASE_PRESSURE: PARAMS.DEFAULT_DISEASE_PRESSURE,
   POSTALGAL_RATIO: PARAMS.DEFAULT_POSTALGAL_RATIO,
   THREAT_ACTIVE: PARAMS.DEFAULT_THREAT_ACTIVE,
@@ -223,6 +309,8 @@ const smoothstep = (edge0, edge1, value) => {
 };
 const randomBetween = (min, max) => min + Math.random() * (max - min);
 const magnitude = (x, y) => Math.hypot(x, y);
+const normalizeCircadianPhase = (value, fallback = PARAMS.DEFAULT_CIRCADIAN_PHASE) =>
+  Object.values(CIRCADIAN_PHASES).includes(value) ? value : fallback;
 
 const normalize2D = (x, y, fallback = { x: 1, y: 0 }) => {
   const length = magnitude(x, y);
@@ -231,6 +319,72 @@ const normalize2D = (x, y, fallback = { x: 1, y: 0 }) => {
   }
   return { x: x / length, y: y / length };
 };
+
+class SpatialHashGrid {
+  constructor(width, height, cellSize = PARAMS.SPATIAL_GRID_CELL_SIZE_PX) {
+    this.cellSize = cellSize;
+    this.cols = Math.ceil(width / cellSize);
+    this.rows = Math.ceil(height / cellSize);
+    this.grid = Array.from({ length: this.cols * this.rows }, () => []);
+  }
+
+  clear() {
+    this.grid.forEach((cell) => {
+      cell.length = 0;
+    });
+  }
+
+  insert(agent) {
+    const column = Math.floor(agent.x / this.cellSize);
+    const row = Math.floor(agent.y / this.cellSize);
+    if (
+      column < 0 ||
+      column >= this.cols ||
+      row < 0 ||
+      row >= this.rows
+    ) {
+      return;
+    }
+    this.grid[row * this.cols + column].push(agent);
+  }
+
+  getNeighbors(agent, radiusPx) {
+    const neighbors = [];
+    const minColumn = clamp(
+      Math.floor((agent.x - radiusPx) / this.cellSize),
+      0,
+      this.cols - 1,
+    );
+    const maxColumn = clamp(
+      Math.floor((agent.x + radiusPx) / this.cellSize),
+      0,
+      this.cols - 1,
+    );
+    const minRow = clamp(
+      Math.floor((agent.y - radiusPx) / this.cellSize),
+      0,
+      this.rows - 1,
+    );
+    const maxRow = clamp(
+      Math.floor((agent.y + radiusPx) / this.cellSize),
+      0,
+      this.rows - 1,
+    );
+
+    for (let row = minRow; row <= maxRow; row += 1) {
+      for (let column = minColumn; column <= maxColumn; column += 1) {
+        const cell = this.grid[row * this.cols + column];
+        cell.forEach((entry) => {
+          if (entry.id !== agent.id) {
+            neighbors.push(entry);
+          }
+        });
+      }
+    }
+
+    return neighbors;
+  }
+}
 
 const limitVector = (x, y, maxLength) => {
   const length = magnitude(x, y);
@@ -251,6 +405,12 @@ const wrapAngle = (angle) => {
   }
   return nextAngle;
 };
+
+const turnTowardAngle = (currentAngle, targetAngle, maxDelta) =>
+  wrapAngle(
+    currentAngle +
+      clamp(wrapAngle(targetAngle - currentAngle), -maxDelta, maxDelta),
+  );
 
 const angleToVector = (angle) => ({ x: Math.cos(angle), y: Math.sin(angle) });
 
@@ -291,13 +451,8 @@ const ensureMigrationTarget = (agent, width, height) => {
   let target =
     waypoints[agent.migrationWaypointIndex % waypoints.length] || waypoints[1];
   const distance = magnitude(target.x - agent.x, target.y - agent.y);
-  const nearEdge =
-    agent.x < PARAMS.MIGRATION_TARGET_MARGIN_PX ||
-    agent.x > width - PARAMS.MIGRATION_TARGET_MARGIN_PX ||
-    agent.y < PARAMS.MIGRATION_TARGET_MARGIN_PX ||
-    agent.y > height - PARAMS.MIGRATION_TARGET_MARGIN_PX;
 
-  if (distance < PARAMS.MIGRATION_WAYPOINT_REACHED_PX || nearEdge) {
+  if (distance < PARAMS.MIGRATION_WAYPOINT_REACHED_PX) {
     agent.migrationWaypointIndex =
       (agent.migrationWaypointIndex + 1) % waypoints.length;
     if (agent.migrationWaypointIndex === 0) {
@@ -354,11 +509,8 @@ const resolveBehaviorConfig = (controls = DEFAULT_CONTROL_STATE) => {
     getControlField("COUNT")?.min,
     getControlField("COUNT")?.max,
   );
-  const startHour = clamp(
-    Number(controls.START_HOUR),
-    getControlField("START_HOUR")?.min,
-    getControlField("START_HOUR")?.max,
-  );
+  const circadianPhase = normalizeCircadianPhase(controls.CIRCADIAN_PHASE);
+  const startHour = CIRCADIAN_PHASE_HOURS[circadianPhase];
   const diseasePressure =
     clamp(Number(controls.DISEASE_PRESSURE), 0, 100) / 100;
   const postalgalRatio = clamp(Number(controls.POSTALGAL_RATIO), 0, 100) / 100;
@@ -378,6 +530,7 @@ const resolveBehaviorConfig = (controls = DEFAULT_CONTROL_STATE) => {
   return {
     count,
     startHour,
+    circadianPhase,
     migrationUrge,
     queueTargetDistanceCm: PARAMS.QUEUE_TARGET_DISTANCE_CM * distanceScale,
     queueBrakeDistanceCm: PARAMS.QUEUE_BRAKE_DISTANCE_CM * distanceScale,
@@ -429,6 +582,90 @@ const isNightHour = (hour, behavior) =>
 const isShelterSearchHour = (hour, behavior) =>
   hour >= behavior.shelterSearchStartHour && hour < behavior.sunriseHour;
 
+const resolveLightTransition = (hour) => {
+  const normalizedHour = ((Number(hour) % 24) + 24) % 24;
+  if (!Number.isFinite(normalizedHour)) {
+    return 0;
+  }
+  if (normalizedHour >= 18) {
+    return smoothstep(18, 20, normalizedHour);
+  }
+  if (normalizedHour <= 7) {
+    return 1 - smoothstep(5, 7, normalizedHour);
+  }
+  return 0;
+};
+
+const resolveDiseaseStage = (agent) => {
+  if (!agent?.isDiseased) {
+    return DISEASE_STAGES.HEALTHY;
+  }
+  if (agent.isDiseaseRemoved) {
+    return DISEASE_STAGES.REMOVED;
+  }
+  if (agent.infectionAgeS >= PARAMS.DISEASE_CONTAGIOUS_START_S) {
+    return DISEASE_STAGES.CONTAGIOUS;
+  }
+  if (agent.infectionAgeS >= PARAMS.DISEASE_DETECTABLE_START_S) {
+    return DISEASE_STAGES.DETECTABLE;
+  }
+  return DISEASE_STAGES.LATENT;
+};
+
+const doesAgentEmitDiseaseCue = (agent) =>
+  [DISEASE_STAGES.DETECTABLE, DISEASE_STAGES.CONTAGIOUS].includes(
+    resolveDiseaseStage(agent),
+  );
+
+const isAgentContagious = (agent) =>
+  resolveDiseaseStage(agent) === DISEASE_STAGES.CONTAGIOUS;
+
+const seedLatentInfection = (agent) => {
+  agent.isDiseased = true;
+  agent.infectionAgeS = 0;
+  agent.diseaseStage = DISEASE_STAGES.LATENT;
+  agent.diseaseMortalityTimerS = randomBetween(
+    PARAMS.DISEASE_MORTALITY_MIN_S,
+    PARAMS.DISEASE_MORTALITY_MAX_S,
+  );
+  agent.isDiseaseRemoved = false;
+  agent.diseaseResidualAdded = false;
+  agent.isDiseaseInflow = false;
+};
+
+const maybeSeedLatentInfectionAmongExistingAgents = (
+  agents,
+  behavior,
+) => {
+  if (
+    behavior.diseasePressure <= 0 ||
+    agents.some((agent) => agent.isDiseased && !agent.isDiseaseRemoved)
+  ) {
+    return false;
+  }
+
+  const candidates = agents.filter(
+    (agent) =>
+      !agent.isRetiring &&
+      !agent.isDiseaseRemoved &&
+      !agent.isDiseased &&
+      resolveOntogeneticPhase(
+        agent.bodySize,
+        behavior.socialSizeMm,
+        behavior.postalgalAttractionSizeMm,
+      ) !== PHASES.ALGAL_PHASE,
+  );
+
+  if (candidates.length === 0) {
+    return false;
+  }
+
+  seedLatentInfection(
+    candidates[Math.floor(Math.random() * candidates.length)],
+  );
+  return true;
+};
+
 const createAgent = (
   index,
   width,
@@ -454,7 +691,10 @@ const createAgent = (
       : homeShelter;
   const isDiseased =
     phase !== PHASES.ALGAL_PHASE &&
-    Math.random() < behavior.diseasePressure * 0.45;
+    Math.random() < behavior.diseasePressure;
+  const infectionAgeS = isDiseased
+    ? randomBetween(0, PARAMS.DISEASE_CONTAGIOUS_START_S + 8)
+    : 0;
   const spawnAnchor = phase === PHASES.ALGAL_PHASE ? algaeCover : homeShelter;
   let heading = randomBetween(-Math.PI, Math.PI);
   let dir = angleToVector(heading);
@@ -536,6 +776,10 @@ const createAgent = (
     bodySize,
     ontogeneticPhase: phase,
     isDiseased,
+    infectionAgeS,
+    diseaseStage: isDiseased
+      ? resolveDiseaseStage({ isDiseased, infectionAgeS })
+      : DISEASE_STAGES.HEALTHY,
     inQueue: false,
     queueLeaderId: null,
     queueFollowerId: null,
@@ -548,6 +792,12 @@ const createAgent = (
     antennaeAngleDeg: PARAMS.ANTENNAE_ANGLE_MAX_DEG,
     wanderAngle: heading,
     shelterId: phase === PHASES.ALGAL_PHASE ? null : homeShelter.id,
+    homeShelterId: phase === PHASES.ALGAL_PHASE ? null : homeShelter.id,
+    homeShelterPos:
+      phase === PHASES.ALGAL_PHASE
+        ? null
+        : { x: homeShelter.x, y: homeShelter.y },
+    memoryFidelity: PARAMS.MEMORY_FIDELITY_DEFAULT,
     currentShelterId:
       startState === STATES.SHELTERING && phase !== PHASES.ALGAL_PHASE
         ? homeShelter.id
@@ -565,6 +815,8 @@ const createAgent = (
       behavior.foragingRadiusCm * 1.15,
     ),
     stageOffset: randomBetween(0, 1000),
+    wanderNoisePhase: randomBetween(0, Math.PI * 2),
+    wanderNoiseRate: randomBetween(0.72, 1.28),
     previousScreenPosition: null,
     spriteProfile: "simulation",
     spriteSpace: "2d",
@@ -576,6 +828,31 @@ const createAgent = (
     shelterSlotIndex: index,
     shelterSlotShelterId: null,
     isDiseaseAvoiding: false,
+    isVacatingShelter: false,
+    diseaseMortalityTimerS: isDiseased
+      ? randomBetween(
+          PARAMS.DISEASE_MORTALITY_MIN_S,
+          PARAMS.DISEASE_MORTALITY_MAX_S,
+        )
+      : Infinity,
+    isDiseaseRemoved: false,
+    diseaseResidualAdded: false,
+    chemicalTrailEmitS: randomBetween(0, PARAMS.CHEMICAL_TRAIL_EMIT_INTERVAL_S),
+    shelterChemicalPulseS: randomBetween(
+      0,
+      PARAMS.SHELTER_CHEM_PULSE_MAX_S,
+    ),
+    shelterChemicalPulseIntervalS: randomBetween(
+      PARAMS.SHELTER_CHEM_PULSE_MIN_S,
+      PARAMS.SHELTER_CHEM_PULSE_MAX_S,
+    ),
+    nightDepartureDelayS: null,
+    nightDepartureElapsedS: 0,
+    nightMigrationActive: startState === STATES.MIGRATING,
+    shelterSearchDelayS: null,
+    shelterSearchElapsedS: 0,
+    shelterSearchActive: startState === STATES.SEEKING_SHELTER,
+    positionHistory: [],
   };
 };
 
@@ -583,22 +860,147 @@ const createAgents = (count, width, height, behavior, shelters, algaeCovers) =>
   Array.from({ length: count }, (_, index) =>
     createAgent(index, width, height, behavior, shelters, algaeCovers, {
       queueOrder: index,
-      forceMigrating: true,
     }),
   );
 
-const resolveOffshoreExitTarget = (agent, width, height) => {
-  const reef = getMainReefAnchor(width, height);
-  const fallbackAngle =
-    -Math.PI * 0.24 + ((Number(agent.id) || 0) % 7) * 0.18;
-  const away = normalize2D(agent.x - reef.x, agent.y - reef.y, {
-    x: Math.cos(fallbackAngle),
-    y: Math.sin(fallbackAngle),
+const stageNightMigrationQueue = (agents, width, height, behavior) => {
+  const route = getInitialMigrationRoute(width, height);
+  const migrants = agents
+    .filter(
+      (agent) =>
+        !agent.isRetiring &&
+        resolveOntogeneticPhase(
+          agent.bodySize,
+          behavior.socialSizeMm,
+          behavior.postalgalAttractionSizeMm,
+        ) !== PHASES.ALGAL_PHASE,
+    )
+    .sort((a, b) => {
+      const aProgress =
+        (a.x - route.start.x) * route.direction.x +
+        (a.y - route.start.y) * route.direction.y;
+      const bProgress =
+        (b.x - route.start.x) * route.direction.x +
+        (b.y - route.start.y) * route.direction.y;
+      return bProgress - aProgress || a.id - b.id;
+    });
+
+  migrants.forEach((agent, index) => {
+    const spacing =
+      behavior.queueTargetDistanceCm || PARAMS.MIGRATION_INITIAL_SPACING_CM;
+    const isEarlyLeader = index < PARAMS.NIGHT_DEPARTURE_LEADERS;
+    agent.nightDepartureDelayS = isEarlyLeader
+      ? index * PARAMS.NIGHT_DEPARTURE_LEADER_GAP_S
+      : PARAMS.NIGHT_DEPARTURE_LEADER_GAP_S *
+          PARAMS.NIGHT_DEPARTURE_LEADERS +
+        (index - PARAMS.NIGHT_DEPARTURE_LEADERS + 1) *
+          randomBetween(
+            PARAMS.NIGHT_DEPARTURE_STAGGER_MIN_S,
+            PARAMS.NIGHT_DEPARTURE_STAGGER_MAX_S,
+          );
+    agent.nightDepartureElapsedS = 0;
+    agent.nightMigrationActive = false;
+    agent.isJoiningQueue = false;
+    agent.inQueue = index > 0;
+    agent.queueLeaderId = null;
+    agent.queueFollowerId = null;
+    agent.queueGapDistance = index > 0 ? spacing : Infinity;
+    agent.queueLength = migrants.length;
+    agent.queueOrder = index;
+    agent.migrationTargetSide = "end";
+    agent.migrationWaypointIndex = 1;
+    agent.targetSpeed = behavior.baseSpeedCmS;
+    agent.threatRecoverS = 0;
+    agent.localThreat = null;
+    agent.renderAlpha = 1;
+    agent.previousScreenPosition = null;
   });
-  const distance = Math.max(width, height) * 0.72;
+};
+
+const updateNightMigrationDepartures = (agents, dt, globalTimeHour, behavior) => {
+  if (!isNightHour(globalTimeHour, behavior)) {
+    agents.forEach((agent) => {
+      agent.nightDepartureDelayS = null;
+      agent.nightDepartureElapsedS = 0;
+      agent.nightMigrationActive = false;
+    });
+    return;
+  }
+
+  agents.forEach((agent) => {
+    if (
+      agent.isRetiring ||
+      agent.isDiseaseAvoiding ||
+      doesAgentEmitDiseaseCue(agent) ||
+      agent.ontogeneticPhase === PHASES.ALGAL_PHASE ||
+      behavior.migrationUrge <= 0.5
+    ) {
+      agent.nightMigrationActive = false;
+      return;
+    }
+
+    if (!Number.isFinite(agent.nightDepartureDelayS)) {
+      agent.nightDepartureDelayS =
+        (Number(agent.queueOrder) || 0) *
+        randomBetween(
+          PARAMS.NIGHT_DEPARTURE_STAGGER_MIN_S,
+          PARAMS.NIGHT_DEPARTURE_STAGGER_MAX_S,
+        );
+      agent.nightDepartureElapsedS = 0;
+    }
+
+    agent.nightDepartureElapsedS = (agent.nightDepartureElapsedS || 0) + dt;
+    if (agent.nightDepartureElapsedS >= agent.nightDepartureDelayS) {
+      agent.nightMigrationActive = true;
+      agent.currentShelterId = null;
+    }
+  });
+};
+
+const updateShelterSearchDepartures = (agents, dt, globalTimeHour, behavior) => {
+  if (!isShelterSearchHour(globalTimeHour, behavior)) {
+    agents.forEach((agent) => {
+      agent.shelterSearchDelayS = null;
+      agent.shelterSearchElapsedS = 0;
+      agent.shelterSearchActive = false;
+    });
+    return;
+  }
+
+  agents.forEach((agent) => {
+    if (
+      agent.isRetiring ||
+      agent.isDiseaseAvoiding ||
+      agent.currentShelterId ||
+      agent.ontogeneticPhase === PHASES.ALGAL_PHASE
+    ) {
+      return;
+    }
+
+    if (!Number.isFinite(agent.shelterSearchDelayS)) {
+      agent.shelterSearchDelayS =
+        (Number(agent.queueOrder) || 0) *
+        randomBetween(
+          PARAMS.SHELTER_SEARCH_STAGGER_MIN_S,
+          PARAMS.SHELTER_SEARCH_STAGGER_MAX_S,
+        );
+      agent.shelterSearchElapsedS = 0;
+    }
+
+    agent.shelterSearchElapsedS = (agent.shelterSearchElapsedS || 0) + dt;
+    if (agent.shelterSearchElapsedS >= agent.shelterSearchDelayS) {
+      agent.shelterSearchActive = true;
+      agent.nightMigrationActive = false;
+    }
+  });
+};
+
+const resolveOffshoreExitTarget = (agent, width, height) => {
+  const angle = randomBetween(-Math.PI, Math.PI);
+  const distance = Math.max(width, height) * 1.35;
   return {
-    x: reef.x + away.x * distance,
-    y: reef.y + away.y * distance,
+    x: agent.x + Math.cos(angle) * distance,
+    y: agent.y + Math.sin(angle) * distance,
   };
 };
 
@@ -619,28 +1021,41 @@ const isAgentInsideCanvas = (agent, width, height, margin = 0) =>
   agent.y >= margin &&
   agent.y <= height - margin;
 
-const isPointOutsideCanvas = (point, width, height, margin = 0) =>
-  point.x < -margin ||
-  point.x > width + margin ||
-  point.y < -margin ||
-  point.y > height + margin;
+const getRandomEdgeEntry = (
+  width,
+  height,
+  margin = PARAMS.QUEUE_DOCKING_ENTRY_MARGIN_PX,
+) => {
+  const safeX = () => randomBetween(margin, Math.max(margin, width - margin));
+  const safeY = () => randomBetween(margin, Math.max(margin, height - margin));
+  const jitter = () => randomBetween(-0.28, 0.28);
 
-const resolveRouteOffscreenDistance = (route, width, height, margin) => {
-  const maxDistance = Math.max(width, height) * 2.2;
-  for (
-    let distance = 0;
-    distance <= maxDistance;
-    distance += PARAMS.QUEUE_DOCKING_SPAWN_STEP_PX
-  ) {
-    const point = {
-      x: route.start.x - route.direction.x * distance,
-      y: route.start.y - route.direction.y * distance,
-    };
-    if (isPointOutsideCanvas(point, width, height, margin)) {
-      return distance;
-    }
+  switch (Math.floor(Math.random() * 4)) {
+    case 0:
+      return {
+        x: -margin,
+        y: safeY(),
+        direction: normalize2D(1, jitter()),
+      };
+    case 1:
+      return {
+        x: width + margin,
+        y: safeY(),
+        direction: normalize2D(-1, jitter()),
+      };
+    case 2:
+      return {
+        x: safeX(),
+        y: -margin,
+        direction: normalize2D(jitter(), 1),
+      };
+    default:
+      return {
+        x: safeX(),
+        y: height + margin,
+        direction: normalize2D(jitter(), -1),
+      };
   }
-  return maxDistance;
 };
 
 const updateEdgeFade = (agent, width, height) => {
@@ -651,7 +1066,7 @@ const updateEdgeFade = (agent, width, height) => {
     height - agent.y,
   );
   agent.renderAlpha = smoothstep(
-    -PARAMS.OFFSHORE_EXIT_REMOVE_MARGIN_PX,
+    0,
     PARAMS.OFFSHORE_EXIT_FADE_MARGIN_PX,
     edgeDistance,
   );
@@ -673,7 +1088,12 @@ const markAgentForOffshoreExit = (agent, width, height) => {
 };
 
 const markAgentForQueueReentry = (agent, width, height, behavior, queueOrder) => {
-  const route = getInitialMigrationRoute(width, height);
+  const entryMargin = Math.max(
+    PARAMS.QUEUE_DOCKING_ENTRY_MARGIN_PX,
+    resolveAgentRadius(agent.bodySize) * 2.4,
+  );
+  const entry = getRandomEdgeEntry(width, height, entryMargin);
+  const entrySpeed = behavior.maxQueueSpeedCmS * 0.72;
   agent.isRetiring = false;
   agent.isJoiningQueue = true;
   agent.inQueue = false;
@@ -685,9 +1105,13 @@ const markAgentForQueueReentry = (agent, width, height, behavior, queueOrder) =>
   agent.offshoreExitTargetX = null;
   agent.offshoreExitTargetY = null;
   agent.state = STATES.MIGRATING;
-  agent.heading = Math.atan2(route.direction.y, route.direction.x);
-  agent.vx = route.direction.x * behavior.baseSpeedCmS;
-  agent.vy = route.direction.y * behavior.baseSpeedCmS;
+  agent.x = entry.x;
+  agent.y = entry.y;
+  agent.heading = Math.atan2(entry.direction.y, entry.direction.x);
+  agent.vx = entry.direction.x * entrySpeed;
+  agent.vy = entry.direction.y * entrySpeed;
+  agent.targetSpeed = entrySpeed;
+  agent.wanderAngle = agent.heading;
   updateEdgeFade(agent, width, height);
 };
 
@@ -701,8 +1125,8 @@ const selectAgentsForOffshoreExit = (activeAgents, width, height, retireCount) =
   const reef = getMainReefAnchor(width, height);
   return [...activeAgents]
     .sort((a, b) => {
-      const aQueueRank = isQueueExitCandidate(a) ? 0 : a.currentShelterId ? 2 : 1;
-      const bQueueRank = isQueueExitCandidate(b) ? 0 : b.currentShelterId ? 2 : 1;
+      const aQueueRank = a.currentShelterId ? 0 : isQueueExitCandidate(a) ? 2 : 1;
+      const bQueueRank = b.currentShelterId ? 0 : isQueueExitCandidate(b) ? 2 : 1;
       if (aQueueRank !== bQueueRank) return aQueueRank - bQueueRank;
 
       const aOrder = Number.isFinite(a.queueOrder) ? a.queueOrder : -1;
@@ -738,41 +1162,30 @@ const createQueueDockingAgent = (
 ) => {
   const agent = createAgent(id, width, height, behavior, shelters, algaeCovers, {
     queueOrder,
-    forceMigrating: true,
   });
-  const route = getInitialMigrationRoute(width, height);
-  const lateral = { x: -route.direction.y, y: route.direction.x };
-  const spacing =
-    behavior.queueTargetDistanceCm || PARAMS.MIGRATION_INITIAL_SPACING_CM;
-  const outsideDistance = resolveRouteOffscreenDistance(
-    route,
+  const entryMargin = Math.max(
+    PARAMS.QUEUE_DOCKING_ENTRY_MARGIN_PX + groupIndex * 3,
+    resolveAgentRadius(agent.bodySize) * 2.4,
+  );
+  const entry = getRandomEdgeEntry(
     width,
     height,
-    PARAMS.QUEUE_DOCKING_ENTRY_MARGIN_PX,
+    entryMargin,
   );
-  const spawnDistance =
-    outsideDistance +
-    PARAMS.QUEUE_DOCKING_ENTRY_MARGIN_PX * 0.6 +
-    groupIndex * spacing * 0.78;
-  const lateralOffset =
-    Math.sin((id + groupIndex) * 1.731) * PARAMS.QUEUE_TRAIL_WIDTH_CM * 0.16;
+  const entrySpeed = behavior.maxQueueSpeedCmS * 0.72;
 
-  agent.x =
-    route.start.x -
-    route.direction.x * spawnDistance +
-    lateral.x * lateralOffset;
-  agent.y =
-    route.start.y -
-    route.direction.y * spawnDistance +
-    lateral.y * lateralOffset;
-  agent.heading = Math.atan2(route.direction.y, route.direction.x);
-  agent.vx = route.direction.x * behavior.baseSpeedCmS;
-  agent.vy = route.direction.y * behavior.baseSpeedCmS;
+  agent.x = entry.x;
+  agent.y = entry.y;
+  agent.heading = Math.atan2(entry.direction.y, entry.direction.x);
+  agent.vx = entry.direction.x * entrySpeed;
+  agent.vy = entry.direction.y * entrySpeed;
+  agent.targetSpeed = entrySpeed;
+  agent.wanderAngle = agent.heading;
   agent.state = STATES.MIGRATING;
   agent.isJoiningQueue = true;
   agent.isRetiring = false;
   agent.currentShelterId = null;
-  agent.renderAlpha = 0;
+  agent.renderAlpha = 1;
   return agent;
 };
 
@@ -789,16 +1202,25 @@ const reconcileAgents = (
   let managedAgents = agents.filter(
     (agent) => !isAgentOffscreen(agent, width, height),
   );
+  let countedActiveAgents = activeAgents.filter(
+    (agent) => !agent.isDiseaseInflow,
+  );
+  let countedManagedAgents = managedAgents.filter(
+    (agent) => !agent.isDiseaseInflow,
+  );
 
-  if (activeAgents.length > count) {
-    const retireCount = activeAgents.length - count;
-    selectAgentsForOffshoreExit(activeAgents, width, height, retireCount).forEach(
-      (agent) => markAgentForOffshoreExit(agent, width, height),
-    );
+  if (countedActiveAgents.length > count) {
+    const retireCount = countedActiveAgents.length - count;
+    selectAgentsForOffshoreExit(
+      countedActiveAgents,
+      width,
+      height,
+      retireCount,
+    ).forEach((agent) => markAgentForOffshoreExit(agent, width, height));
     return agents;
   }
 
-  if (activeAgents.length === count || managedAgents.length >= count) {
+  if (countedActiveAgents.length === count || countedManagedAgents.length >= count) {
     return agents;
   }
 
@@ -825,7 +1247,12 @@ const reconcileAgents = (
     managedAgents = agents.filter(
       (agent) => !isAgentOffscreen(agent, width, height),
     );
-    if (activeAgents.length === count || managedAgents.length >= count) {
+    countedActiveAgents = activeAgents.filter((agent) => !agent.isDiseaseInflow);
+    countedManagedAgents = managedAgents.filter((agent) => !agent.isDiseaseInflow);
+    if (
+      countedActiveAgents.length === count ||
+      countedManagedAgents.length >= count
+    ) {
       return agents;
     }
   }
@@ -836,7 +1263,7 @@ const reconcileAgents = (
       (maxId, agent) => Math.max(maxId, Number(agent.id) || 0),
       -1,
     ) + 1;
-  const createCount = count - managedAgents.length;
+  const createCount = count - countedManagedAgents.length;
   const dockingOffset = activeAgents.filter((agent) => agent.isJoiningQueue).length;
   for (let index = 0; index < createCount; index += 1) {
     nextAgents.push(
@@ -875,7 +1302,7 @@ const getShelterOccupancy = (agents, shelters) => {
       return;
     }
     entry.total += 1;
-    if (agent.isDiseased) {
+    if (doesAgentEmitDiseaseCue(agent)) {
       entry.diseased += 1;
     } else {
       entry.healthy += 1;
@@ -899,15 +1326,80 @@ const getShelterLoad = (shelterId, occupancy, reservations) => {
   return (occupied?.total || 0) + reserved;
 };
 
-const canEnterShelter = (shelter, occupancy, reservations) => {
+const hasResidualDiseaseSignal = (shelter, residualDiseaseSources = []) =>
+  residualDiseaseSources.some(
+    (source) =>
+      source.shelterId === shelter?.id &&
+      source.strength > PARAMS.DISEASE_RESIDUAL_MIN_STRENGTH,
+  );
+
+const isShelterContaminated = (
+  shelterId,
+  occupancy,
+  residualDiseaseSources = [],
+) => {
+  if (!shelterId) {
+    return false;
+  }
+  const occupied = occupancy.get(shelterId);
+  return (
+    (occupied?.diseased || 0) > 0 ||
+    residualDiseaseSources.some(
+      (source) =>
+        source.shelterId === shelterId &&
+        source.strength > PARAMS.DISEASE_RESIDUAL_MIN_STRENGTH,
+    )
+  );
+};
+
+const canEnterShelter = (
+  shelter,
+  occupancy,
+  reservations,
+  residualDiseaseSources = [],
+) => {
   if (!shelter) {
     return false;
   }
   const occupied = occupancy.get(shelter.id);
-  if (!occupied || occupied.diseased > 0) {
+  if (
+    !occupied ||
+    occupied.diseased > 0 ||
+    hasResidualDiseaseSignal(shelter, residualDiseaseSources)
+  ) {
     return false;
   }
   return getShelterLoad(shelter.id, occupancy, reservations) < shelter.capacity;
+};
+
+const resolveShelterThreatContext = (agent, shelters, previousShelterId) => {
+  const shelter =
+    shelters.find((entry) => entry.id === previousShelterId) ||
+    shelters.reduce((best, entry) => {
+      const distance = magnitude(agent.x - entry.x, agent.y - entry.y);
+      if (!best || distance < best.distance) {
+        return { ...entry, distance };
+      }
+      return best;
+    }, null);
+
+  if (!shelter) {
+    return { zone: "outside", shelter: null, distance: Infinity };
+  }
+
+  const distance = Number.isFinite(shelter.distance)
+    ? shelter.distance
+    : magnitude(agent.x - shelter.x, agent.y - shelter.y);
+  const insideDistance = shelter.radius * PARAMS.THREAT_SHELTER_INSIDE_RATIO;
+  const nearDistance = shelter.radius + PARAMS.THREAT_SHELTER_NEAR_MARGIN_PX;
+
+  if (previousShelterId || distance <= insideDistance) {
+    return { zone: "inside", shelter, distance };
+  }
+  if (distance <= nearDistance) {
+    return { zone: "near", shelter, distance };
+  }
+  return { zone: "outside", shelter, distance };
 };
 
 const reserveShelterSlot = (shelterId, reservations) => {
@@ -957,6 +1449,55 @@ const getShelterSlotPosition = (agent, shelter) => {
   };
 };
 
+const rememberShelterVisit = (agent, shelter) => {
+  if (!agent || !shelter) {
+    return;
+  }
+
+  agent.homeShelterId = shelter.id;
+  agent.homeShelterPos = { x: shelter.x, y: shelter.y };
+  agent.memoryFidelity = clamp(
+    (agent.memoryFidelity ?? PARAMS.MEMORY_FIDELITY_DEFAULT) + 0.02,
+    PARAMS.MEMORY_FIDELITY_MIN,
+    PARAMS.MEMORY_FIDELITY_DEFAULT,
+  );
+
+  if (!Array.isArray(agent.spatialMemory)) {
+    agent.spatialMemory = [shelter.id];
+    return;
+  }
+
+  agent.spatialMemory = [
+    shelter.id,
+    ...agent.spatialMemory.filter((shelterId) => shelterId !== shelter.id),
+  ];
+};
+
+const getRememberedShelterPosition = (agent, shelter) => {
+  if (!shelter) {
+    return null;
+  }
+
+  const remembered =
+    agent.homeShelterId === shelter.id && agent.homeShelterPos
+      ? agent.homeShelterPos
+      : shelter;
+  const fidelity = clamp(
+    agent.memoryFidelity ?? PARAMS.MEMORY_FIDELITY_DEFAULT,
+    PARAMS.MEMORY_FIDELITY_MIN,
+    PARAMS.MEMORY_FIDELITY_DEFAULT,
+  );
+  const errorRadius =
+    shelter.radius * (1 - fidelity) * 0.7;
+  const errorAngle =
+    ((agent.id * 1.618 + agent.stageOffset * 0.001) % 1) * Math.PI * 2;
+
+  return {
+    x: remembered.x + Math.cos(errorAngle) * errorRadius,
+    y: remembered.y + Math.sin(errorAngle) * errorRadius,
+  };
+};
+
 const deprioritizeShelterMemory = (agent, shelterId) => {
   if (!shelterId || !Array.isArray(agent.spatialMemory)) {
     return;
@@ -971,24 +1512,87 @@ const deprioritizeShelterMemory = (agent, shelterId) => {
   agent.spatialMemory.push(removed);
 };
 
-const getBestShelterFromMemory = (agent, shelters, occupancy, reservations) => {
+const getBestShelterFromMemory = (
+  agent,
+  shelters,
+  occupancy,
+  reservations,
+  residualDiseaseSources = [],
+) => {
   for (const shelterId of agent.spatialMemory) {
     const shelter = shelters.find((entry) => entry.id === shelterId);
-    if (canEnterShelter(shelter, occupancy, reservations)) {
+    if (
+      canEnterShelter(shelter, occupancy, reservations, residualDiseaseSources)
+    ) {
       return shelter;
     }
   }
 
   return (
     shelters.find((shelter) =>
-      canEnterShelter(shelter, occupancy, reservations),
+      canEnterShelter(
+        shelter,
+        occupancy,
+        reservations,
+        residualDiseaseSources,
+      ),
     ) || null
   );
 };
 
-const buildChemicalSources = (agents, shelters, occupancy) => {
+const getNearestShelter = (agent, shelters) =>
+  shelters.reduce((best, shelter) => {
+    const distance = magnitude(agent.x - shelter.x, agent.y - shelter.y);
+    if (!best || distance < best.distance) {
+      return { shelter, distance };
+    }
+    return best;
+  }, null)?.shelter || null;
+
+const resolveOpenSubstrateRefuge = (agent, diseaseSource, shelters, width, height) => {
+  const nearestShelter = shelters.reduce((best, shelter) => {
+    const distance = magnitude(agent.x - shelter.x, agent.y - shelter.y);
+    if (!best || distance < best.distance) {
+      return { shelter, distance };
+    }
+    return best;
+  }, null)?.shelter;
+  const sourceX = diseaseSource?.x ?? nearestShelter?.x ?? width * 0.5;
+  const sourceY = diseaseSource?.y ?? nearestShelter?.y ?? height * 0.5;
+  const away = normalize2D(agent.x - sourceX, agent.y - sourceY, {
+    x: Math.cos(agent.wanderAngle || agent.heading),
+    y: Math.sin(agent.wanderAngle || agent.heading),
+  });
+  const tangent = { x: -away.y, y: away.x };
+  const orbitSide = agent.id % 2 === 0 ? 1 : -1;
+  const refugeDistance =
+    (nearestShelter?.radius || 56) + behaviorSafeDistance(agent.bodySize);
+
+  return {
+    x: clamp(
+      sourceX + away.x * refugeDistance + tangent.x * orbitSide * 44,
+      PARAMS.BOUNDARY_MARGIN_PX,
+      width - PARAMS.BOUNDARY_MARGIN_PX,
+    ),
+    y: clamp(
+      sourceY + away.y * refugeDistance + tangent.y * orbitSide * 44,
+      PARAMS.BOUNDARY_MARGIN_PX,
+      height - PARAMS.BOUNDARY_MARGIN_PX,
+    ),
+  };
+};
+
+const behaviorSafeDistance = (bodySizeMm) =>
+  96 + resolveAgentRadius(bodySizeMm) * 2.6;
+
+const buildChemicalSources = (
+  agents,
+  shelters,
+  occupancy,
+  residualDiseaseSources = [],
+) => {
   const healthySources = [];
-  const diseaseSources = [];
+  const diseaseSources = [...residualDiseaseSources];
 
   shelters.forEach((shelter) => {
     const count = occupancy.get(shelter.id) || { healthy: 0, diseased: 0 };
@@ -1014,7 +1618,7 @@ const buildChemicalSources = (agents, shelters, occupancy) => {
   });
 
   agents.forEach((agent) => {
-    if (!agent.isDiseased) {
+    if (!doesAgentEmitDiseaseCue(agent)) {
       return;
     }
     diseaseSources.push({
@@ -1026,6 +1630,28 @@ const buildChemicalSources = (agents, shelters, occupancy) => {
 
   return { healthySources, diseaseSources };
 };
+
+const createDiseaseResidualSource = (agent, shelters) => {
+  const shelter =
+    shelters.find((entry) => entry.id === agent.currentShelterId) ||
+    shelters.find((entry) => entry.id === agent.shelterId);
+
+  return {
+    x: shelter?.x ?? agent.x,
+    y: shelter?.y ?? agent.y,
+    shelterId: shelter?.id ?? null,
+    strength: PARAMS.DISEASE_CHEM_STRENGTH * 0.92,
+  };
+};
+
+const updateResidualDiseaseSources = (sources, dt) =>
+  sources
+    .map((source) => ({
+      ...source,
+      strength:
+        source.strength * Math.exp(-dt / PARAMS.DISEASE_RESIDUAL_DECAY_S),
+    }))
+    .filter((source) => source.strength > PARAMS.DISEASE_RESIDUAL_MIN_STRENGTH);
 
 const sampleChemicalAtPoint = (point, sources) => {
   const radius = PARAMS.CHEMICAL_RADIUS_CM;
@@ -1140,39 +1766,151 @@ const steerAwayFromPoint = (agent, targetX, targetY, desiredSpeed) => {
   };
 };
 
-const applyBoundarySteer = (agent, width, height) => {
-  let steerX = 0;
-  let steerY = 0;
-
-  if (agent.x < PARAMS.BOUNDARY_MARGIN_PX) {
-    steerX += 1 - agent.x / PARAMS.BOUNDARY_MARGIN_PX;
-  } else if (agent.x > width - PARAMS.BOUNDARY_MARGIN_PX) {
-    steerX -= 1 - (width - agent.x) / PARAMS.BOUNDARY_MARGIN_PX;
-  }
-
-  if (agent.y < PARAMS.BOUNDARY_MARGIN_PX) {
-    steerY += 1 - agent.y / PARAMS.BOUNDARY_MARGIN_PX;
-  } else if (agent.y > height - PARAMS.BOUNDARY_MARGIN_PX) {
-    steerY -= 1 - (height - agent.y) / PARAMS.BOUNDARY_MARGIN_PX;
-  }
-
-  if (Math.abs(steerX) > 1e-3 || Math.abs(steerY) > 1e-3) {
-    const dir = normalize2D(steerX, steerY);
-    applyForce(agent, dir.x, dir.y, PARAMS.BOUNDARY_STEER_WEIGHT);
-  }
+const advanceSmoothWander = (agent, dt, scale = 1) => {
+  agent.wanderNoisePhase +=
+    PARAMS.WANDER_NOISE_RATE_S * (agent.wanderNoiseRate || 1) * dt;
+  const turn =
+    Math.sin(agent.wanderNoisePhase) *
+    PARAMS.WANDER_NOISE_AMPLITUDE *
+    scale *
+    dt;
+  agent.wanderAngle = wrapAngle(agent.wanderAngle + turn);
+  return angleToVector(agent.wanderAngle);
 };
 
-const applySoftSeparation = (agent, agents) => {
-  if (agent.currentShelterId) {
+const resolveBoundaryAvoidance = (agent, width, height) => {
+  const margin = PARAMS.BOUNDARY_SOFT_MARGIN_PX;
+  let inwardX = 0;
+  let inwardY = 0;
+
+  if (agent.x < margin) {
+    inwardX += 1 - agent.x / margin;
+  } else if (agent.x > width - margin) {
+    inwardX -= 1 - (width - agent.x) / margin;
+  }
+
+  if (agent.y < margin) {
+    inwardY += 1 - agent.y / margin;
+  } else if (agent.y > height - margin) {
+    inwardY -= 1 - (height - agent.y) / margin;
+  }
+
+  const strength = magnitude(inwardX, inwardY);
+  if (strength <= 1e-3) {
+    return { active: false, x: 0, y: 0, intensity: 0 };
+  }
+
+  const dir = normalize2D(inwardX, inwardY);
+  return {
+    active: true,
+    x: dir.x,
+    y: dir.y,
+    intensity: clamp(strength, 0, 1),
+  };
+};
+
+const applySoftBoundaryMargin = (agent, width, height, dt) => {
+  const boundary = resolveBoundaryAvoidance(agent, width, height);
+  if (!boundary.active) {
+    return;
+  }
+
+  const currentDir = normalize2D(agent.vx, agent.vy, angleToVector(agent.heading));
+  const outwardness = clamp(
+    -(currentDir.x * boundary.x + currentDir.y * boundary.y),
+    0,
+    1,
+  );
+  const urgency = clamp(boundary.intensity * 0.55 + outwardness * 0.45, 0, 1);
+  const inwardSpeed = Math.max(
+    magnitude(agent.vx, agent.vy),
+    agent.targetSpeed || 0,
+  );
+
+  if (inwardSpeed > 1e-4) {
+    const steer = {
+      x: boundary.x * inwardSpeed - agent.vx,
+      y: boundary.y * inwardSpeed - agent.vy,
+    };
+    applyForce(
+      agent,
+      steer.x,
+      steer.y,
+      PARAMS.BOUNDARY_SOFT_STEER_WEIGHT * urgency,
+    );
+  }
+
+  agent.heading = turnTowardAngle(
+    agent.heading,
+    Math.atan2(boundary.y, boundary.x),
+    PARAMS.BOUNDARY_SOFT_TURN_RATE_RAD_S * dt * urgency,
+  );
+};
+
+const containSoftBoundaryMotion = (agent, nextX, nextY, width, height) => {
+  const margin = PARAMS.BOUNDARY_CONTAIN_MARGIN_PX;
+  const minX = margin;
+  const maxX = width - margin;
+  const minY = margin;
+  const maxY = height - margin;
+  let x = nextX;
+  let y = nextY;
+  let inwardX = 0;
+  let inwardY = 0;
+
+  if (x < minX) {
+    x = minX;
+    inwardX += 1;
+  } else if (x > maxX) {
+    x = maxX;
+    inwardX -= 1;
+  }
+
+  if (y < minY) {
+    y = minY;
+    inwardY += 1;
+  } else if (y > maxY) {
+    y = maxY;
+    inwardY -= 1;
+  }
+
+  if (inwardX === 0 && inwardY === 0) {
+    return { x, y };
+  }
+
+  const inward = normalize2D(inwardX, inwardY);
+  const outwardVelocity = Math.min(0, agent.vx * inward.x + agent.vy * inward.y);
+  if (outwardVelocity < 0) {
+    agent.vx -= inward.x * outwardVelocity * PARAMS.BOUNDARY_OUTWARD_DAMPING;
+    agent.vy -= inward.y * outwardVelocity * PARAMS.BOUNDARY_OUTWARD_DAMPING;
+  }
+
+  agent.heading = turnTowardAngle(
+    agent.heading,
+    Math.atan2(inward.y, inward.x),
+    PARAMS.BOUNDARY_SOFT_TURN_RATE_RAD_S * 0.18,
+  );
+
+  return { x, y };
+};
+
+const applySoftSeparation = (agent, agents, spatialGrid = null) => {
+  if (agent.currentShelterId || agent.inQueue || agent.state === STATES.MIGRATING) {
     return;
   }
 
   const agentRadius = resolveAgentRadius(agent.bodySize);
+  const neighborRadius =
+    (agentRadius + PARAMS.AGENT_RADIUS_MAX_PX + PARAMS.COLLISION_PADDING_PX) *
+    PARAMS.SEPARATION_RADIUS_MULTIPLIER;
+  const neighbors = spatialGrid
+    ? spatialGrid.getNeighbors(agent, neighborRadius)
+    : agents;
   let pushX = 0;
   let pushY = 0;
   let pushCount = 0;
 
-  agents.forEach((other) => {
+  neighbors.forEach((other) => {
     if (other.id === agent.id || other.currentShelterId) {
       return;
     }
@@ -1207,71 +1945,122 @@ const applySoftSeparation = (agent, agents) => {
   }
 };
 
-const buildQueueAssignments = (agents, behavior, width, height) => {
-  const migrants = agents.filter(
-    (agent) =>
-      agent.state === STATES.MIGRATING &&
-      agent.ontogeneticPhase !== PHASES.ALGAL_PHASE &&
-      !agent.isRetiring &&
-      !agent.isDiseaseAvoiding &&
-      !(agent.threatRecoverS > 0),
-  );
+const isQueueBondEligible = (agent) =>
+  agent?.state === STATES.MIGRATING &&
+  agent.ontogeneticPhase !== PHASES.ALGAL_PHASE &&
+  !agent.isRetiring &&
+  !agent.isDiseaseAvoiding &&
+  !doesAgentEmitDiseaseCue(agent) &&
+  !agent.currentShelterId &&
+  !(agent.localThreat?.active) &&
+  !(agent.threatRecoverS > 0);
 
-  if (migrants.length === 0) {
+const releaseQueueBond = (agent, agentsById) => {
+  if (!agent) {
     return;
   }
 
-  const route = getInitialMigrationRoute(width, height);
-  const routeDir = route.direction;
-  const routeNormal = { x: -routeDir.y, y: routeDir.x };
+  const leader = agentsById?.get(agent.queueLeaderId);
+  if (leader?.queueFollowerId === agent.id) {
+    leader.queueFollowerId = null;
+  }
+
+  const follower = agentsById?.get(agent.queueFollowerId);
+  if (follower?.queueLeaderId === agent.id) {
+    follower.queueLeaderId = null;
+  }
+
+  agent.queueLeaderId = null;
+  agent.queueFollowerId = null;
+  agent.queueGapDistance = Infinity;
+  agent.queueLength = 1;
+  agent.inQueue = false;
+};
+
+const hasQueueCycle = (follower, leader, agentsById) => {
+  const visited = new Set([follower.id]);
+  let cursor = leader;
+
+  while (cursor?.queueLeaderId != null) {
+    if (visited.has(cursor.id)) {
+      return true;
+    }
+    visited.add(cursor.id);
+    cursor = agentsById.get(cursor.queueLeaderId);
+  }
+
+  return false;
+};
+
+const buildQueueAssignments = (agents) => {
+  const agentsById = new Map(agents.map((agent) => [agent.id, agent]));
+  const migrants = agents
+    .filter((agent) => isQueueBondEligible(agent))
+    .sort((a, b) => {
+      return (
+        (Number(a.queueOrder) || 0) - (Number(b.queueOrder) || 0) ||
+        (Number(a.nightDepartureDelayS) || 0) -
+          (Number(b.nightDepartureDelayS) || 0) ||
+        a.id - b.id
+      );
+    });
+  const eligibleIds = new Set(migrants.map((agent) => agent.id));
+
+  agents.forEach((agent) => {
+    if (!isQueueBondEligible(agent)) {
+      releaseQueueBond(agent, agentsById);
+    }
+  });
 
   migrants.forEach((agent) => {
-    agent.queueLeaderId = null;
-    agent.queueFollowerId = null;
-    agent.queueGapDistance = Infinity;
-    agent.queueLength = 1;
-    agent.inQueue = false;
+    const leader = agentsById.get(agent.queueLeaderId);
+    const follower = agentsById.get(agent.queueFollowerId);
+    const leaderInvalid =
+      leader &&
+      (!eligibleIds.has(leader.id) ||
+        leader.queueFollowerId !== agent.id ||
+        hasQueueCycle(agent, leader, agentsById));
+    const followerInvalid =
+      follower &&
+      (!eligibleIds.has(follower.id) || follower.queueLeaderId !== agent.id);
+
+    if (leaderInvalid || followerInvalid) {
+      releaseQueueBond(agent, agentsById);
+    }
   });
 
-  const ordered = [...migrants].sort((a, b) => {
-    const aRouteProgress =
-      (a.x - route.start.x) * routeDir.x + (a.y - route.start.y) * routeDir.y;
-    const bRouteProgress =
-      (b.x - route.start.x) * routeDir.x + (b.y - route.start.y) * routeDir.y;
-    const aLaneOffset =
-      (a.x - route.start.x) * routeNormal.x +
-      (a.y - route.start.y) * routeNormal.y;
-    const bLaneOffset =
-      (b.x - route.start.x) * routeNormal.x +
-      (b.y - route.start.y) * routeNormal.y;
-    return (
-      (Number(a.queueOrder) || 0) - (Number(b.queueOrder) || 0) ||
-      bRouteProgress - aRouteProgress ||
-      Math.abs(aLaneOffset) - Math.abs(bLaneOffset) ||
-      a.id - b.id
-    );
-  });
-
-  ordered.forEach((agent, index) => {
-    agent.queueOrder = index;
-    agent.queueLength = ordered.length;
-
-    if (index === 0) {
-      agent.queueLeaderId = null;
-      agent.queueGapDistance = Infinity;
-      agent.inQueue = false;
+  migrants.forEach((agent, index) => {
+    if (agent.queueLeaderId || index === 0) {
       return;
     }
 
-    const leader = ordered[index - 1];
+    const leader = migrants
+      .slice(0, index)
+      .reverse()
+      .find((candidate) => !candidate.queueFollowerId);
+    if (!leader || hasQueueCycle(agent, leader, agentsById)) {
+      return;
+    }
+
     agent.queueLeaderId = leader.id;
     leader.queueFollowerId = agent.id;
-    agent.queueGapDistance = magnitude(leader.x - agent.x, leader.y - agent.y);
-    agent.inQueue = true;
+  });
+
+  migrants.forEach((agent) => {
+    const leader = agentsById.get(agent.queueLeaderId);
+    agent.queueGapDistance = leader
+      ? magnitude(leader.x - agent.x, leader.y - agent.y)
+      : Infinity;
+    agent.inQueue = Boolean(leader);
+    agent.queueLength = migrants.length;
   });
 };
 
-const resolveGlobalTimeHours = (startHour, elapsedSeconds) => {
+const resolveGlobalTimeHours = (startHour, elapsedSeconds, behavior) => {
+  if (behavior?.circadianPhase) {
+    return CIRCADIAN_PHASE_HOURS[behavior.circadianPhase] ?? startHour;
+  }
+
   const advancedHours =
     (elapsedSeconds * PARAMS.CIRCADIAN_TIME_ACCELERATION) / 3600;
   let hour = (startHour + advancedHours) % 24;
@@ -1285,23 +2074,33 @@ const determineState = (agent, globalTimeHour, behavior) => {
   if (agent.isRetiring) {
     return STATES.OFFSHORE_EXIT;
   }
-  if (agent.isJoiningQueue) {
-    return STATES.MIGRATING;
+  if (agent.isVacatingShelter) {
+    return STATES.VACATING;
   }
   if (agent.isDiseaseAvoiding) {
     return STATES.SEEKING_SHELTER;
   }
   if (isShelterSearchHour(globalTimeHour, behavior)) {
-    return STATES.SEEKING_SHELTER;
+    return agent.currentShelterId ? STATES.SHELTERING : STATES.SEEKING_SHELTER;
+  }
+  if (agent.isJoiningQueue) {
+    return STATES.MIGRATING;
   }
   if (isNightHour(globalTimeHour, behavior)) {
     if (
       agent.ontogeneticPhase !== PHASES.ALGAL_PHASE &&
-      behavior.migrationUrge > 0.5
+      behavior.migrationUrge > 0.5 &&
+      agent.nightMigrationActive
     ) {
       return STATES.MIGRATING;
     }
-    return STATES.FORAGING;
+    return agent.currentShelterId ? STATES.SHELTERING : STATES.FORAGING;
+  }
+  if (
+    agent.ontogeneticPhase !== PHASES.ALGAL_PHASE &&
+    !agent.currentShelterId
+  ) {
+    return STATES.SEEKING_SHELTER;
   }
   return STATES.SHELTERING;
 };
@@ -1347,6 +2146,7 @@ const updateAntennaeAngle = (agent, behavior) => {
     behavior.minQueueSpeedCmS,
     behavior.maxQueueSpeedCmS,
   );
+  const turnSpread = clamp((agent.turnIntensity || 0) / 1.8, 0, 1);
   if (speed <= behavior.baseSpeedCmS) {
     agent.antennaeAngleDeg = lerp(
       PARAMS.ANTENNAE_ANGLE_MAX_DEG,
@@ -1360,6 +2160,39 @@ const updateAntennaeAngle = (agent, behavior) => {
     PARAMS.ANTENNAE_ANGLE_MIN_DEG,
     ratio,
   );
+  agent.antennaeAngleDeg = lerp(
+    agent.antennaeAngleDeg,
+    PARAMS.ANTENNAE_ANGLE_MAX_DEG,
+    turnSpread * 0.92,
+  );
+};
+
+const getDelayedLeaderFrame = (leader) => {
+  const history = Array.isArray(leader.positionHistory)
+    ? leader.positionHistory
+    : [];
+  return (
+    history.find((entry) => entry.age >= PARAMS.QUEUE_FOLLOW_DELAY_S) || {
+      x: leader.x,
+      y: leader.y,
+      heading: leader.heading,
+    }
+  );
+};
+
+const recordAgentPositionHistory = (agent, dt) => {
+  const nextHistory = Array.isArray(agent.positionHistory)
+    ? agent.positionHistory
+        .map((entry) => ({ ...entry, age: entry.age + dt }))
+        .filter((entry) => entry.age <= PARAMS.QUEUE_HISTORY_DURATION_S)
+    : [];
+  nextHistory.unshift({
+    x: agent.x,
+    y: agent.y,
+    heading: agent.heading,
+    age: 0,
+  });
+  agent.positionHistory = nextHistory;
 };
 
 const updateAgent = ({
@@ -1371,6 +2204,9 @@ const updateAgent = ({
   algaeCovers,
   healthySources,
   diseaseSources,
+  chemicalField,
+  spatialGrid,
+  residualDiseaseSources,
   globalTimeHour,
   behavior,
   pointerState,
@@ -1378,29 +2214,113 @@ const updateAgent = ({
   width,
   height,
 }) => {
+  const previousHeading = agent.heading;
   agent.ontogeneticPhase = resolveOntogeneticPhase(
     agent.bodySize,
     behavior.socialSizeMm,
     behavior.postalgalAttractionSizeMm,
   );
-  const healthyChem = sampleChemicalGradient(agent, healthySources);
-  const diseaseChem = sampleChemicalGradient(agent, diseaseSources);
+  if (agent.isDiseased && !agent.isDiseaseRemoved) {
+    agent.infectionAgeS = (agent.infectionAgeS || 0) + dt;
+  }
+  agent.diseaseStage = resolveDiseaseStage(agent);
+  if (isAgentContagious(agent)) {
+    agent.diseaseMortalityTimerS = Math.max(
+      0,
+      (agent.diseaseMortalityTimerS || 0) - dt,
+    );
+  }
+  const healthyChemSource = sampleChemicalGradient(agent, healthySources);
+  const diseaseChemSource = sampleChemicalGradient(agent, diseaseSources);
+  const healthyChemField = sampleChemicalFieldGradient(
+    agent,
+    chemicalField,
+    "healthy",
+  );
+  const diseaseChemField = sampleChemicalFieldGradient(
+    agent,
+    chemicalField,
+    "disease",
+  );
+  const healthyChem = {
+    ...healthyChemField,
+    strongestSource:
+      healthyChemField.strongestSource || healthyChemSource.strongestSource,
+  };
+  const diseaseChem = {
+    ...diseaseChemField,
+    strongestSource:
+      diseaseChemField.strongestSource || diseaseChemSource.strongestSource,
+  };
+  const previousShelterId = agent.currentShelterId;
+  const currentShelterContaminated =
+    !agent.isDiseased &&
+    isShelterContaminated(
+      previousShelterId,
+      occupancy,
+      residualDiseaseSources,
+    );
   agent.isDiseaseAvoiding =
-    diseaseChem.concentration > behavior.diseaseThreshold;
+    !agent.isDiseased &&
+    (currentShelterContaminated ||
+      diseaseChem.concentration > behavior.diseaseThreshold);
+  agent.isVacatingShelter = Boolean(
+    currentShelterContaminated && previousShelterId,
+  );
   agent.threatCooldownS = Math.max(0, (agent.threatCooldownS || 0) - dt);
   agent.threatRecoverS = Math.max(0, (agent.threatRecoverS || 0) - dt);
   const localThreat = resolveLocalThreat(agent, pointerState, behavior);
   agent.localThreat = localThreat;
   agent.state = determineState(agent, globalTimeHour, behavior);
+  if (
+    isAgentContagious(agent) &&
+    previousShelterId &&
+    !agent.isRetiring &&
+    !agent.isDiseaseRemoved
+  ) {
+    agent.state = STATES.SHELTERING;
+  }
+  const shelterThreatContext = resolveShelterThreatContext(
+    agent,
+    shelters,
+    previousShelterId,
+  );
+  agent.shelterThreatZone = shelterThreatContext.zone;
+  if (
+    localThreat.active &&
+    localThreat.tailFlip &&
+    shelterThreatContext.zone === "outside" &&
+    agent.threatCooldownS <= 0
+  ) {
+    agent.vx += localThreat.away.x * PARAMS.TAIL_FLIP_IMPULSE_CM_S;
+    agent.vy += localThreat.away.y * PARAMS.TAIL_FLIP_IMPULSE_CM_S;
+    agent.threatCooldownS = PARAMS.TAIL_FLIP_COOLDOWN_S;
+  }
   if (localThreat.active && !agent.isRetiring) {
-    agent.state = STATES.DEFENDING;
+    const agentsById = new Map(agents.map((entry) => [entry.id, entry]));
     agent.threatRecoverS = PARAMS.LOCAL_THREAT_REJOIN_DELAY_S;
+    releaseQueueBond(agent, agentsById);
+
+    if (agent.isDiseaseAvoiding) {
+      agent.state = agent.isVacatingShelter
+        ? STATES.VACATING
+        : STATES.SEEKING_SHELTER;
+    } else if (shelterThreatContext.zone === "inside") {
+      agent.state = STATES.SHELTERING;
+    } else if (shelterThreatContext.zone === "near") {
+      agent.state = STATES.SEEKING_SHELTER;
+    } else {
+      agent.state = STATES.DEFENDING;
+    }
+  }
+  if (agent.isJoiningQueue && agent.state !== STATES.MIGRATING) {
+    releaseQueueBond(agent, new Map(agents.map((entry) => [entry.id, entry])));
+    agent.isJoiningQueue = false;
     agent.inQueue = false;
     agent.queueLeaderId = null;
     agent.queueFollowerId = null;
     agent.queueLength = 1;
   }
-  const previousShelterId = agent.currentShelterId;
   agent.currentShelterId = null;
   agent.ax = 0;
   agent.ay = 0;
@@ -1423,6 +2343,43 @@ const updateAgent = ({
     applyForce(agent, steer.x, steer.y, 1.08);
     agent.targetSpeed =
       behavior.maxQueueSpeedCmS * PARAMS.OFFSHORE_EXIT_SPEED_SCALE;
+  } else if (isAgentContagious(agent) && !previousShelterId) {
+    releaseQueueBond(agent, new Map(agents.map((entry) => [entry.id, entry])));
+    const nearestShelter = shelters.reduce((best, shelter) => {
+      const distance = magnitude(agent.x - shelter.x, agent.y - shelter.y);
+      if (!best || distance < best.distance) {
+        return { shelter, distance };
+      }
+      return best;
+    }, null);
+
+    if (
+      nearestShelter &&
+      nearestShelter.distance <
+        nearestShelter.shelter.radius + resolveAgentRadius(agent.bodySize) * 3
+    ) {
+      const shelterPosition = getShelterSlotPosition(
+        agent,
+        nearestShelter.shelter,
+      );
+      const settle = steerTowardPoint(
+        agent,
+        shelterPosition.x,
+        shelterPosition.y,
+        PARAMS.FORAGE_SPEED_MIN_CM_S,
+      );
+      applyForce(agent, settle.x, settle.y, 0.42);
+      if (settle.distance < resolveAgentRadius(agent.bodySize) * 1.2) {
+        agent.currentShelterId = nearestShelter.shelter.id;
+        rememberShelterVisit(agent, nearestShelter.shelter);
+        reserveShelterSlot(nearestShelter.shelter.id, shelterReservations);
+      }
+    } else {
+      const lethargic = advanceSmoothWander(agent, dt, 0.16);
+      applyForce(agent, lethargic.x, lethargic.y, 0.08);
+    }
+
+    agent.targetSpeed = PARAMS.FORAGE_SPEED_MIN_CM_S * 0.28;
   } else if (agent.isDiseaseAvoiding && diseaseChem.strongestSource) {
     deprioritizeShelterMemory(agent, diseaseChem.strongestSource.shelterId);
     const memoryShelter = getBestShelterFromMemory(
@@ -1430,6 +2387,7 @@ const updateAgent = ({
       shelters,
       occupancy,
       shelterReservations,
+      residualDiseaseSources,
     );
     const repel = steerAwayFromPoint(
       agent,
@@ -1450,20 +2408,24 @@ const updateAgent = ({
       applyForce(agent, relocate.x, relocate.y, 0.72);
       if (relocate.distance < resolveAgentRadius(agent.bodySize) * 0.9) {
         agent.currentShelterId = memoryShelter.id;
+        rememberShelterVisit(agent, memoryShelter);
         reserveShelterSlot(memoryShelter.id, shelterReservations);
       }
-    } else if (
-      agent.bodySize >= behavior.postalgalAttractionSizeMm &&
-      healthyChem.concentration > behavior.healthyAttractionThreshold &&
-      healthyChem.strongestSource
-    ) {
-      const relocate = steerTowardPoint(
+    } else {
+      const openSubstrate = resolveOpenSubstrateRefuge(
         agent,
-        healthyChem.strongestSource.x,
-        healthyChem.strongestSource.y,
+        diseaseChem.strongestSource,
+        shelters,
+        width,
+        height,
+      );
+      const search = steerTowardPoint(
+        agent,
+        openSubstrate.x,
+        openSubstrate.y,
         PARAMS.SEEK_SHELTER_SPEED_CM_S,
       );
-      applyForce(agent, relocate.x, relocate.y, 0.38);
+      applyForce(agent, search.x, search.y, 0.82);
     }
 
     agent.targetSpeed = PARAMS.DISEASE_ESCAPE_SPEED_CM_S;
@@ -1576,141 +2538,175 @@ const updateAgent = ({
         agent.targetSpeed = PARAMS.SEEK_SHELTER_SPEED_CM_S * 0.8;
       }
     } else {
+      const homeShelter = shelters.find(
+        (entry) => entry.id === agent.homeShelterId,
+      );
+      const homeShelterContaminated = isShelterContaminated(
+        homeShelter?.id,
+        occupancy,
+        residualDiseaseSources,
+      );
+      if (homeShelterContaminated) {
+        deprioritizeShelterMemory(agent, homeShelter.id);
+      }
       const memoryShelter = getBestShelterFromMemory(
         agent,
         shelters,
         occupancy,
         shelterReservations,
+        residualDiseaseSources,
       );
-      const targetShelter =
-        memoryShelter ||
-        (healthyChem.concentration > behavior.healthyAttractionThreshold &&
-        healthyChem.strongestSource
-          ? {
-              x: healthyChem.strongestSource.x,
-              y: healthyChem.strongestSource.y,
-              radius: 28,
-              id: null,
-            }
-          : null);
-      if (targetShelter) {
-        const shelterEntry = targetShelter.id
-          ? shelters.find((entry) => entry.id === targetShelter.id)
+      const nearestShelter = getNearestShelter(agent, shelters);
+      const fallbackShelter =
+        nearestShelter &&
+        !isShelterContaminated(
+          nearestShelter.id,
+          occupancy,
+          residualDiseaseSources,
+        )
+          ? nearestShelter
           : null;
-        const targetPosition = shelterEntry
-          ? getShelterSlotPosition(agent, shelterEntry)
-          : targetShelter;
-        const steer = steerTowardPoint(
+      const shelterEntry = memoryShelter || fallbackShelter;
+      let settleDistance = Infinity;
+      const selectedShelterContaminated = isShelterContaminated(
+        shelterEntry?.id,
+        occupancy,
+        residualDiseaseSources,
+      );
+
+      if (shelterEntry && !selectedShelterContaminated) {
+        const rememberedPosition = getRememberedShelterPosition(
+          agent,
+          shelterEntry,
+        );
+        const memorySteer = steerTowardPoint(
+          agent,
+          rememberedPosition.x,
+          rememberedPosition.y,
+          PARAMS.SEEK_SHELTER_SPEED_CM_S,
+        );
+        applyForce(
+          agent,
+          memorySteer.x,
+          memorySteer.y,
+          PARAMS.HOMING_MEMORY_WEIGHT,
+        );
+      }
+
+      if (
+        agent.bodySize >= behavior.postalgalAttractionSizeMm &&
+        healthyChem.concentration > behavior.healthyAttractionThreshold &&
+        (healthyChemSource.strongestSource || healthyChem.strongestSource)
+      ) {
+        const olfactorySource =
+          healthyChemSource.strongestSource || healthyChem.strongestSource;
+        const olfactorySteer = steerTowardPoint(
+          agent,
+          olfactorySource.x,
+          olfactorySource.y,
+          PARAMS.SEEK_SHELTER_SPEED_CM_S,
+        );
+        applyForce(
+          agent,
+          olfactorySteer.x,
+          olfactorySteer.y,
+          PARAMS.HOMING_OLFACTORY_WEIGHT,
+        );
+        agent.heading = wrapAngle(
+          agent.heading + healthyChem.turn * PARAMS.HEALTHY_WANDER_BLEND * dt,
+        );
+      }
+
+      if (shelterEntry) {
+        const targetPosition = getShelterSlotPosition(agent, shelterEntry);
+        const settle = steerTowardPoint(
           agent,
           targetPosition.x,
           targetPosition.y,
           PARAMS.SEEK_SHELTER_SPEED_CM_S,
         );
-        applyForce(agent, steer.x, steer.y, 1.15);
-        if (
-          agent.bodySize >= behavior.postalgalAttractionSizeMm &&
-          healthyChem.concentration > behavior.healthyAttractionThreshold
-        ) {
-          agent.heading = wrapAngle(
-            agent.heading + healthyChem.turn * PARAMS.HEALTHY_WANDER_BLEND * dt,
-          );
-          const bias = angleToVector(agent.heading);
-          applyForce(agent, bias.x, bias.y, PARAMS.HEALTHY_ATTRACTION_WEIGHT);
-        }
-        agent.targetSpeed = PARAMS.SEEK_SHELTER_SPEED_CM_S;
-        if (
-          shelterEntry &&
-          steer.distance < resolveAgentRadius(agent.bodySize) * 0.9
-        ) {
-          if (canEnterShelter(shelterEntry, occupancy, shelterReservations)) {
+        settleDistance = settle.distance;
+        applyForce(agent, settle.x, settle.y, 0.38);
+        if (settleDistance < resolveAgentRadius(agent.bodySize) * 0.9) {
+          if (
+            canEnterShelter(
+              shelterEntry,
+              occupancy,
+              shelterReservations,
+              residualDiseaseSources,
+            )
+          ) {
             agent.currentShelterId = shelterEntry.id;
+            rememberShelterVisit(agent, shelterEntry);
             reserveShelterSlot(shelterEntry.id, shelterReservations);
           }
         }
       }
+      const wander = advanceSmoothWander(agent, dt, 0.34);
+      applyForce(
+        agent,
+        wander.x,
+        wander.y,
+        PARAMS.HOMING_WANDER_WEIGHT,
+      );
+      agent.targetSpeed = PARAMS.SEEK_SHELTER_SPEED_CM_S;
     }
   } else if (agent.state === STATES.MIGRATING) {
     if (agent.queueLeaderId) {
       const leader = agents.find((entry) => entry.id === agent.queueLeaderId);
       if (leader) {
-        const leaderDir = normalize2D(
-          leader.vx,
-          leader.vy,
-          angleToVector(leader.heading),
-        );
+        const leaderFrame = getDelayedLeaderFrame(leader);
         const tailTarget = {
-          x: leader.x - leaderDir.x * behavior.queueTargetDistanceCm,
-          y: leader.y - leaderDir.y * behavior.queueTargetDistanceCm,
+          x: leaderFrame.x,
+          y: leaderFrame.y,
         };
-        const lateralDir = { x: -leaderDir.y, y: leaderDir.x };
-        const lateralOffset =
-          (agent.x - tailTarget.x) * lateralDir.x +
-          (agent.y - tailTarget.y) * lateralDir.y;
-        const laneTarget = {
-          x:
-            tailTarget.x -
-            lateralDir.x *
-              clamp(
-                lateralOffset,
-                -PARAMS.QUEUE_TRAIL_WIDTH_CM,
-                PARAMS.QUEUE_TRAIL_WIDTH_CM,
-              ),
-          y:
-            tailTarget.y -
-            lateralDir.y *
-              clamp(
-                lateralOffset,
-                -PARAMS.QUEUE_TRAIL_WIDTH_CM,
-                PARAMS.QUEUE_TRAIL_WIDTH_CM,
-              ),
-        };
+        const distanceToTail = magnitude(
+          tailTarget.x - agent.x,
+          tailTarget.y - agent.y,
+        );
+        agent.queueGapDistance = distanceToTail;
         const physicalTouchDistance =
           resolveAgentRadius(agent.bodySize) +
           resolveAgentRadius(leader.bodySize);
+        const contactMaxDistance =
+          physicalTouchDistance +
+            behavior.queueTargetDistanceCm * PARAMS.QUEUE_CONTACT_MAX_RATIO;
         const brakeThreshold =
           physicalTouchDistance +
-          behavior.queueBrakeDistanceCm +
-          PARAMS.QUEUE_BRAKE_CLEARANCE_PX;
-        if (agent.queueGapDistance < brakeThreshold) {
-          const brake = steerTowardPoint(agent, leader.x, leader.y, 0);
+          behavior.queueBrakeDistanceCm * 0.5 +
+          PARAMS.QUEUE_BRAKE_CLEARANCE_PX * 0.35;
+        if (distanceToTail < brakeThreshold) {
+          const brake = steerTowardPoint(agent, tailTarget.x, tailTarget.y, 0);
           const overlapSeverity = clamp(
-            (brakeThreshold - agent.queueGapDistance) /
-              Math.max(brakeThreshold, 1),
+            (brakeThreshold - distanceToTail) / Math.max(brakeThreshold, 1),
             0,
             1,
           );
           applyForce(
             agent,
-            -brake.x,
-            -brake.y,
-            PARAMS.MIGRATION_BRAKE_WEIGHT * (1 + overlapSeverity * 1.6),
+            brake.x,
+            brake.y,
+            PARAMS.MIGRATION_BRAKE_WEIGHT * (1 + overlapSeverity * 1.2),
           );
         } else {
-          const alignDesired = {
-            x: leaderDir.x * behavior.minQueueSpeedCmS,
-            y: leaderDir.y * behavior.minQueueSpeedCmS,
-          };
-          applyForce(
+          const isReacquiringContact =
+            distanceToTail > contactMaxDistance;
+          const followSpeed = isReacquiringContact
+            ? behavior.maxQueueSpeedCmS * PARAMS.QUEUE_CHASE_SPEED_SCALE
+            : behavior.minQueueSpeedCmS;
+          const tactileFollow = steerTowardPoint(
             agent,
-            alignDesired.x - agent.vx,
-            alignDesired.y - agent.vy,
-            PARAMS.MIGRATION_ALIGN_WEIGHT *
-              PARAMS.TACTILE_BOND_STRENGTH *
-              behavior.queueCohesionMultiplier,
-          );
-          const cohesion = steerTowardPoint(
-            agent,
-            laneTarget.x,
-            laneTarget.y,
-            behavior.minQueueSpeedCmS,
+            tailTarget.x,
+            tailTarget.y,
+            followSpeed,
           );
           applyForce(
             agent,
-            cohesion.x,
-            cohesion.y,
-            PARAMS.MIGRATION_COHESION_WEIGHT *
-              PARAMS.TACTILE_BOND_STRENGTH *
-              behavior.queueCohesionMultiplier,
+            tactileFollow.x,
+            tactileFollow.y,
+            PARAMS.TACTILE_BOND_STRENGTH *
+              behavior.queueCohesionMultiplier *
+              (isReacquiringContact ? 2 : 1.2),
           );
         }
         agent.inQueue = true;
@@ -1731,11 +2727,7 @@ const updateAgent = ({
         routeSteer.y,
         PARAMS.MIGRATION_ROUTE_PULL_WEIGHT,
       );
-      agent.wanderAngle = wrapAngle(
-        agent.wanderAngle +
-          randomBetween(-1, 1) * PARAMS.WANDER_TURN_RATE_RAD_S * 0.35 * dt,
-      );
-      const wander = angleToVector(agent.wanderAngle);
+      const wander = advanceSmoothWander(agent, dt, 0.42);
       applyForce(
         agent,
         wander.x,
@@ -1750,19 +2742,25 @@ const updateAgent = ({
       0,
       1,
     );
+    const isReacquiringLeader =
+      agent.queueLeaderId &&
+      agent.queueGapDistance >
+        behavior.queueTargetDistanceCm * PARAMS.QUEUE_CONTACT_MAX_RATIO;
     agent.targetSpeed = agent.queueLeaderId
-      ? lerp(behavior.minQueueSpeedCmS, behavior.maxQueueSpeedCmS, queueRatio)
+      ? isReacquiringLeader
+        ? behavior.maxQueueSpeedCmS
+        : lerp(
+            behavior.minQueueSpeedCmS,
+            behavior.baseSpeedCmS,
+            queueRatio * 0.45,
+          )
       : lerp(
           behavior.baseSpeedCmS,
           behavior.maxQueueSpeedCmS,
           queueRatio * 0.92,
         );
   } else if (agent.state === STATES.FORAGING) {
-    agent.wanderAngle = wrapAngle(
-      agent.wanderAngle +
-        randomBetween(-1, 1) * PARAMS.WANDER_JITTER_RATE_RAD_S * dt,
-    );
-    const wander = angleToVector(agent.wanderAngle);
+    const wander = advanceSmoothWander(agent, dt, 1);
     applyForce(agent, wander.x, wander.y, PARAMS.WANDER_PULL_WEIGHT);
 
     if (agent.ontogeneticPhase !== PHASES.ALGAL_PHASE) {
@@ -1797,8 +2795,25 @@ const updateAgent = ({
       }
     } else {
       const shelter =
-        shelters.find((entry) => entry.id === agent.shelterId) || shelters[0];
+        shelters.find((entry) => entry.id === previousShelterId) ||
+        shelters.find((entry) => entry.id === agent.shelterId) ||
+        shelters[0];
       const shelterPosition = getShelterSlotPosition(agent, shelter);
+      if (
+        agent.localThreat?.active &&
+        agent.shelterThreatZone === "inside"
+      ) {
+        const alertHeading = Math.atan2(
+          agent.localThreat.y - agent.y,
+          agent.localThreat.x - agent.x,
+        );
+        agent.heading = turnTowardAngle(
+          agent.heading,
+          alertHeading,
+          PARAMS.THREAT_HEADING_TURN_RATE_RAD_S * dt,
+        );
+        agent.antennaeAngleDeg = PARAMS.ANTENNAE_ANGLE_MAX_DEG;
+      }
       const settle = steerTowardPoint(
         agent,
         shelterPosition.x,
@@ -1808,9 +2823,15 @@ const updateAgent = ({
       applyForce(agent, settle.x, settle.y, 1.25);
       if (
         previousShelterId === shelter.id ||
-        canEnterShelter(shelter, occupancy, shelterReservations)
+        canEnterShelter(
+          shelter,
+          occupancy,
+          shelterReservations,
+          residualDiseaseSources,
+        )
       ) {
         agent.currentShelterId = shelter.id;
+        rememberShelterVisit(agent, shelter);
         if (previousShelterId !== shelter.id) {
           reserveShelterSlot(shelter.id, shelterReservations);
         }
@@ -1819,9 +2840,29 @@ const updateAgent = ({
     agent.targetSpeed = 0;
   }
 
-  applySoftSeparation(agent, agents);
+  if (
+    isAgentContagious(agent) &&
+    !agent.isDiseaseRemoved
+  ) {
+    const predationPressure =
+      behavior.threatActive && pointerState?.active && agent.localThreat?.active
+        ? PARAMS.DISEASE_PREDATION_CULL_RATE_S * 2
+        : agent.currentShelterId
+          ? 0
+          : PARAMS.DISEASE_PREDATION_CULL_RATE_S;
+    const predationCull =
+      predationPressure > 0 && Math.random() < predationPressure * dt;
+
+    if (agent.diseaseMortalityTimerS <= 0 || predationCull) {
+      agent.isDiseaseRemoved = true;
+      agent.renderAlpha = 0;
+      releaseQueueBond(agent, new Map(agents.map((entry) => [entry.id, entry])));
+    }
+  }
+
+  applySoftSeparation(agent, agents, spatialGrid);
   if (!agent.isRetiring) {
-    applyBoundarySteer(agent, width, height);
+    applySoftBoundaryMargin(agent, width, height, dt);
   }
 
   const limitedAccel = limitVector(agent.ax, agent.ay, PARAMS.MAX_STEER_CM_S2);
@@ -1850,107 +2891,363 @@ const updateAgent = ({
 
   const nextX = agent.x + agent.vx * dt;
   const nextY = agent.y + agent.vy * dt;
-  if (agent.isRetiring || agent.isJoiningQueue) {
+  const canMoveOffscreen =
+    agent.isRetiring ||
+    (agent.isJoiningQueue &&
+      agent.state === STATES.MIGRATING &&
+      !isAgentInsideCanvas(agent, width, height));
+  if (canMoveOffscreen) {
     agent.x = nextX;
     agent.y = nextY;
   } else {
-    agent.x = clamp(nextX, 0, width);
-    agent.y = clamp(nextY, 0, height);
+    const contained = containSoftBoundaryMotion(
+      agent,
+      nextX,
+      nextY,
+      width,
+      height,
+    );
+    agent.x = contained.x;
+    agent.y = contained.y;
   }
   if (magnitude(agent.vx, agent.vy) > 1e-4) {
-    agent.heading = Math.atan2(agent.vy, agent.vx);
+    const nextHeading = Math.atan2(agent.vy, agent.vx);
+    const maxTurnRate =
+      agent.state === STATES.DEFENDING || agent.localThreat?.active
+        ? PARAMS.THREAT_HEADING_TURN_RATE_RAD_S
+        : PARAMS.HEADING_TURN_RATE_RAD_S;
+    const nextVisualHeading = turnTowardAngle(
+      agent.heading,
+      nextHeading,
+      maxTurnRate * dt,
+    );
+    agent.turnIntensity =
+      Math.abs(wrapAngle(nextVisualHeading - previousHeading)) /
+      Math.max(dt, 0.016);
+    agent.heading = nextVisualHeading;
+  } else {
+    agent.turnIntensity = (agent.turnIntensity || 0) * 0.82;
   }
 
   if (agent.isRetiring) {
     updateEdgeFade(agent, width, height);
   } else if (agent.isJoiningQueue) {
-    updateEdgeFade(agent, width, height);
-    if (
-      isAgentInsideCanvas(agent, width, height, PARAMS.BOUNDARY_MARGIN_PX) &&
-      agent.queueGapDistance < behavior.queueDetectionDistanceCm * 1.35
-    ) {
+    agent.renderAlpha = 1;
+    if (isAgentInsideCanvas(agent, width, height, PARAMS.BOUNDARY_MARGIN_PX)) {
       agent.isJoiningQueue = false;
-      agent.renderAlpha = 1;
     }
   } else {
     agent.renderAlpha = 1;
   }
 
   updateAntennaeAngle(agent, behavior);
+  recordAgentPositionHistory(agent, dt);
 };
 
-const drawDownstreamChemicalPlume = (
-  ctx,
-  source,
-  radius,
-  startColor,
-  midColor,
-  endColor,
-) => {
-  const flow = normalize2D(PARAMS.PLUME_FLOW_X, PARAMS.PLUME_FLOW_Y);
-  const angle = Math.atan2(flow.y, flow.x);
+const createChemicalField = (width, height) => {
+  const cellSizePx = PARAMS.CHEMICAL_FIELD_CELL_SIZE_PX;
+  const cols = Math.max(1, Math.ceil(width / cellSizePx));
+  const rows = Math.max(1, Math.ceil(height / cellSizePx));
+  return {
+    width,
+    height,
+    cellSizePx,
+    cols,
+    rows,
+    healthy: new Float32Array(cols * rows),
+    disease: new Float32Array(cols * rows),
+    scratch: new Float32Array(cols * rows),
+  };
+};
 
+const getChemicalFieldIndex = (field, column, row) => row * field.cols + column;
+
+const sampleChemicalFieldAtPoint = (field, layerName, x, y) => {
+  if (!field) {
+    return 0;
+  }
+  const layer = field[layerName];
+  const gx = clamp(x / field.cellSizePx, 0, field.cols - 1);
+  const gy = clamp(y / field.cellSizePx, 0, field.rows - 1);
+  const x0 = Math.floor(gx);
+  const y0 = Math.floor(gy);
+  const x1 = Math.min(x0 + 1, field.cols - 1);
+  const y1 = Math.min(y0 + 1, field.rows - 1);
+  const tx = gx - x0;
+  const ty = gy - y0;
+  const v00 = layer[getChemicalFieldIndex(field, x0, y0)] || 0;
+  const v10 = layer[getChemicalFieldIndex(field, x1, y0)] || 0;
+  const v01 = layer[getChemicalFieldIndex(field, x0, y1)] || 0;
+  const v11 = layer[getChemicalFieldIndex(field, x1, y1)] || 0;
+
+  return lerp(lerp(v00, v10, tx), lerp(v01, v11, tx), ty);
+};
+
+const sampleChemicalFieldGradient = (agent, field, layerName) => {
+  const forward = normalize2D(agent.vx, agent.vy, angleToVector(agent.heading));
+  const antennaeAngleRad = (agent.antennaeAngleDeg * Math.PI) / 180;
+  const halfSpread = antennaeAngleRad * 0.5;
+  const antennaLength = PARAMS.ANTENNA_LENGTH_CM;
+  const left = sampleChemicalFieldAtPoint(
+    field,
+    layerName,
+    agent.x + Math.cos(agent.heading - halfSpread) * antennaLength,
+    agent.y + Math.sin(agent.heading - halfSpread) * antennaLength,
+  );
+  const right = sampleChemicalFieldAtPoint(
+    field,
+    layerName,
+    agent.x + Math.cos(agent.heading + halfSpread) * antennaLength,
+    agent.y + Math.sin(agent.heading + halfSpread) * antennaLength,
+  );
+  const center = sampleChemicalFieldAtPoint(
+    field,
+    layerName,
+    agent.x + forward.x * antennaLength * 0.8,
+    agent.y + forward.y * antennaLength * 0.8,
+  );
+  const probe = Math.max(field?.cellSizePx || 1, antennaLength * 0.75);
+  const xGradient =
+    sampleChemicalFieldAtPoint(field, layerName, agent.x + probe, agent.y) -
+    sampleChemicalFieldAtPoint(field, layerName, agent.x - probe, agent.y);
+  const yGradient =
+    sampleChemicalFieldAtPoint(field, layerName, agent.x, agent.y + probe) -
+    sampleChemicalFieldAtPoint(field, layerName, agent.x, agent.y - probe);
+  const gradientDir = normalize2D(xGradient, yGradient, { x: 0, y: 0 });
+  const concentration = Math.max(center, left, right);
+  const hasFieldDirection = magnitude(gradientDir.x, gradientDir.y) > 1e-3;
+
+  return {
+    concentration,
+    turn: clamp((right - left) * 1.8, -1, 1),
+    strongestSource:
+      concentration > PARAMS.CHEMICAL_FIELD_NOISE_CUTOFF && hasFieldDirection
+        ? {
+            x: agent.x + gradientDir.x * PARAMS.CHEMICAL_RADIUS_CM * 0.45,
+            y: agent.y + gradientDir.y * PARAMS.CHEMICAL_RADIUS_CM * 0.45,
+            value: concentration,
+          }
+        : null,
+  };
+};
+
+const depositChemicalField = (field, layerName, x, y, amount, radiusPx) => {
+  const layer = field[layerName];
+  const radiusCells = Math.max(1, Math.ceil(radiusPx / field.cellSizePx));
+  const centerX = Math.floor(x / field.cellSizePx);
+  const centerY = Math.floor(y / field.cellSizePx);
+
+  for (
+    let row = centerY - radiusCells;
+    row <= centerY + radiusCells;
+    row += 1
+  ) {
+    if (row < 0 || row >= field.rows) {
+      continue;
+    }
+    for (
+      let column = centerX - radiusCells;
+      column <= centerX + radiusCells;
+      column += 1
+    ) {
+      if (column < 0 || column >= field.cols) {
+        continue;
+      }
+      const sampleX = (column + 0.5) * field.cellSizePx;
+      const sampleY = (row + 0.5) * field.cellSizePx;
+      const dist = Math.hypot(sampleX - x, sampleY - y);
+      if (dist > radiusPx) {
+        continue;
+      }
+      const falloff = Math.exp(
+        -(dist * dist) / Math.max(radiusPx * radiusPx, 1),
+      );
+      const index = getChemicalFieldIndex(field, column, row);
+      layer[index] = Math.min(
+        PARAMS.CHEMICAL_FIELD_SATURATION,
+        layer[index] + amount * falloff,
+      );
+    }
+  }
+};
+
+const updateChemicalFieldLayer = (field, layer, dt, options) => {
+  const decay = Math.exp(-dt / options.decayS);
+  const diffusionAlpha = clamp(
+    options.diffusionAlphaS * dt,
+    0,
+    0.26,
+  );
+  const flowAlpha = clamp(PARAMS.CHEMICAL_FIELD_FLOW_ALPHA_S * dt, 0, 0.22);
+  const flowColumnOffset = PARAMS.PLUME_FLOW_X < 0 ? 1 : -1;
+  const flowRowOffset = PARAMS.PLUME_FLOW_Y < 0 ? 1 : -1;
+
+  for (let row = 0; row < field.rows; row += 1) {
+    for (let column = 0; column < field.cols; column += 1) {
+      const index = getChemicalFieldIndex(field, column, row);
+      const center = layer[index] * decay;
+      const left =
+        layer[getChemicalFieldIndex(field, Math.max(column - 1, 0), row)];
+      const right =
+        layer[
+          getChemicalFieldIndex(field, Math.min(column + 1, field.cols - 1), row)
+        ];
+      const up =
+        layer[getChemicalFieldIndex(field, column, Math.max(row - 1, 0))];
+      const down =
+        layer[
+          getChemicalFieldIndex(field, column, Math.min(row + 1, field.rows - 1))
+        ];
+      const flowColumn = clamp(column + flowColumnOffset, 0, field.cols - 1);
+      const flowRow = clamp(row + flowRowOffset, 0, field.rows - 1);
+      const upstream =
+        layer[getChemicalFieldIndex(field, flowColumn, row)] * 0.82 +
+        layer[getChemicalFieldIndex(field, column, flowRow)] * 0.18;
+      const diffused =
+        center + diffusionAlpha * (left + right + up + down - center * 4);
+      const flowed = diffused + flowAlpha * (upstream - center);
+      field.scratch[index] =
+        flowed > PARAMS.CHEMICAL_FIELD_NOISE_CUTOFF ? flowed : 0;
+    }
+  }
+
+  layer.set(field.scratch);
+};
+
+const updateChemicalFields = (field, agents, dt, behavior) => {
+  agents.forEach((agent) => {
+    if (
+      agent.isDiseaseRemoved ||
+      agent.ontogeneticPhase === PHASES.ALGAL_PHASE
+    ) {
+      return;
+    }
+
+    const isSheltered = Boolean(agent.currentShelterId);
+    const emitInterval = isSheltered
+      ? agent.shelterChemicalPulseIntervalS ||
+        PARAMS.SHELTER_CHEM_PULSE_MAX_S
+      : PARAMS.CHEMICAL_TRAIL_EMIT_INTERVAL_S;
+    const timerKey = isSheltered ? "shelterChemicalPulseS" : "chemicalTrailEmitS";
+    agent[timerKey] = (agent[timerKey] || 0) + dt;
+    if (agent[timerKey] < emitInterval) {
+      return;
+    }
+
+    agent[timerKey] = 0;
+    if (isSheltered) {
+      agent.shelterChemicalPulseIntervalS = randomBetween(
+        PARAMS.SHELTER_CHEM_PULSE_MIN_S,
+        PARAMS.SHELTER_CHEM_PULSE_MAX_S,
+      );
+    }
+    const speed = magnitude(agent.vx, agent.vy);
+    const isActiveDiseaseSource = doesAgentEmitDiseaseCue(agent);
+    if (
+      !isSheltered &&
+      !isActiveDiseaseSource &&
+      speed < behavior.minQueueSpeedCmS * 0.35
+    ) {
+      return;
+    }
+
+    depositChemicalField(
+      field,
+      isActiveDiseaseSource ? "disease" : "healthy",
+      agent.x,
+      agent.y,
+      isActiveDiseaseSource ? 0.7 : isSheltered ? 0.42 : 0.32,
+      isActiveDiseaseSource ? 15 : isSheltered ? 14 : 11,
+    );
+  });
+
+  updateChemicalFieldLayer(field, field.healthy, dt, {
+    decayS: PARAMS.HEALTHY_CHEM_DECAY_S,
+    diffusionAlphaS: PARAMS.HEALTHY_CHEM_DIFFUSION_ALPHA_S,
+  });
+  updateChemicalFieldLayer(field, field.disease, dt, {
+    decayS: PARAMS.DISEASE_CHEM_DECAY_S,
+    diffusionAlphaS: PARAMS.DISEASE_CHEM_DIFFUSION_ALPHA_S,
+  });
+};
+
+const mixColor = (dayColor, nightColor, amount) =>
+  dayColor.map((channel, index) =>
+    Math.round(lerp(channel, nightColor[index], amount)),
+  );
+
+const formatRgb = (color) => color.join(", ");
+
+const drawChemicalField = (ctx, field, nightProgress) => {
   ctx.save();
-  ctx.translate(source.x, source.y);
-  ctx.rotate(angle);
-  ctx.scale(PARAMS.PLUME_LENGTH_SCALE, PARAMS.PLUME_WIDTH_SCALE);
+  ctx.globalCompositeOperation = "source-over";
+  const twilightBoost = Math.sin(Math.PI * clamp(nightProgress, 0, 1));
+  const alphaMultiplier = 1 + twilightBoost * 0.18;
+  const signalLightProgress = smoothstep(0.15, 0.45, nightProgress);
+  const healthySignalColor = mixColor(
+    [0, 96, 138],
+    [0, 245, 255],
+    signalLightProgress,
+  );
+  const diseaseSignalColor = [138, 0, 62];
 
-  const gradient = ctx.createRadialGradient(0, 0, 0, radius * 0.2, 0, radius);
-  gradient.addColorStop(0, startColor);
-  gradient.addColorStop(0.36, midColor);
-  gradient.addColorStop(1, endColor);
-  ctx.fillStyle = gradient;
-  ctx.beginPath();
-  ctx.arc(0, 0, radius, 0, Math.PI * 2);
-  ctx.fill();
+  const drawLayer = (layer, color, alphaScale) => {
+    for (let row = 0; row < field.rows; row += 1) {
+      for (let column = 0; column < field.cols; column += 1) {
+        const value = layer[getChemicalFieldIndex(field, column, row)];
+        if (value <= PARAMS.CHEMICAL_FIELD_NOISE_CUTOFF) {
+          continue;
+        }
+        const intensity = clamp(
+          value / PARAMS.CHEMICAL_FIELD_SATURATION,
+          0,
+          1,
+        );
+        const alpha = clamp(
+          (0.025 + intensity * alphaScale) * alphaMultiplier,
+          0,
+          0.7,
+        );
+        ctx.fillStyle = `rgba(${color}, ${alpha})`;
+        ctx.fillRect(
+          column * field.cellSizePx,
+          row * field.cellSizePx,
+          field.cellSizePx,
+          field.cellSizePx,
+        );
+      }
+    }
+  };
+
+  drawLayer(
+    field.healthy,
+    formatRgb(healthySignalColor),
+    0.42,
+  );
+  drawLayer(
+    field.disease,
+    formatRgb(diseaseSignalColor),
+    0.45,
+  );
   ctx.restore();
 };
 
-const drawSpongeShelter = (ctx, shelter, behavior) => {
+const drawSpongeShelter = (ctx, shelter) => {
   ctx.save();
   ctx.translate(shelter.x, shelter.y);
-  ctx.rotate(shelter.rotation || 0);
-  const alertAlpha = behavior.threatActive ? 0.32 : 0.24;
-  ctx.fillStyle = `rgba(82, 72, 62, ${alertAlpha})`;
+  ctx.fillStyle = "rgba(82, 72, 62, 0.32)";
   ctx.beginPath();
-  ctx.ellipse(0, 0, shelter.radius * 1.06, shelter.radius * 1.0, 0, 0, Math.PI * 2);
+  ctx.arc(0, 0, shelter.radius, 0, Math.PI * 2);
   ctx.fill();
-
-  ctx.fillStyle = "rgba(20, 24, 25, 0.34)";
-  ctx.beginPath();
-  ctx.ellipse(
-    shelter.radius * 0.08,
-    -shelter.radius * 0.05,
-    shelter.radius * 0.36,
-    shelter.radius * 0.3,
-    -0.08,
-    0,
-    Math.PI * 2,
-  );
-  ctx.fill();
-
-  ctx.strokeStyle = "rgba(242, 222, 174, 0.18)";
-  ctx.lineWidth = Math.max(1, shelter.radius * 0.035);
-  ctx.beginPath();
-  ctx.ellipse(
-    shelter.radius * 0.08,
-    -shelter.radius * 0.05,
-    shelter.radius * 0.4,
-    shelter.radius * 0.34,
-    -0.08,
-    0,
-    Math.PI * 2,
-  );
-  ctx.stroke();
   ctx.restore();
 };
 
-const drawCreviceShelter = (ctx, shelter, behavior) => {
+const drawCreviceShelter = (ctx, shelter) => {
   ctx.save();
   ctx.translate(shelter.x, shelter.y);
   ctx.rotate(shelter.rotation || 0);
   const radius = shelter.radius;
-  ctx.fillStyle = `rgba(55, 61, 60, ${behavior.threatActive ? 0.34 : 0.25})`;
+  ctx.fillStyle = "rgba(55, 61, 60, 0.34)";
   ctx.beginPath();
   ctx.moveTo(-radius * 1.45, -radius * 0.36);
   ctx.lineTo(-radius * 0.48, -radius * 0.64);
@@ -1990,48 +3287,27 @@ const drawAlgaeCover = (ctx, algae) => {
   ctx.restore();
 };
 
-const drawEnvironment = (
-  ctx,
-  shelters,
-  algaeCovers,
-  behavior,
-  healthySources,
-  diseaseSources,
-) => {
-  ctx.save();
-  if (behavior.odorTrails) {
-    healthySources.forEach((source) => {
-      const radius = PARAMS.CHEMICAL_RADIUS_CM * 0.58;
-      drawDownstreamChemicalPlume(
-        ctx,
-        source,
-        radius,
-        "rgba(96, 176, 138, 0.18)",
-        "rgba(96, 176, 138, 0.08)",
-        "rgba(96, 176, 138, 0)",
-      );
-    });
-
-    diseaseSources.forEach((source) => {
-      const radius = PARAMS.CHEMICAL_RADIUS_CM * 0.42;
-      drawDownstreamChemicalPlume(
-        ctx,
-        source,
-        radius,
-        "rgba(204, 108, 88, 0.08)",
-        "rgba(204, 108, 88, 0.035)",
-        "rgba(204, 108, 88, 0)",
-      );
-    });
-  }
-
+const drawShelters = (ctx, shelters) => {
   shelters.forEach((shelter) => {
     if (shelter.type === "crevice") {
-      drawCreviceShelter(ctx, shelter, behavior);
+      drawCreviceShelter(ctx, shelter);
       return;
     }
-    drawSpongeShelter(ctx, shelter, behavior);
+    drawSpongeShelter(ctx, shelter);
   });
+};
+
+const drawEnvironment = (
+  ctx,
+  algaeCovers,
+  behavior,
+  chemicalField,
+  nightProgress,
+) => {
+  ctx.save();
+  if (behavior.odorTrails && chemicalField) {
+    drawChemicalField(ctx, chemicalField, nightProgress);
+  }
 
   algaeCovers.forEach((algae) => {
     drawAlgaeCover(ctx, algae);
@@ -2052,8 +3328,12 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const lastTimeRef = React.useRef(0);
   const elapsedTimeRef = React.useRef(0);
   const worldRef = React.useRef({ shelters: [], algaeCovers: [] });
+  const residualDiseaseSourcesRef = React.useRef([]);
+  const chemicalFieldRef = React.useRef(null);
+  const diseaseInflowTimerRef = React.useRef(0);
   const behaviorRef = React.useRef(null);
   const isPausedRef = React.useRef(isPaused);
+  const wasMigrationNightRef = React.useRef(null);
   const pointerRef = React.useRef({
     active: false,
     x: 0,
@@ -2150,9 +3430,19 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         worldRef.current.shelters,
         worldRef.current.algaeCovers,
       );
+      residualDiseaseSourcesRef.current = [];
+      chemicalFieldRef.current = createChemicalField(width, height);
+      diseaseInflowTimerRef.current = 0;
     };
 
+    const shouldRenderFrame = createPausedFrameGate();
     const render = (timestamp) => {
+      if (!shouldRenderFrame(isPausedRef.current, window.innerWidth, window.innerHeight,
+        window.devicePixelRatio || 1, behaviorRef.current, rasterCanvasRef.current, frameCanvasesRef.current)) {
+        lastTimeRef.current = timestamp * 0.001;
+        animationFrameRef.current = window.requestAnimationFrame(render);
+        return;
+      }
       const currentBehavior = behaviorRef.current;
       const currentIsPaused = isPausedRef.current;
       const now = timestamp * 0.001;
@@ -2188,28 +3478,109 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       const globalTimeHour = resolveGlobalTimeHours(
         currentBehavior.startHour,
         elapsedTimeRef.current,
+        currentBehavior,
       );
+      const isMigrationNight = isNightHour(globalTimeHour, currentBehavior);
+      if (wasMigrationNightRef.current === null) {
+        if (!currentIsPaused && isMigrationNight) {
+          stageNightMigrationQueue(
+            agentsRef.current,
+            width,
+            height,
+            currentBehavior,
+          );
+        }
+        wasMigrationNightRef.current = isMigrationNight;
+      } else if (
+        !currentIsPaused &&
+        isMigrationNight &&
+        !wasMigrationNightRef.current
+      ) {
+        stageNightMigrationQueue(
+          agentsRef.current,
+          width,
+          height,
+          currentBehavior,
+        );
+        wasMigrationNightRef.current = true;
+      } else {
+        wasMigrationNightRef.current = isMigrationNight;
+      }
+      if (!currentIsPaused) {
+        updateNightMigrationDepartures(
+          agentsRef.current,
+          dt,
+          globalTimeHour,
+          currentBehavior,
+        );
+        updateShelterSearchDepartures(
+          agentsRef.current,
+          dt,
+          globalTimeHour,
+          currentBehavior,
+        );
+      }
       const occupancy = getShelterOccupancy(
         agentsRef.current,
         worldRef.current.shelters,
       );
+      if (!currentIsPaused) {
+        diseaseInflowTimerRef.current += dt;
+        if (
+          diseaseInflowTimerRef.current >=
+            PARAMS.INFECTED_POSTLARVAL_INFLOW_INTERVAL_S &&
+          !agentsRef.current.some(
+            (agent) => agent.isDiseased && !agent.isDiseaseRemoved,
+          )
+        ) {
+          maybeSeedLatentInfectionAmongExistingAgents(
+            agentsRef.current,
+            currentBehavior,
+          );
+          diseaseInflowTimerRef.current = 0;
+        }
+      }
       const shelterReservations = createShelterReservations(
         worldRef.current.shelters,
       );
+      if (!currentIsPaused) {
+        residualDiseaseSourcesRef.current = updateResidualDiseaseSources(
+          residualDiseaseSourcesRef.current,
+          dt,
+        );
+      }
       const { healthySources, diseaseSources } = buildChemicalSources(
         agentsRef.current,
         worldRef.current.shelters,
         occupancy,
+        residualDiseaseSourcesRef.current,
       );
+      const nightProgress = resolveLightTransition(globalTimeHour);
+      if (
+        !chemicalFieldRef.current ||
+        chemicalFieldRef.current.width !== width ||
+        chemicalFieldRef.current.height !== height
+      ) {
+        chemicalFieldRef.current = createChemicalField(width, height);
+      }
+      if (!currentIsPaused && currentBehavior.odorTrails) {
+        updateChemicalFields(
+          chemicalFieldRef.current,
+          agentsRef.current,
+          dt,
+          currentBehavior,
+        );
+      } else if (!currentBehavior.odorTrails) {
+        chemicalFieldRef.current = createChemicalField(width, height);
+      }
 
       clearTransparentCanvas2d(ctx, width, height);
       drawEnvironment(
         ctx,
-        worldRef.current.shelters,
         worldRef.current.algaeCovers,
         currentBehavior,
-        healthySources,
-        diseaseSources,
+        chemicalFieldRef.current,
+        nightProgress,
       );
 
       const pointerState = pointerRef.current;
@@ -2220,13 +3591,17 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           currentBehavior,
         );
         agent.state = determineState(agent, globalTimeHour, currentBehavior);
-        if (agent.localThreat.active) {
-          agent.state = STATES.DEFENDING;
+      });
+      buildQueueAssignments(agentsRef.current);
+      const spatialGrid = new SpatialHashGrid(width, height);
+      spatialGrid.clear();
+      agentsRef.current.forEach((agent) => {
+        if (!agent.isDiseaseRemoved) {
+          spatialGrid.insert(agent);
         }
       });
-      buildQueueAssignments(agentsRef.current, currentBehavior, width, height);
 
-      agentsRef.current.forEach((agent, index) => {
+      agentsRef.current.forEach((agent) => {
         if (!currentIsPaused) {
           updateAgent({
             agent,
@@ -2237,6 +3612,9 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             algaeCovers: worldRef.current.algaeCovers,
             healthySources,
             diseaseSources,
+            chemicalField: chemicalFieldRef.current,
+            spatialGrid,
+            residualDiseaseSources: residualDiseaseSourcesRef.current,
             globalTimeHour,
             behavior: currentBehavior,
             pointerState,
@@ -2244,6 +3622,28 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             width,
             height,
           });
+        }
+
+        if (agent.isDiseaseRemoved) {
+          if (!agent.diseaseResidualAdded) {
+            const residualSource = createDiseaseResidualSource(
+              agent,
+              worldRef.current.shelters,
+            );
+            residualDiseaseSourcesRef.current.push(residualSource);
+            if (currentBehavior.odorTrails && chemicalFieldRef.current) {
+              depositChemicalField(
+                chemicalFieldRef.current,
+                "disease",
+                residualSource.x,
+                residualSource.y,
+                0.58,
+                18,
+              );
+            }
+            agent.diseaseResidualAdded = true;
+          }
+          return;
         }
 
         if (!image) {
@@ -2267,11 +3667,12 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         const bodyScale =
           (resolveAgentRadius(agent.bodySize) * SPRITE_WIDTH_COMPENSATION) /
           Math.max(Math.max(frameSize.width, frameSize.height) * 0.5, 1);
-        const bobOffset =
-          Math.sin(now * 2.2 + index * 0.55) * (agent.inQueue ? 1.2 : 2.8);
         const renderRotation = agent.spriteState?.forceTop
           ? agent.heading
           : sprite.rotation;
+        const renderFrame = agent.spriteState?.forceTop
+          ? ATLAS.stages.lobster_top?.frames?.[0] || sprite.frame
+          : sprite.frame;
         agent.previousScreenPosition = sprite.pose.screenPosition;
         const renderAlpha = clamp(agent.renderAlpha ?? 1, 0, 1);
         if (renderAlpha <= 0.01) {
@@ -2280,13 +3681,13 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 
         ctx.save();
         ctx.globalAlpha = renderAlpha;
-        ctx.translate(agent.x, agent.y + bobOffset);
+        ctx.translate(agent.x, agent.y);
         ctx.rotate(renderRotation);
         ctx.scale(sprite.flipX * bodyScale, bodyScale);
         drawAtlasFrame(ctx, {
           image,
           frameCanvases: frameCanvasesRef.current,
-          frame: sprite.frame,
+          frame: renderFrame,
           frameSize,
           dx: -frameSize.width * 0.5,
           dy: -frameSize.height * 0.5,
@@ -2295,9 +3696,12 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         });
         ctx.restore();
       });
+      drawShelters(ctx, worldRef.current.shelters);
 
       agentsRef.current = agentsRef.current.filter(
-        (agent) => !(agent.isRetiring && isAgentOffscreen(agent, width, height)),
+        (agent) =>
+          !agent.isDiseaseRemoved &&
+          !(agent.isRetiring && isAgentOffscreen(agent, width, height)),
       );
 
       animationFrameRef.current = window.requestAnimationFrame(render);
@@ -2338,8 +3742,11 @@ App.sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => ({
   ),
   START_HOUR: clamp(
     Number(rawControls?.START_HOUR ?? DEFAULT_CONTROL_STATE.START_HOUR),
-    getControlField("START_HOUR")?.min,
-    getControlField("START_HOUR")?.max,
+    0,
+    23,
+  ),
+  CIRCADIAN_PHASE: normalizeCircadianPhase(
+    rawControls?.CIRCADIAN_PHASE ?? DEFAULT_CONTROL_STATE.CIRCADIAN_PHASE,
   ),
   DISEASE_PRESSURE: clamp(
     Number(

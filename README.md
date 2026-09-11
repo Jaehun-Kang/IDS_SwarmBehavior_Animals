@@ -1,5 +1,11 @@
 # React + Vite
 
+## Book Canvas Development
+
+All book previews must use `src/utils/bookCanvasLoop.js` for sizing, visibility and cleanup, and `src/utils/bookAnimation.js` for fixed-step updates and interpolated drawing. Do not add per-frame layout reads or reduce sprite quality to hide performance problems. Full animal simulations use `src/utils/pausedFrameGate.js` to reuse paused frames.
+
+See [the book implementation and reference log](animal-book-references.md) for the data contract, source status and shared canvas performance requirements.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

@@ -184,17 +184,19 @@ const CANVAS_POINTER_BLOCK_SELECTOR = [
 ].join(", ");
 
 const CONTROL_RESET_LERP_DURATION_MS = 320;
-const SPINY_LOBSTER_HOUR_AUTO_ADVANCE_MS = 2000;
-const SPINY_LOBSTER_HOUR_MANUAL_HOLD_MS = 2000;
-const AUTO_ADVANCING_HOUR_CONTROLS = {
-  spiny_lobster: "START_HOUR",
-};
 
 const PHASE_PREVIEW_CONTROLS = {
   krill: "LIGHT_PHASE",
+  spiny_lobster: "CIRCADIAN_PHASE",
 };
 
 const KRILL_LIGHT_PHASES = new Set(["day", "sunset", "night", "sunrise"]);
+const SPINY_LOBSTER_CIRCADIAN_PHASES = new Set([
+  "dawn",
+  "day",
+  "dusk",
+  "night",
+]);
 
 const FIREFLY_SIM_THEME = {
   "--theme-bg": "oklch(0.14 0.015 91.51)",
@@ -314,21 +316,16 @@ const smoothstep = (edge0, edge1, value) => {
   return ratio * ratio * (3 - 2 * ratio);
 };
 
-const getNightProgressFromHour = (hour) => {
-  const normalizedHour = ((Number(hour) % 24) + 24) % 24;
-  if (!Number.isFinite(normalizedHour)) {
-    return 0;
+const getSpinyLobsterPhaseNightProgress = (phase) => {
+  switch (phase) {
+    case "night":
+      return 1;
+    case "dusk":
+    case "dawn":
+      return 0.58;
+    default:
+      return 0;
   }
-
-  if (normalizedHour >= 18) {
-    return smoothstep(18, 20, normalizedHour);
-  }
-
-  if (normalizedHour <= 7) {
-    return 1 - smoothstep(5, 7, normalizedHour);
-  }
-
-  return 0;
 };
 
 const getKrillPhaseVisual = (phase) => {
@@ -752,13 +749,15 @@ function SwarmCanvas({
         const phaseControlKey = PHASE_PREVIEW_CONTROLS[animalId];
         if (phaseControlKey) {
           const nextPhase = nextControls?.[phaseControlKey];
-          return KRILL_LIGHT_PHASES.has(nextPhase) ? nextPhase : null;
-        }
-
-        const hourControlKey = AUTO_ADVANCING_HOUR_CONTROLS[animalId];
-        if (hourControlKey) {
-          const nextHour = Number(nextControls?.[hourControlKey]);
-          return Number.isFinite(nextHour) ? nextHour : null;
+          if (animalId === "krill") {
+            return KRILL_LIGHT_PHASES.has(nextPhase) ? nextPhase : null;
+          }
+          if (animalId === "spiny_lobster") {
+            return SPINY_LOBSTER_CIRCADIAN_PHASES.has(nextPhase)
+              ? nextPhase
+              : null;
+          }
+          return null;
         }
 
         return null;
@@ -792,8 +791,6 @@ function SwarmCanvas({
           onControlSnapshot({ lightIntensityLux: pendingValue });
         } else if (PHASE_PREVIEW_CONTROLS[animalId]) {
           onControlSnapshot({ lightPhase: pendingValue });
-        } else {
-          onControlSnapshot({ startHour: pendingValue });
         }
       });
     },
@@ -803,7 +800,6 @@ function SwarmCanvas({
   React.useEffect(() => {
     if (
       (animalId !== "bat" &&
-        !AUTO_ADVANCING_HOUR_CONTROLS[animalId] &&
         !PHASE_PREVIEW_CONTROLS[animalId]) ||
       !resolvedControls
     ) {
@@ -812,53 +808,6 @@ function SwarmCanvas({
 
     notifyControlSnapshot(resolvedControls);
   }, [animalId, notifyControlSnapshot, resolvedControls]);
-
-  const hasControls = Boolean(controls);
-
-  React.useEffect(() => {
-    const hourControlKey = AUTO_ADVANCING_HOUR_CONTROLS[animalId];
-    if (!hourControlKey || !hasControls || isPaused) {
-      return undefined;
-    }
-
-    const intervalId = window.setInterval(() => {
-      const now = window.performance.now();
-      if (
-        now - lastSpinyLobsterHourInteractionAtRef.current <
-        SPINY_LOBSTER_HOUR_MANUAL_HOLD_MS
-      ) {
-        return;
-      }
-
-      if (resetAnimationFrameRef.current) {
-        return;
-      }
-
-      setControls((current) => {
-        if (!current) {
-          return current;
-        }
-
-        const currentHour = Number(current[hourControlKey]);
-        const nextHour =
-          ((Number.isFinite(currentHour) ? Math.round(currentHour) : 0) + 1) %
-          24;
-        const nextControls = {
-          ...current,
-          [hourControlKey]: nextHour,
-        };
-        const sanitizedControls = sanitizeControls
-          ? sanitizeControls(nextControls)
-          : nextControls;
-
-        return shallowEqualObject(current, sanitizedControls)
-          ? current
-          : sanitizedControls;
-      });
-    }, SPINY_LOBSTER_HOUR_AUTO_ADVANCE_MS);
-
-    return () => window.clearInterval(intervalId);
-  }, [animalId, hasControls, isPaused, sanitizeControls]);
 
   if (isLoading) {
     return (
@@ -916,14 +865,12 @@ function SwarmCanvas({
           : rawValue;
     const nextValue = normalizeControlInputValue(field, parsedValue);
 
-    const hourControlKey = AUTO_ADVANCING_HOUR_CONTROLS[animalId];
     const phaseControlKey = PHASE_PREVIEW_CONTROLS[animalId];
     const shouldPreviewControl =
       (animalId === "bat" && key === "LIGHT_INTENSITY_LUX") ||
-      key === hourControlKey ||
       key === phaseControlKey;
 
-    if (key === hourControlKey) {
+    if (animalId === "spiny_lobster" && key === phaseControlKey) {
       lastSpinyLobsterHourInteractionAtRef.current = window.performance.now();
     }
 
@@ -1054,8 +1001,8 @@ function SwarmCanvas({
       return;
     }
 
-    const hourControlKey = AUTO_ADVANCING_HOUR_CONTROLS[animalId];
-    if (key === hourControlKey) {
+    const phaseControlKey = PHASE_PREVIEW_CONTROLS[animalId];
+    if (animalId === "spiny_lobster" && key === phaseControlKey) {
       lastSpinyLobsterHourInteractionAtRef.current = window.performance.now();
     }
 
@@ -1087,8 +1034,7 @@ function SwarmCanvas({
 
       const shouldPreviewControl =
         (animalId === "bat" && key === "LIGHT_INTENSITY_LUX") ||
-        key === hourControlKey ||
-        key === PHASE_PREVIEW_CONTROLS[animalId];
+        key === phaseControlKey;
 
       if (shouldPreviewControl) {
         const nextPreviewControls = {
@@ -1394,6 +1340,7 @@ function SwarmCanvas({
                 </div>
               ))}
             </div>
+            <p className="sim-control-panel__hint">마우스로 조작해보세요</p>
           </div>
         </div>
       ) : null}
@@ -1426,7 +1373,7 @@ function Sim(props) {
     inactivityRemainingSeconds,
   } = props;
   const [batLightIntensityLux, setBatLightIntensityLux] = React.useState(null);
-  const [spinyLobsterStartHour, setSpinyLobsterStartHour] =
+  const [spinyLobsterCircadianPhase, setSpinyLobsterCircadianPhase] =
     React.useState(null);
   const [krillLightPhase, setKrillLightPhase] = React.useState(null);
   const animalLabel = selectedAnimal ? animalNames[selectedAnimal] : "";
@@ -1493,9 +1440,13 @@ function Sim(props) {
       }
     : null;
   const spinyNightProgress = isSpinyLobster
-    ? getNightProgressFromHour(spinyLobsterStartHour ?? 20)
+    ? getSpinyLobsterPhaseNightProgress(
+        spinyLobsterCircadianPhase ?? "night",
+      )
     : 0;
-  const spinyDayProgress = 1 - spinyNightProgress;
+  const spinyControlDimAlpha = 0.105 + spinyNightProgress * 0.075;
+  const spinyControlDimSoftAlpha = 0.075 + spinyNightProgress * 0.055;
+  const spinyControlDimActiveAlpha = 0.165 + spinyNightProgress * 0.105;
   const spinyTextLightProgress = smoothstep(0.68, 0.94, spinyNightProgress);
   const spinyLobsterStyle = isSpinyLobster
     ? {
@@ -1520,22 +1471,22 @@ function Sim(props) {
           spinyTextLightProgress,
         ),
         "--sim-control-dim": mixRgb(
-          [255, 247, 214],
           [0, 0, 0],
-          spinyDayProgress,
-          (0.14 - spinyDayProgress * 0.065).toFixed(3),
+          [0, 0, 0],
+          1,
+          spinyControlDimAlpha.toFixed(3),
         ),
         "--sim-control-dim-soft": mixRgb(
-          [255, 247, 214],
           [0, 0, 0],
-          spinyDayProgress,
-          (0.1 - spinyDayProgress * 0.045).toFixed(3),
+          [0, 0, 0],
+          1,
+          spinyControlDimSoftAlpha.toFixed(3),
         ),
         "--sim-control-dim-active": mixRgb(
-          [255, 247, 214],
           [0, 0, 0],
-          spinyDayProgress,
-          (0.2 - spinyDayProgress * 0.1).toFixed(3),
+          [0, 0, 0],
+          1,
+          spinyControlDimActiveAlpha.toFixed(3),
         ),
         "--sim-control-reset-filter":
           spinyTextLightProgress > 0.5
@@ -1672,8 +1623,10 @@ function Sim(props) {
       }
 
       if (isSpinyLobster) {
-        setSpinyLobsterStartHour((current) =>
-          Object.is(current, snapshot.startHour) ? current : snapshot.startHour,
+        setSpinyLobsterCircadianPhase((current) =>
+          Object.is(current, snapshot.lightPhase)
+            ? current
+            : snapshot.lightPhase,
         );
       }
 
@@ -1693,7 +1646,7 @@ function Sim(props) {
       setBatLightIntensityLux(null);
     }
     if (!isSpinyLobster) {
-      setSpinyLobsterStartHour(null);
+      setSpinyLobsterCircadianPhase(null);
     }
     if (!isKrill) {
       setKrillLightPhase(null);

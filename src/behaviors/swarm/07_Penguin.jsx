@@ -1,4 +1,5 @@
 import React from "react";
+import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
   drawAtlasFrame,
@@ -1554,7 +1555,14 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       });
     };
 
+    const shouldRenderFrame = createPausedFrameGate();
     const render = (timestamp) => {
+      if (!shouldRenderFrame(isPaused, window.innerWidth, window.innerHeight,
+        window.devicePixelRatio || 1, controls, rasterCanvasRef.current, frameCanvasesRef.current)) {
+        lastTimeRef.current = timestamp * 0.001;
+        animationFrameRef.current = window.requestAnimationFrame(render);
+        return;
+      }
       const now = timestamp * 0.001;
       const dt = lastTimeRef.current
         ? Math.min(now - lastTimeRef.current, 0.05)

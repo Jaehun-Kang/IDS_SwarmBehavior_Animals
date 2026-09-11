@@ -1,4 +1,5 @@
 import React from "react";
+import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
   getAtlasFrameIndex,
@@ -152,8 +153,8 @@ const CONTROL_FIELDS = [
   {
     key: "IS_PREDATOR_ACTIVE",
     label: "마우스 상호작용",
-    type: "toggle",
-    formatValue: (value) => (value ? "포식자" : "없음"),
+    type: "static",
+    formatValue: () => "포식자",
   },
   {
     key: "BOID_COUNT",
@@ -1805,7 +1806,9 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
       };
     };
 
+    const shouldRenderFrame = createPausedFrameGate();
     const resizeCanvas = () => {
+      shouldRenderFrame.invalidate();
       const width = window.innerWidth;
       const height = window.innerHeight;
       const ratio = window.devicePixelRatio || 1;
@@ -1829,18 +1832,22 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
       const viewportHeight = window.innerHeight;
 
       if (isPausedRef.current) {
-        drawBoids(
-          gl,
-          renderer,
-          viewportWidth,
-          viewportHeight,
-          window.devicePixelRatio || 1,
-          boids,
-        );
+        if (shouldRenderFrame(true, viewportWidth, viewportHeight,
+          window.devicePixelRatio || 1, liveControls, renderer.texture)) {
+          drawBoids(
+            gl,
+            renderer,
+            viewportWidth,
+            viewportHeight,
+            window.devicePixelRatio || 1,
+            boids,
+          );
+        }
         animationFrame = window.requestAnimationFrame(step);
         return;
       }
 
+      shouldRenderFrame.invalidate();
       syncBoidCount(
         boids,
         liveControls.BOID_COUNT,

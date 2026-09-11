@@ -6,7 +6,7 @@ import Detail from "./pages/Detail.jsx";
 import { animals } from "./behaviors/animalData";
 
 const DETAIL_ENTER_DURATION = 400;
-const INACTIVITY_TIMEOUT_MS = 60000;
+const INACTIVITY_TIMEOUT_MS = 180000;
 const INACTIVITY_WARNING_THRESHOLD_MS = 20000;
 
 const ANIMAL_IDS = new Set(animals.map((animal) => animal.id));

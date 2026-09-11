@@ -1,3 +1,4 @@
+@charset "UTF-8";
 .sim {
   --sim-left-overlay-width: 320px;
   --sim-overlay-gap: 14px;
@@ -366,7 +367,7 @@
   justify-content: start;
   gap: 12px;
   min-height: 31.2px;
-  margin: 0 0 7.2px;
+  margin: 0 0 16px;
   padding: 0;
 }
 .sim .sim-control-panel__header::before {
@@ -374,24 +375,27 @@
 }
 .sim .sim-control-panel__title {
   position: relative;
-  font-family: var(--theme-parameter-title-font);
+  font-family: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", Arial, sans-serif;
   font-weight: 700;
   font-size: 22px;
   line-height: 1;
   color: var(--sim-sticky-text);
 }
 .sim .sim-control-panel__content {
-  transform: translate(-18px, 8px) rotate(-4deg);
+  color: var(--sim-sticky-text);
+  font-family: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", Arial, sans-serif;
+  transform: translate(-18px, 8px) rotate(-5deg);
   transform-origin: 100% 100%;
 }
 .sim .sim-inactivity-warning {
   position: absolute;
-  top: calc(100% + 16px);
-  left: 16px;
+  right: 58px;
+  bottom: 24px;
+  left: 92px;
   margin: 0;
   color: var(--sim-sticky-text);
-  font-family: var(--theme-parameter-title-font);
-  font-size: 18px;
+  font-family: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", Arial, sans-serif;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: 0;
@@ -418,6 +422,15 @@
   font-weight: 600;
   line-height: 1.2;
 }
+.sim .sim-control-panel__hint {
+  margin: 18px 0 0;
+  color: var(--sim-sticky-text);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: left;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.24);
+}
 .sim .sim-control-field--toggle {
   margin-top: 16px;
   margin-bottom: 18px;
@@ -434,17 +447,27 @@
   margin-bottom: 2px;
 }
 .sim .sim-control-field__row > span {
-  font-size: clamp(14px, 0.94vw, 18px);
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
 }
 .sim .sim-control-field__value-group {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: max-content;
   align-items: center;
+  min-height: 26px;
   gap: 8px;
 }
 .sim .sim-control-field__value {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
   color: var(--sim-sticky-muted);
+  line-height: 1;
 }
 .sim .sim-control-reset {
   display: inline-grid;

@@ -1,4 +1,5 @@
 import React from "react";
+import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
   getAtlasFrameIndex,
@@ -77,8 +78,8 @@ const CONTROL_FIELDS = [
   {
     key: "IS_PREDATOR_ACTIVE",
     label: "마우스 상호작용",
-    type: "toggle",
-    formatValue: (value) => (value ? "포식자" : "없음"),
+    type: "static",
+    formatValue: () => "포식자",
   },
   {
     key: "BOID_COUNT",
@@ -1441,6 +1442,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
     active: false,
   });
   const isPausedRef = React.useRef(isPaused);
+  const controlRevisionRef = React.useRef(0);
   const resolvedControls = React.useMemo(
     () => sanitizeControlState(controls),
     [controls],
@@ -1452,6 +1454,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
 
   React.useEffect(() => {
     Object.assign(PARAMS, resolvedControls);
+    controlRevisionRef.current += 1;
   }, [resolvedControls]);
 
   React.useEffect(() => {
@@ -1539,7 +1542,9 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
       }
     };
 
+    const shouldRenderFrame = createPausedFrameGate();
     const resizeCanvas = () => {
+      shouldRenderFrame.invalidate();
       const width = window.innerWidth;
       const height = window.innerHeight;
       const ratio = window.devicePixelRatio || 1;
@@ -1583,17 +1588,21 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
       const height = window.innerHeight;
 
       if (isPausedRef.current) {
-        drawBoidsWithWebGL(
-          gl,
-          renderer,
-          width,
-          height,
-          window.devicePixelRatio || 1,
-          boids,
-        );
+        if (shouldRenderFrame(true, width, height, window.devicePixelRatio || 1,
+          renderer.textures.spriteSheet, controlRevisionRef.current)) {
+          drawBoidsWithWebGL(
+            gl,
+            renderer,
+            width,
+            height,
+            window.devicePixelRatio || 1,
+            boids,
+          );
+        }
         animationFrame = window.requestAnimationFrame(step);
         return;
       }
+      shouldRenderFrame.invalidate();
 
       if (now >= nextTurnTime) {
         spawnTurnSignal(boids, flockCenter, now);

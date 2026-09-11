@@ -4,8 +4,10 @@ import { loadTexturedAtlasCanvas, getAtlasFrameCanvas } from "../../utils/sprite
 import { resolveCanvasAtlasSprite } from "../../utils/spritePose";
 import { createBookCanvasLoop } from "../../utils/bookCanvasLoop.js";
 import { createPenguinCold, advancePenguinCold, penguinColdPose } from "./penguinColdModel.js";
+import { createPenguinHuddle, advancePenguinHuddle, penguinHuddlePose, penguinWindExposure } from "./penguinHuddleModel.js";
 const atlas = HOME_SPRITE_ATLASES.penguin;
 export default function PenguinColdPreview({controls,ruleGroup}) {
+  const isHuddle = ruleGroup.previewId === "penguin_huddle";
   const canvasRef = React.useRef(null), controlsRef = React.useRef(controls);
   const [error,setError] = React.useState("");
   React.useEffect(()=>{controlsRef.current=controls;},[controls]);
@@ -13,14 +15,27 @@ export default function PenguinColdPreview({controls,ruleGroup}) {
     let model,frames,disposed=false;
     const pose={};
     const loop=createBookCanvasLoop(canvasRef.current,{
-      onResize:({width,height})=>{model=createPenguinCold(width/height);},
+      onResize:({width,height})=>{model=(isHuddle ? createPenguinHuddle : createPenguinCold)(width/height);},
       onFrame:({context,width,height,elapsedSeconds})=>{
-        advancePenguinCold(model,controlsRef.current,elapsedSeconds);
+        (isHuddle ? advancePenguinHuddle : advancePenguinCold)(model,controlsRef.current,elapsedSeconds);
         context.clearRect(0,0,width,height);
         const scale=width/model.width;
+        if (isHuddle) {
+          const angle = (controlsRef.current.wind_direction ?? 0) * Math.PI / 180;
+          const dx = Math.cos(angle), dy = Math.sin(angle);
+          context.strokeStyle = "#527c8b"; context.lineWidth = 1.2;
+          for (let i = 0; i < 72; i++) {
+            const x = ((i * 3.73 + model.time * dx * 2) % model.width + model.width) % model.width;
+            const y = ((i * 5.17 + model.time * dy * 2) % model.height + model.height) % model.height;
+            context.globalAlpha = penguinWindExposure({ x, y }, model.agents, angle) * 0.7;
+            context.beginPath(); context.moveTo(x * scale, y * scale);
+            context.lineTo((x + dx * 0.65) * scale, (y + dy * 0.65) * scale); context.stroke();
+          }
+          context.globalAlpha = 1;
+        }
         for(let i=0;i<model.agents.length;i++) {
           const a=model.agents[i];
-          penguinColdPose(model,i,pose);
+          (isHuddle ? penguinHuddlePose : penguinColdPose)(model,i,pose);
           const sprite=resolveCanvasAtlasSprite(atlas,{
             space:"2d",position:pose,velocity:{x:Math.cos(pose.heading),y:Math.sin(pose.heading)},profile:"simulation",
           });
@@ -38,7 +53,7 @@ export default function PenguinColdPreview({controls,ruleGroup}) {
       frames=result.frameCanvases;loop.start();
     }).catch(()=>{if(!disposed)setError("펭귄 이미지를 불러오지 못했습니다.");});
     return()=>{disposed=true;loop.dispose();};
-  },[]);
+  },[isHuddle]);
   return <div className="canvas-placeholder rule-preview" aria-label={`${ruleGroup.category} 미니 시뮬레이션`}>
     {error?<span role="alert">{error}</span>:null}
     <canvas ref={canvasRef} className="rule-preview__canvas" />

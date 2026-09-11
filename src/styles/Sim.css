@@ -537,7 +537,7 @@
   width: auto;
 }
 .sim .sim-control-toggle-switch.is-on .sim-control-toggle-switch__track {
-  background: var(--sim-control-dim-active);
+  background: var(--sim-sticky-strong);
 }
 .sim .sim-control-toggle-switch.is-on .sim-control-toggle-switch__thumb {
   transform: translateX(22px);

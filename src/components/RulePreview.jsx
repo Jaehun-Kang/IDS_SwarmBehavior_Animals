@@ -13,6 +13,7 @@ import { resolveRuleControls } from "../utils/bookControls.js";
 
 const PREVIEW_COMPONENTS = {
   penguin_cold: PenguinColdPreview,
+  penguin_huddle: PenguinColdPreview,
   sheep_movement: SheepMovementPreview,
   sheep_neighbors: SheepMovementPreview,
   sheep_leaders: SheepMovementPreview,

@@ -8,9 +8,11 @@ import LocustFlightPreview from "./bookPreviews/LocustFlightPreview";
 import AntExplorationPreview from "./bookPreviews/AntExplorationPreview";
 import BatFlightPreview from "./bookPreviews/BatFlightPreview";
 import SheepMovementPreview from "./bookPreviews/SheepMovementPreview";
+import PenguinColdPreview from "./bookPreviews/PenguinColdPreview";
 import { resolveRuleControls } from "../utils/bookControls.js";
 
 const PREVIEW_COMPONENTS = {
+  penguin_cold: PenguinColdPreview,
   sheep_movement: SheepMovementPreview,
   sheep_neighbors: SheepMovementPreview,
   sheep_leaders: SheepMovementPreview,

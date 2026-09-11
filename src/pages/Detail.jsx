@@ -249,6 +249,14 @@ const getIntroSpriteState = ({
   }
 
   if (animalId === "grasshopper") {
+    if (introAnimal?.introAtHome) {
+      const isFlying = pointerVector.y < 0;
+      const isTakingOff = isFlying && timestampMs - introAnimal.introFlightStartedAt < 25;
+      return {
+        directionX: pointerVector.x, directionY: pointerVector.y,
+        isFlying, isTakingOff, jumpProgress: isTakingOff ? 0.12 : 1,
+      };
+    }
     const isJumping = introAnimal?.spriteType === "grasshopper_jump";
     return {
       directionX: isJumping ? introAnimal.jumpDirX : pointerVector.x,
@@ -262,7 +270,7 @@ const getIntroSpriteState = ({
     const glowCycle = (timestampMs % 1200) / 1200;
     return {
       glow: glowCycle < 0.2 || (glowCycle > 0.34 && glowCycle < 0.42),
-      idle: false,
+      idle: Boolean(introAnimal?.introAtHome) && pointerVector.y > 0,
     };
   }
 
@@ -305,6 +313,26 @@ const applyIntroSpriteOverrides = (
   introAnimal,
   timestampMs,
 ) => {
+  if (introAnimal?.introAtHome) {
+    if (animalId === "bee" && pointerVector.y > 0) {
+      return { ...sprite, stage: sprite.stage === "bee_top_fly" ? "bee_top_idle" : "bee_idle" };
+    }
+    if (animalId === "firefly" && pointerVector.y > 0) {
+      const stages = {
+        firefly_glow: "firefly_glow_idle", firefly_dark: "firefly_dark_idle",
+        firefly_lit_top_fly: "firefly_lit_top_idle", firefly_dark_top_fly: "firefly_dark_top_idle",
+      };
+      return { ...sprite, stage: stages[sprite.stage] || sprite.stage, state };
+    }
+    if (animalId === "ant") {
+      if (Math.hypot(pointerVector.x, pointerVector.y) <= 56) {
+        return { ...sprite, stage: "ant_front", rotationDeg: 0, scaleX: 1 };
+      }
+      if (Math.abs(pointerVector.y) < Math.abs(pointerVector.x) * 0.82) {
+        return { ...sprite, stage: "ant_walk", rotationDeg: 0, scaleX: pointerVector.x < 0 ? -1 : 1 };
+      }
+    }
+  }
   if (animalId === "ant") {
     return {
       ...sprite,
@@ -325,6 +353,23 @@ const applyIntroSpriteOverrides = (
   }
 
   if (animalId === "penguin") {
+    if (!introAnimal?.introPointerInside) {
+      if (introAnimal?.introAtHome) {
+        if (Math.abs(pointerVector.x) <= 70 && Math.abs(pointerVector.y) <= 70) {
+          return { ...sprite, stage: "penguin_front", rotationDeg: 0, scaleX: 1, scaleY: 1 };
+        }
+        if (pointerVector.y > 70) {
+          const isSide = Math.abs(pointerVector.x) > 70;
+          return {
+            ...sprite,
+            stage: isSide ? "penguin_slide" : "penguin_front_slide",
+            rotationDeg: 90, scaleX: 1,
+            scaleY: pointerVector.x < 0 ? -1 : 1,
+          };
+        }
+      }
+      return { ...sprite, rotationDeg: 0, scaleY: 1 };
+    }
     return {
       ...sprite,
       rotationDeg:
@@ -337,7 +382,8 @@ const applyIntroSpriteOverrides = (
   return sprite;
 };
 
-const getIntroSpriteFrameSequence = (animalId, stage, sequence) => {
+const getIntroSpriteFrameSequence = (animalId, stage, sequence, outsideAtHome = false) => {
+  if (outsideAtHome && sequence.frames?.length > 1) return sequence;
   let nextSequence = sequence;
 
   if (animalId === "bat" && stage === "bat_fly3") {
@@ -353,7 +399,7 @@ const getIntroSpriteFrameSequence = (animalId, stage, sequence) => {
 
   const durationScale = INTRO_ANIMATION_DURATION_SCALE[animalId];
 
-  if (!durationScale || nextSequence.frames?.length <= 1) {
+  if (outsideAtHome || !durationScale || nextSequence.frames?.length <= 1) {
     return nextSequence;
   }
 
@@ -994,6 +1040,9 @@ function Detail({
   const coverTextureUrl = getBookCoverTexture(animalId);
   const coverTextureCssValue = getCssImageValue(coverTextureUrl);
   const introArtworkRef = React.useRef(null);
+  const introHomeSlotRef = React.useRef(null);
+  const introLayoutRef = React.useRef(null);
+  const [introLayout, setIntroLayout] = React.useState(null);
   const pageSurfaceRef = React.useRef(null);
   const turnCaptureSurfaceRef = React.useRef(null);
   const turnCanvasRef = React.useRef(null);
@@ -1125,6 +1174,7 @@ function Detail({
       animalId,
       displaySprite.stage,
       resolveStageFrameSequence(resolvedAtlas, displaySprite.stage),
+      Boolean(introHomeAnimalRef.current?.introAtHome),
     );
     const frame = getIntroSpriteFrame(sequence, introAnimationTimeMs);
     const frameSize = resolveAtlasFrameSize(resolvedAtlas);
@@ -1172,8 +1222,9 @@ function Detail({
       clientY >= bookRect.top &&
       clientY <= bookRect.bottom;
 
-    const artworkHomeX = rect.left + rect.width * 0.74;
-    const artworkHomeY = rect.top + rect.height * 0.42;
+    const home = introLayoutRef.current;
+    const artworkHomeX = rect.left + (home?.x ?? rect.width * 0.74);
+    const artworkHomeY = rect.top + (home?.y ?? rect.height * 0.42);
     const nextVector = {
       x: clientX - artworkHomeX,
       y: clientY - artworkHomeY,
@@ -1202,8 +1253,8 @@ function Detail({
       };
     } else {
       introPointerTargetRef.current = {
-        x: rect.width * 0.74,
-        y: rect.height * 0.42,
+        x: home?.x ?? rect.width * 0.74,
+        y: home?.y ?? rect.height * 0.42,
         isInsideBook: false,
         lookX: nextVector.x,
         lookY: nextVector.y,
@@ -1251,6 +1302,30 @@ function Detail({
   React.useEffect(() => {
     setActivePageKey("cover");
   }, [animalId]);
+
+  React.useLayoutEffect(() => {
+    const node = introArtworkRef.current;
+    const slot = introHomeSlotRef.current;
+    if (!node || !slot || activePageKey !== "intro") return undefined;
+    const measure = () => {
+      const bounds = node.getBoundingClientRect();
+      const home = slot.getBoundingClientRect();
+      const scaleX = bounds.width / node.clientWidth || 1;
+      const scaleY = bounds.height / node.clientHeight || 1;
+      const layout = {
+        x: (home.left + home.width / 2 - bounds.left) / scaleX,
+        y: (home.top + home.height / 2 - bounds.top) / scaleY,
+        width: slot.offsetWidth,
+      };
+      introLayoutRef.current = layout;
+      setIntroLayout(layout);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    observer.observe(slot);
+    return () => observer.disconnect();
+  }, [activePageKey, animalId, isOpen]);
 
   React.useEffect(() => {
     introPointerTargetRef.current = {
@@ -1300,8 +1375,11 @@ function Detail({
         const rect = node.getBoundingClientRect();
         const spriteWidth = Math.max(36, rect.width * 0.12);
         const spriteHeight = Math.max(24, rect.height * 0.12);
-        const homeX = rect.width * 0.74 - spriteWidth * 0.5;
-        const homeY = rect.height * 0.42 - spriteHeight * 0.5;
+        const home = introLayoutRef.current;
+        const homeCenterX = home?.x ?? rect.width * 0.74;
+        const homeCenterY = home?.y ?? rect.height * 0.42;
+        const homeX = homeCenterX - spriteWidth * 0.5;
+        const homeY = homeCenterY - spriteHeight * 0.5;
 
         if (
           !introHomeAnimalRef.current ||
@@ -1340,15 +1418,31 @@ function Detail({
         const animalCenterY = introAnimal.y + spriteHeight * 0.5;
         const targetCenterX = target.isInsideBook
           ? target.x
-          : rect.width * 0.74;
+          : homeCenterX;
         const targetCenterY = target.isInsideBook
           ? target.y
-          : rect.height * 0.42;
+          : homeCenterY;
         const dx = targetCenterX - animalCenterX;
         const dy = targetCenterY - animalCenterY;
         const distance = Math.hypot(dx, dy);
+        introAnimal.introAtHome = !target.isInsideBook && distance < 2.5;
+        introAnimal.introPointerInside = target.isInsideBook;
         if (animalId === "grasshopper") {
-          introAnimal.introAtHome = !target.isInsideBook && distance < 2.5;
+          const flying = introAnimal.introAtHome && target.lookY < 0;
+          if (flying && !introAnimal.introFlying) introAnimal.introFlightStartedAt = timestampMs;
+          introAnimal.introFlying = flying;
+        }
+        if (animalId !== "grasshopper" && !target.isInsideBook) {
+          const step = Math.min(distance * 0.08, resolveIntroBaseSpeed(animalId) * 1.1);
+          introAnimal.x += distance > 0 ? dx / distance * step : 0;
+          introAnimal.y += distance > 0 ? dy / distance * step : 0;
+          introAnimal.vx = introAnimal.vy = 0;
+          setIntroPointerVector(distance > 2.5
+            ? { x: dx, y: dy }
+            : { x: target.lookX, y: target.lookY });
+          setIntroSpriteOffset({ x: introAnimal.x - homeX, y: introAnimal.y - homeY });
+          animationFrameId = window.requestAnimationFrame(updateAnimationTime);
+          return;
         }
 
         if (animalId === "grasshopper" && !target.isInsideBook) {
@@ -2365,11 +2459,13 @@ function Detail({
                 style={{
                   ...introSprite.style,
                   position: "absolute",
-                  left: "74%",
-                  top: "42%",
+                  left: introLayout?.x ?? "74%",
+                  top: introLayout?.y ?? "42%",
+                  width: introLayout?.width,
                   transform: `translate(-50%, -50%) translate(${introSpriteOffset.x}px, ${introSpriteOffset.y}px) rotate(${introSprite.rotationDeg || 0}deg) scaleX(${introSprite.scaleX}) scaleY(${introSprite.scaleY ?? 1})`,
                   transformOrigin:
-                    animalId === "penguin" ? "50% 100%" : undefined,
+                    animalId === "penguin" && introHomeAnimalRef.current?.introPointerInside
+                      ? "50% 100%" : "50% 50%",
                 }}
               />
             </div>
@@ -2377,7 +2473,13 @@ function Detail({
           <div className="detail-book-page detail-book-page--inside-cover" />
           <div className="detail-book-page detail-book-page--intro">
             <div className="detail-page-inner detail-page-inner--intro">
-              <div className="detail-intro-artwork" aria-hidden="true" />
+              <div className="detail-intro-artwork" aria-hidden="true">
+                {introSprite ? <span
+                  ref={isCapture ? null : introHomeSlotRef}
+                  className="detail-header-artwork__image"
+                  style={{ ...introSprite.style, visibility: "hidden" }}
+                /> : null}
+              </div>
               <div className="detail-intro-copy">
                 <h1
                   id={`detail-intro-title${idSuffix}`}

@@ -1,5 +1,17 @@
 # 동물 도감 내용·출처 검토 기록
 
+## 2026-09-11 PE-01 완료 기록
+
+- PE-00과 PE-01 원답변을 마지막 제안까지 읽었으며 원자료는 수정하지 않았다.
+- Richter et al. (2018), *Phase transitions in huddling emperor penguins*, DOI: https://doi.org/10.1088/1361-6463/aabb8e, 원문: https://pmc.ncbi.nlm.nih.gov/articles/PMC6221190/ . Eq. 1–2, Table 1 및 Discussion 대조. 기온·풍속·복사·습도의 합성 변수는 군집 관측에 맞춘 지표다. -48.2°C는 해당 관측 기간의 군집 전이 중간값이지 모든 개체의 실제 기온 임계점이나 체온이 아니다.
+- Gilbert et al. (2006), *Huddling behavior in emperor penguins: Dynamics of huddling*, DOI: https://doi.org/10.1016/j.physbeh.2006.04.024, 초록: https://pubmed.ncbi.nlm.nih.gov/16740281/ . 37.5°C는 무리 안에서 개체가 노출된 주변 온도 기록이다. 깃털 표면이나 중심 체온의 고정값으로 옮기지 않았다.
+- McCafferty et al. (2013), *Emperor penguin body surfaces cool below air temperature*, DOI: https://doi.org/10.1098/rsbl.2012.1192, 원문: https://pmc.ncbi.nlm.nih.gov/articles/PMC3645025/ . 열화상 및 Discussion의 깃털 단열·복사 냉각 구분을 반영했다. 표면이 공기보다 차가울 때 대류로 열을 얻을 수도 있으므로 '모든 부위에서 바람이 항상 열을 빼앗는다'는 단정을 피했다.
+- 중심 체온이 항상 37–38°C라는 답변은 채택하지 않았다. Gilbert et al. (2007), *Body temperature changes induced by huddling in breeding male emperor penguins*, https://doi.org/10.1152/ajpregu.00912.2005 의 번식 상태별 변화를 추가 확인했다.
+- 본문은 네 짧은 항목, 조작은 기온(-40~-5°C)·풍속(0~20m/s)·개체별 반응 차이(0~100%) 세 개다. 몸의 온도 설명에는 가짜 체온 조절기를 만들지 않았다.
+- 전시 모형: 24개체, 고정 60Hz/보간, 7모델단위 이내 가까운 4개체의 간격 반응. Richter 계수에 복사 20 W/m²·습도 40%를 고정한 합성 추위 지표를 쓰지만 개체 차이 ±22, 반응 2초, 거리·속도·배치 및 이웃 규칙은 설명용 가정이다. 체온·열수지·물리적 허들 형성 시간을 재현하지 않는다. 화면 중심 유인은 없고 가장자리에서만 화면 유지를 위한 조향이 있다.
+- 검증: 모델의 온도/풍속 독립 효과·개체 차이·30/60/120Hz 일치·극단값 경계 검사. 실제 책 1440/390px에서 세 슬라이더·캔버스 픽셀 변화·이전/다음 값 유지·화면 밖 그리기 0·페이지 오류 0. lint 및 Vite build 통과, 기존 큰 청크 경고 유지. CSS/SCSS 수정 없음.
+- 추가 NotebookLM 질문: 피부 온도 14°C/35°C를 실제 가입·이탈 임계값으로 측정한 원문과 조건을 제시해 주세요. PE-00의 '근거 없는 확정 순위는 없다'는 설명 뒤 우선순위 1~4 및 피부 임계값을 단정한 부분을 관찰/모델로 다시 분리해 주세요. 이 질문은 PE-01의 비수치 본문 진행을 막지 않는다.
+
 ## 2026-09-11 SH-04 완료 기록
 
 - SH-04 원답변 전체를 읽고 보존했다. Jadhav et al. (2024), *Collective responses of flocking sheep (Ovis aries) to a herding dog (border collie)*, Communications Biology7, **1543**. [원문 DOI10.1038/s42003-024-07245-8](https://www.nature.com/articles/s42003-024-07245-8). 원답변의 논문번호1500은 잘못됐다. 초록·서론·Results·모델 설정/Fig7 설명을 대조했다.

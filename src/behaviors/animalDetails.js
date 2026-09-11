@@ -4,6 +4,7 @@ import { GRASSHOPPER_DETAILS } from "./details/grasshopper.js";
 import { ANT_DETAILS } from "./details/ant.js";
 import { BAT_DETAILS } from "./details/bat.js";
 import { SHEEP_DETAILS } from "./details/sheep.js";
+import { PENGUIN_DETAILS } from "./details/penguin.js";
 
 // 각 동물별 상세 정보 (이름, 학명, 설명 등)
 export const ANIMAL_DETAILS = {
@@ -13,12 +14,7 @@ export const ANIMAL_DETAILS = {
   ant: ANT_DETAILS,
   bat: BAT_DETAILS,
   sheep: SHEEP_DETAILS,
-  penguin: {
-    korean: "황제펭귄",
-    english: "Emperor Penguin",
-    scientific: "Aptenodytes forsteri",
-    rules: [],
-  },
+  penguin: PENGUIN_DETAILS,
   bee: {
     korean: "재래꿀벌",
     english: "Eastern Honey Bee",

@@ -3,15 +3,19 @@ import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import { loadTexturedAtlasCanvas, getAtlasFrameCanvas, resolveStageFrameSequence } from "../../utils/spriteAtlas";
 import { createBookCanvasLoop } from "../../utils/bookCanvasLoop.js";
 import { createBatFlight, advanceBatFlight, batFlightPose } from "./batFlightModel.js";
-import { createBatEmergence, advanceBatEmergence, batEmergencePose } from "./batEmergenceModel.js";
+import { createBatEmergence, createBatNeighbors, advanceBatEmergence, batEmergencePose } from "./batEmergenceModel.js";
+import { createBatReturn, advanceBatReturn, batReturnPose } from "./batReturnModel.js";
 const atlas = HOME_SPRITE_ATLASES.bat;
 const engines = {
   bat_flight: { create: createBatFlight, advance: advanceBatFlight, pose: batFlightPose },
   bat_emergence: { create: createBatEmergence, advance: advanceBatEmergence, pose: batEmergencePose },
+  bat_neighbors: { create: createBatNeighbors, advance: advanceBatEmergence, pose: batEmergencePose },
+  bat_return: { create: createBatReturn, advance: advanceBatReturn, pose: batReturnPose },
 };
 export default function BatFlightPreview({ controls, ruleGroup }) {
   const engine = engines[ruleGroup.previewId];
   const canvasRef = React.useRef(null), controlsRef = React.useRef(controls);
+  const pointerRef = React.useRef(null);
   const [error, setError] = React.useState("");
   React.useEffect(() => { controlsRef.current = controls; }, [controls]);
   React.useEffect(() => {
@@ -20,10 +24,17 @@ export default function BatFlightPreview({ controls, ruleGroup }) {
     const loop = createBookCanvasLoop(canvasRef.current, {
       onResize: ({ width, height }) => { model = engine.create(width / height); },
       onFrame: ({ context, width, height, elapsedSeconds }) => {
-        engine.advance(model, controlsRef.current, elapsedSeconds);
+        engine.advance(model, controlsRef.current, elapsedSeconds, pointerRef.current);
         const scale = width / model.width;
         context.clearRect(0, 0, width, height);
-        if (model.opening !== undefined) {
+        if (model.returnMode && pointerRef.current) {
+          context.strokeStyle = "#98424a";
+          context.lineWidth = 1.5;
+          context.beginPath();
+          context.arc(pointerRef.current.x * width, pointerRef.current.y * height, scale * 8, 0, Math.PI * 2);
+          context.stroke();
+        }
+        if (model.opening !== undefined && !model.neighborMode) {
           context.fillStyle = "rgba(94,79,68,0.22)";
           const top = (model.height - model.opening) / 2 * scale;
           const bottom = (model.height + model.opening) / 2 * scale;
@@ -70,6 +81,14 @@ export default function BatFlightPreview({ controls, ruleGroup }) {
   }, [engine]);
   return <div className="canvas-placeholder rule-preview" aria-label={`${ruleGroup.category} 미니 시뮬레이션`}>
     {error ? <span role="alert">{error}</span> : null}
-    <canvas ref={canvasRef} className="rule-preview__canvas" />
+    <canvas ref={canvasRef} className="rule-preview__canvas"
+      onPointerMove={event => {
+        if (ruleGroup.previewId !== "bat_return") return;
+        const rect = event.currentTarget.getBoundingClientRect();
+        pointerRef.current = { x: (event.clientX - rect.left) / rect.width, y: (event.clientY - rect.top) / rect.height };
+      }}
+      onPointerLeave={() => { pointerRef.current = null; }}
+      onPointerCancel={() => { pointerRef.current = null; }}
+      onPointerUp={event => { if (event.pointerType !== "mouse") pointerRef.current = null; }} />
   </div>;
 }

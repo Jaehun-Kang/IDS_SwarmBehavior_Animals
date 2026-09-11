@@ -28,5 +28,30 @@ export const BAT_DETAILS = {
         description: "동굴에서 나온 박쥐 무리는 길게 굽이치는 띠를 이루기도 한다. 언제나 빽빽한 대열을 유지하는 것은 아니며, 밖으로 퍼지는 모습도 나타난다.",
         parameter: { label: "퍼지는 정도", unit: "퍼센트", min: 0, max: 100, step: 5, decimals: 0, defaultValue: 30 } },
     ],
+  }, {
+    id: "neighbor_movement", previewId: "bat_neighbors", category: "이웃과 이동하기",
+    behaviors: [
+      { id: "forward_following", name: "앞선 이웃",
+        description: "동굴을 나오는 박쥐는 앞에서 나는 이웃의 움직임에 더 강하게 반응한다. 앞선 개체가 방향을 바꾸면 시간 차를 두고 비슷한 방향으로 움직인다.",
+        parameter: { label: "앞선 이웃의 영향", unit: "퍼센트", min: 0, max: 100, step: 5, decimals: 0, defaultValue: 60 } },
+      { id: "near_avoidance", name: "이웃 피하기",
+        description: "박쥐는 가까운 이웃과 부딪히지 않도록 비행 경로를 조절한다. 빽빽한 무리에서 어떤 감각 정보를 이용하는지는 아직 밝혀지는 중이다.",
+        parameter: { label: "근거리 회피", unit: "퍼센트", min: 0, max: 100, step: 5, decimals: 0, defaultValue: 50 } },
+      { id: "stream_spread", name: "흩어지는 무리",
+        description: "동굴을 나올 때의 조밀한 무리는 계속 같은 모양으로 머물지 않는다. 이동 중 느슨하게 퍼지기도 하며, 먹이를 찾는 비행은 출구 주변의 흐름과 다르다.",
+        parameter: { label: "퍼지는 정도", unit: "퍼센트", min: 0, max: 100, step: 5, decimals: 0, defaultValue: 30 } },
+    ],
+  }, {
+    id: "return_threat", previewId: "bat_return", category: "돌아오기와 위협",
+    behaviors: [
+      { id: "entry_speed", name: "동굴로 돌아오기",
+        description: "먹이를 찾던 박쥐는 새벽에 동굴로 돌아온다. 입구에 접근하며 비행을 조절하므로, 밖으로 나갈 때의 움직임을 그대로 거꾸로 반복하지는 않는다.",
+        parameter: { label: "입구 접근 속도", unit: "미터/초", min: 1, max: 6, step: 0.5, decimals: 1, defaultValue: 3 } },
+      { id: "light_context", name: "빛에 대한 반응",
+        description: "성체 박쥐는 어두운 곳에서 밝은 방향으로 향하기도 하지만, 빛이 강해지면 어두운 쪽을 선택하기도 한다. 빛에 대한 반응은 시간대와 성장 단계에 따라서도 다르다." },
+      { id: "threat_response", name: "포식의 위험",
+        description: "무리에서 떨어진 박쥐는 포식자의 표적이 되기 쉽다. 무리 안에 머무는 이점이 있지만, 공격받을 때 언제나 더 빽빽하게 뭉치는 것은 아니다.",
+        parameter: { label: "위협 회피 강도", unit: "퍼센트", min: 0, max: 100, step: 5, decimals: 0, defaultValue: 60 } },
+    ],
   }],
 };

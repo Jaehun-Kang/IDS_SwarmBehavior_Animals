@@ -22,6 +22,8 @@ const PREVIEW_COMPONENTS = {
   ant_mill: AntExplorationPreview,
   bat_flight: BatFlightPreview,
   bat_emergence: BatFlightPreview,
+  bat_neighbors: BatFlightPreview,
+  bat_return: BatFlightPreview,
 };
 
 export default function RulePreview({ animalId, ruleGroup, previewControls }) {

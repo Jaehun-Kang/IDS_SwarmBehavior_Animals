@@ -1318,6 +1318,12 @@ function SwarmCanvas({
                     <input
                       className="sim-control-slider"
                       type="range"
+                      style={{
+                        "--sim-range-progress": `${Math.max(0, Math.min(100,
+                          ((Number(resetVisualValues[field.key] ?? resolvedControls[field.key]) - field.min) /
+                            Math.max(field.max - field.min, Number.EPSILON)) * 100,
+                        ))}%`,
+                      }}
                       min={field.min}
                       max={field.max}
                       step={

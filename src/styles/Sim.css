@@ -509,12 +509,18 @@
           user-select: none;
 }
 .sim .sim-control-slider {
+  --sim-range-active: var(--sim-sticky-strong);
+  --sim-range-inactive: color-mix(
+    in srgb,
+    var(--sim-sticky-strong) 22%,
+    transparent
+  );
   width: 100%;
   -webkit-appearance: none;
   -moz-appearance: none;
        appearance: none;
   background: transparent;
-  accent-color: var(--sim-sticky-strong);
+  accent-color: var(--sim-range-active);
   cursor: pointer;
 }
 .sim .sim-control-toggle-switch {
@@ -606,7 +612,7 @@
   height: 6px;
   border: 0;
   border-radius: 999px;
-  background: var(--sim-control-dim);
+  background: linear-gradient(to right, var(--sim-range-active) 0% var(--sim-range-progress, 0%), var(--sim-range-inactive) var(--sim-range-progress, 0%) 100%);
   box-shadow: none;
 }
 .sim .sim-control-slider::-webkit-slider-thumb {
@@ -615,25 +621,36 @@
   width: 16px;
   height: 16px;
   margin-top: -5px;
-  border: 0;
+  box-sizing: border-box;
+  border: 2px solid rgba(255, 255, 255, 0.92);
   border-radius: 50%;
-  background: var(--sim-sticky-strong);
-  box-shadow: 0 2px 8px rgba(37, 33, 27, 0.15);
+  background: var(--sim-range-active);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 2px 5px rgba(0, 0, 0, 0.18);
 }
 .sim .sim-control-slider::-moz-range-track {
   height: 6px;
   border: none;
   border-radius: 999px;
-  background: var(--sim-control-dim);
+  background: var(--sim-range-inactive);
   box-shadow: none;
 }
 .sim .sim-control-slider::-moz-range-thumb {
   width: 16px;
   height: 16px;
-  border: 0;
+  box-sizing: border-box;
+  border: 2px solid rgba(255, 255, 255, 0.92);
   border-radius: 50%;
-  background: var(--sim-sticky-strong);
-  box-shadow: 0 2px 8px rgba(37, 33, 27, 0.15);
+  background: var(--sim-range-active);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 2px 5px rgba(0, 0, 0, 0.18);
+}
+.sim .sim-control-slider::-moz-range-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--sim-range-active);
+}
+.sim .sim-control-slider:focus-visible {
+  outline: 2px solid var(--sim-range-active);
+  outline-offset: 5px;
 }
 .sim .sim-animal-dock {
   position: absolute;

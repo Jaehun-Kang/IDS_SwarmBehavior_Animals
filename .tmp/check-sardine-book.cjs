@@ -86,7 +86,7 @@ const { chromium } = require('C:/Users/user/.cache/codex-runtimes/codex-primary-
         assert.ok(await page.evaluate(() => window.previewStrokes > 0));
       }
       await page.waitForTimeout(1000);
-      if (animal === 'Bat' && ruleIndex === 1) await page.waitForTimeout(20000);
+      if (animal === 'Bat' && (ruleIndex === 1 || ruleIndex === 2)) await page.waitForTimeout(20000);
       await page.screenshot({ path: `C:/Users/user/AppData/Local/Temp/${animal}-book-${width}-${ruleIndex}.png` });
       if (ruleIndex === 3 && animal === 'Sardine') {
         await page.mouse.move(0, 0);

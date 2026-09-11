@@ -28,5 +28,31 @@ export const PENGUIN_DETAILS = {
         description: "바람을 직접 맞는 가장자리와 이웃에게 둘러싸인 안쪽은 노출 정도가 다르다. 무리의 모양과 바람이 불어오는 방향에 따라 보호받는 위치도 달라진다.",
         parameter: { label: "바람 이동 방향", unit: "°", min: 0, max: 360, step: 15, decimals: 0, defaultValue: 0 } },
     ],
+  }, {
+    id: "small_steps", previewId: "penguin_wave", category: "작은 걸음의 전달",
+    behaviors: [
+      { id: "reaction_gap", name: "이웃의 움직임에 반응하기",
+        description: "밀집한 무리에서는 한 개체의 작은 움직임이 주변 이웃에게 이어질 수 있다. 이웃과의 간격 변화에 반응하는 모형으로 이러한 전달을 설명할 수 있다.",
+        parameter: { label: "반응하는 간격 변화", unit: "센티미터", min: 1, max: 4, step: 0.5, decimals: 1, defaultValue: 2 } },
+      { id: "step_length", name: "작은 걸음이 이어지는 파동",
+        description: "가까운 이웃들이 차례로 작은 걸음을 내디디면 움직임이 파동처럼 무리를 지나간다. 밀집한 황제펭귄 무리에서 5~10센티미터의 짧은 걸음이 관찰된다.",
+        parameter: { label: "한 걸음의 거리", unit: "센티미터", min: 5, max: 10, step: 1, decimals: 0, defaultValue: 7 } },
+      { id: "pause_duration", name: "걸음 뒤의 멈춤",
+        description: "움직임이 지나가면 무리는 다시 멈춰 선다. 작은 걸음이 쌓이며 무리의 위치가 달라지지만, 개체들이 계속 빙글빙글 도는 것은 아니다.",
+        parameter: { label: "화면 속 멈춤 시간", unit: "초", min: 2, max: 12, step: 1, decimals: 0, defaultValue: 5 } },
+    ],
+  }, {
+    id: "loosening_huddle", previewId: "penguin_cooling", category: "더워지면 흩어지기",
+    behaviors: [
+      { id: "heat_gain", name: "밀착한 무리에서 나오기",
+        description: "밀착한 무리에서는 주변 공기가 따뜻해져 열을 내보내기 어려워질 수 있다. 무리에서 나와 간격을 벌리는 행동은 몸의 열을 조절하는 데 도움이 된다.",
+        parameter: { label: "열이 쌓이는 정도", unit: "퍼센트", min: 20, max: 100, step: 5, decimals: 0, defaultValue: 60 } },
+      { id: "loose_spacing", name: "느슨하게 쉬기",
+        description: "황제펭귄은 밀착한 무리 밖에서도 느슨하게 모여 선다. 밀집이 풀린다고 해서 모든 개체가 무리를 떠나는 것은 아니다.",
+        parameter: { label: "휴식 중 몸 너비 대비 간격", unit: "배", min: 2, max: 3.5, step: 0.1, decimals: 1, defaultValue: 2.8 } },
+      { id: "cooling_rate", name: "다시 이웃에게 모이기",
+        description: "모여 서는 행동은 한 번으로 끝나지 않고 반복된다. 몸의 상태와 주변 환경에 따라 느슨하게 쉬던 개체가 다시 무리에 참여한다.",
+        parameter: { label: "화면 속 식히는 속도", unit: "배", min: 0.5, max: 3, step: 0.5, decimals: 1, defaultValue: 1 } },
+    ],
   }],
 };

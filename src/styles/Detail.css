@@ -942,7 +942,7 @@
   color: var(--detail-animal-accent, var(--theme-text));
   margin: 0;
   font-family: var(--theme-title-font);
-  word-break: nowrap;
+  word-break: keep-all;
 }
 
 .behavior-footnote {

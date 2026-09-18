@@ -1,0 +1,1 @@
+function e(){let e=null,t=(t,...n)=>t?e&&n.length===e.length&&n.every((t,n)=>Object.is(t,e[n]))?!1:(e=n,!0):(e=null,!0);return t.invalidate=()=>{e=null},t}var t=e=>{e&&(e.style.background=`transparent`)},n=(e,t,n)=>{e.clearRect(0,0,t,n)},r=e=>{e.clearColor(0,0,0,0),e.clear(e.COLOR_BUFFER_BIT)};export{e as i,n,r,t};

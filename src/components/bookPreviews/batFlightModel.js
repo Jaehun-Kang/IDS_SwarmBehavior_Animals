@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 const STEP = 1 / 120;
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -38,7 +39,8 @@ function update(model, controls) {
       const echoes = snapshot.filter(other => other.id !== a.id && batEchoVisible(a, other, controls.sound_masking ?? 30, a.calls));
       a.echoes = echoes.map(other => ({ ...other, time: model.time }));
       a.heard += echoes.length;
-      a.pulses.push({ x: a.x, y: a.y, heading: a.heading, time: model.time });
+      a.pulses.push({ x: a.x, y: a.y, heading: a.heading, time: model.time,
+        targets: echoes.map(({ x, y }) => ({ x, y })) });
     }
     const rx = (a.x - model.width / 2) / (model.width * 0.25);
     const ry = (a.y - model.height / 2) / (model.height * 0.25);
@@ -57,7 +59,7 @@ function update(model, controls) {
       dx += (model.width / 2 - a.x) * (9 - edge) * 0.2;
       dy += (model.height / 2 - a.y) * (9 - edge) * 0.2;
     }
-    a.speed += (clamp(controls.flight_speed ?? 9, 4, 12) - a.speed) * (1 - Math.exp(-STEP * 3));
+    a.speed += (clamp(controls.flight_speed ?? 9, 4, 12) * BOOK_MOVEMENT_SCALE - a.speed) * (1 - Math.exp(-STEP * 3));
     const maxTurn = 19.62 / a.speed;
     a.heading += clamp(angleDelta(a.heading, Math.atan2(dy, dx)), -maxTurn * STEP, maxTurn * STEP);
     a.x += Math.cos(a.heading) * a.speed * STEP;

@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import {advanceFixedStep,interpolatePose} from "../../utils/bookAnimation.js";
 const STEP=1/60;
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
@@ -27,7 +28,7 @@ function step(m,c){
     }
     const flying=a.id/6<clamp(c.flying_ratio??35,0,100)/100;
     a.flight+=clamp((flying?1:0)-a.flight,-STEP*0.6,STEP*0.6);
-    a.orbit+=STEP*0.5*a.flight;
+    a.orbit+=STEP*0.5*a.flight*BOOK_MOVEMENT_SCALE;
     const home=m.homes[a.id];
     a.x=home.x+Math.sin(a.orbit)*1.8*a.flight;
     a.y=home.y+(Math.cos(a.orbit)-1)*1.2*a.flight;

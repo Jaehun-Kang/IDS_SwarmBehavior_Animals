@@ -2,6 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createKrillThreat,advanceKrillThreat} from '../src/components/bookPreviews/krillThreatModel.js';
 const run=(m,c,s,fps=60)=>{for(let i=0;i<s*fps;i++)advanceKrillThreat(m,c,1/fps);};
+
+test('zero approach moves the predator outside and re-entry stays continuous',()=>{
+ const m=createKrillThreat();run(m,{predator_approach:100},2);
+ const start=m.predator.x;
+ advanceKrillThreat(m,{predator_approach:0},1/30);
+ assert.ok(m.predator.x>start&&m.predator.x<m.width);
+ run(m,{predator_approach:0},6);
+ assert.ok(m.predator.x>m.width*1.19);
+ const outside=m.predator.x;
+ advanceKrillThreat(m,{predator_approach:100},1/30);
+ assert.ok(m.predator.x<outside&&m.predator.x>m.width);
+ run(m,{predator_approach:100},6);
+ assert.ok(Math.abs(m.predator.x-m.width/2)<0.001);
+});
 test('light is display-only and cannot cause an alarm cascade',()=>{
  const a=createKrillThreat(),b=createKrillThreat();run(a,{glow_display:0},15);run(b,{glow_display:100},15);assert.deepEqual(a,b);
 });

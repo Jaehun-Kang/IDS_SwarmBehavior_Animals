@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import {advanceFixedStep,interpolatePose} from "../../utils/bookAnimation.js";
 const STEP=1/60,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function route(width,height){
@@ -23,7 +24,7 @@ export function createLobsterQueue(aspect){
 }
 function step(m,c){
   m.previous=m.agents.map(a=>({...a}));
-  const base=2.4*clamp(c.queue_speed??1,0,2),gap=3*clamp(c.queue_gap??1,0.8,1.3);
+  const base=2.4*BOOK_MOVEMENT_SCALE*clamp(c.queue_speed??1,0,2),gap=3*clamp(c.queue_gap??1,0.8,1.3);
   const response=clamp(c.follow_response??1,0.5,2);
   for(const a of m.agents){
     const old=m.previous[a.id],leader=a.leaderId===null?null:m.previous[a.leaderId];

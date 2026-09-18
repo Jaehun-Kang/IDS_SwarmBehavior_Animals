@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 const STEP = 1 / 120;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -24,7 +25,7 @@ export function advanceSheepMovement(m, controls, elapsed) {
       if (a.stateAge >= duration) { a.state = (a.state + 1) % 3; a.stateAge = 0; }
       const target = a.state === 0 ? 0 : a.state === 1
         ? clamp(controls.walk_speed ?? 0.15, 0.05, 0.3) : clamp(controls.run_speed ?? 1.5, 0.5, 2);
-      const change = clamp(target - a.speed, -2 * STEP, 2 * STEP);
+      const change = clamp(target * BOOK_MOVEMENT_SCALE - a.speed, -2 * STEP, 2 * STEP);
       a.speed += change;
       const rx = m.width * 0.32, ry = m.height * 0.04;
       a.phase += a.speed * STEP / Math.hypot(rx * Math.sin(a.phase), ry * Math.cos(a.phase));

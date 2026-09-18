@@ -13,12 +13,20 @@ test("turn page separates three controls from the agitation explanation", () => 
 });
 test("turns propagate locally instead of changing all headings at once", () => {
   const model = createTurnModel(1);
-  for (let i = 0; i < 62; i++) stepTurnModel(model, defaults);
+  const firstTurn = model.nextEvent;
+  while (model.time < firstTurn + TURN_STEP_S * 2) stepTurnModel(model, defaults);
   assert.ok(model.agents.some(a => a.heading > 0));
   assert.ok(model.agents.some(a => a.heading === 0));
   for (let i = 0; i < 90; i++) stepTurnModel(model, defaults);
   assert.ok(model.agents.every(a => a.heading > 0));
   assert.ok(new Set(model.agents.map(a => a.start)).size > 2);
+});
+
+test("repeat wait is shorter without interrupting an unfinished turn", () => {
+  const model = createTurnModel(1);
+  while (model.event === 0 || model.nextEvent === Infinity) stepTurnModel(model, defaults);
+  assert.ok(model.agents.every(a => Math.abs(a.turned - Math.PI / 2) < 1e-10));
+  assert.ok(Math.abs(model.nextEvent - model.time - 0.65) < 1e-10);
 });
 test("constant speed, finite poses and camera margins hold at all control extremes", () => {
   for (const aspect of [0.55, 1, 2]) for (const radius of [5, 30]) {

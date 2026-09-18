@@ -1,3 +1,10 @@
+@font-face {
+  font-family: "Eulyoo1945";
+  src: url("../assets/fonts/Eulyoo1945-SemiBold.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
 .detail-container {
   --detail-content-width: 86rem;
   --detail-inline-padding: 0.75rem;
@@ -768,31 +775,43 @@
 
 .detail-parameter-row__label {
   color: var(--theme-text-muted);
+  font-weight: 500;
 }
 
 .detail-parameter-row__value {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   justify-self: end;
-  color: var(--theme-text-soft);
+  color: var(--detail-animal-accent, var(--theme-text-soft));
   font-family: sans-serif;
   white-space: nowrap;
 }
 
-.detail-page-number {
-  position: absolute;
-  bottom: 2.5rem;
-  z-index: 2;
-  color: rgba(52, 39, 25, 0.48);
-  font-family: var(--theme-title-font);
-  font-size: 0.875rem;
-  line-height: 1;
+.detail-parameter-reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 3px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  flex: 0 0 22px;
 }
-
-.detail-page-number--left {
-  left: 3.25rem;
+.detail-parameter-reset img {
+  width: 16px;
+  height: 16px;
 }
-
-.detail-page-number--right {
-  right: 3.25rem;
+.detail-parameter-reset:hover {
+  opacity: 0.65;
+}
+.detail-parameter-reset:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 
 .detail-book-turn-canvas {
@@ -877,11 +896,15 @@
 }
 
 .rule-category {
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: 1.625rem;
+  font-weight: 400;
   color: var(--detail-animal-accent, var(--theme-text));
   margin: 0 0 0.5rem 0;
-  font-family: var(--theme-title-font);
+  font-family: "Eulyoo1945", serif;
+  line-height: 1.4;
+  letter-spacing: 0;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
 .rule-title {
@@ -955,7 +978,8 @@
 
 .behavior-description {
   font-size: 0.9375rem;
-  line-height: 1.45;
+  line-height: 160%;
+  font-weight: 400;
   color: var(--theme-text-muted);
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

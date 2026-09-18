@@ -1,4 +1,5 @@
 import React from "react";
+import {drawKrillFoodPatch} from "./bookEnvironmentDrawing.js";
 import {HOME_SPRITE_ATLASES} from "../../data/spriteAtlases";
 import {loadTexturedAtlasCanvas,getAtlasFrameCanvas} from "../../utils/spriteAtlas";
 import {createBookCanvasLoop} from "../../utils/bookCanvasLoop.js";
@@ -19,11 +20,7 @@ export default function KrillFeedingPreview({controls,ruleGroup}){
         (social?advanceKrillSocial:advanceKrillFeeding)(model,controlsRef.current,elapsedSeconds);
         still=social||model.agents.some(a=>a.speed>0)||lastFood!==model.foodAmount?0:still+1;lastFood=model.foodAmount;if(still>2)return;
         ctx.clearRect(0,0,width,height);const s=width/model.width,size=(social?0.55:2.2)*s,h=size*75/145;
-        ctx.fillStyle="rgba(0,104,36,0.55)";
-        for(let i=0;i<(social?0:Math.round(85*model.foodAmount));i++){
-          const r=Math.sqrt(((i*37)%85+0.5)/85)*model.patch.radius,angle=i*2.39996;
-          ctx.fillRect((model.patch.x+Math.cos(angle)*r)*s,(model.patch.y+Math.sin(angle)*r)*s,Math.max(1,0.1*s),Math.max(1,0.1*s));
-        }
+        if(!social)drawKrillFoodPatch(ctx,model.patch.x*s,model.patch.y*s,model.patch.radius*s,model.foodAmount);
         model.agents.forEach((a,i)=>{
           (social?krillSocialPose:krillFeedingPose)(model,i,pose);ctx.save();ctx.translate(pose.x*s,pose.y*s);
           const left=Math.cos(pose.heading)<0;ctx.rotate(left?pose.heading-Math.PI:pose.heading);if(left)ctx.scale(-1,1);

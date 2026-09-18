@@ -9,15 +9,18 @@ export default function LobsterShelterPreview({controls,ruleGroup}){
   const [error,setError]=React.useState("");
   React.useEffect(()=>{controlsRef.current=controls;},[controls]);
   React.useEffect(()=>{
-    let model,frames,disposed=false,stillFrames=0;
+    let model,frames,disposed=false,stillFrames=0,light=0.4;
     const pose={};
     const loop=createBookCanvasLoop(canvasRef.current,{
       onResize:({width,height})=>{model=createLobsterShelter(width/height);stillFrames=0;},
       onFrame:({context:ctx,width,height,elapsedSeconds})=>{
         advanceLobsterShelter(model,controlsRef.current,elapsedSeconds);
-        const active=model.agents.some((a,i)=>a.moving||model.previous[i].moving);
+        const targetLight=Math.max(0,Math.min(1,(controlsRef.current.light_level??40)/100));
+        light+=(targetLight-light)*(1-Math.exp(-elapsedSeconds/0.2));
+        const active=Math.abs(targetLight-light)>0.001||model.agents.some((a,i)=>a.moving||model.previous[i].moving);
         stillFrames=active?0:stillFrames+1;if(stillFrames>2)return;
         ctx.clearRect(0,0,width,height);
+        ctx.fillStyle=`rgba(26,43,49,${(1-light)*0.24})`;ctx.fillRect(0,0,width,height);
         const s=width/model.width,size=2.1*s,h=size*180/175;
         model.agents.forEach((a,i)=>{
           lobsterShelterPose(model,i,pose);const frame=atlas.stages.lobster_top.frames[Math.floor(a.distance/0.65)%2];

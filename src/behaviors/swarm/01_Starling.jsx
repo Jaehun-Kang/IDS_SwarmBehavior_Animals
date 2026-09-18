@@ -21,7 +21,7 @@ const STARLING_SPRITE_ATLAS = HOME_SPRITE_ATLASES.starling;
 const STARLING_SPRITE_GRID = resolveAtlasGrid(STARLING_SPRITE_ATLAS);
 
 const PARAMS = {
-  BOID_COUNT: 1850,
+  BOID_COUNT: 1650,
   IS_PREDATOR_ACTIVE: true,
   NEIGHBOR_COUNT: 7,
   METERS_TO_PIXELS: 42,
@@ -85,13 +85,13 @@ const CONTROL_FIELDS = [
     key: "BOID_COUNT",
     label: "개체 수",
     min: 300,
-    max: 2600,
+    max: 1850,
     step: 50,
     formatValue: (value) => `${value}`,
   },
   {
     key: "NEIGHBOR_COUNT",
-    label: "이웃 인식 수",
+    label: "참고할 이웃 수",
     min: 3,
     max: 12,
     step: 1,
@@ -99,7 +99,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "DISTANCE_SCALE",
-    label: "개체 간 거리",
+    label: "서로 간 거리",
     min: 0.35,
     max: 1.2,
     step: 0.01,
@@ -123,7 +123,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "REACTION_MEAN",
-    label: "반응 지연 시간",
+    label: "반응 시간",
     min: 0.03,
     max: 0.16,
     step: 0.001,
@@ -131,7 +131,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "REFERENCE_LOCK_DURATION",
-    label: "이웃 기준 유지 시간",
+    label: "같은 이웃을 따르는 시간",
     min: 0.5,
     max: 6,
     step: 0.1,

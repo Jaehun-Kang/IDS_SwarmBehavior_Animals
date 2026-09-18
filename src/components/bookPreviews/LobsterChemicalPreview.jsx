@@ -1,4 +1,5 @@
 import React from "react";
+import {createFlowMarkers,advanceFlowMarkers,drawFlowMarkers} from "./bookEnvironmentDrawing.js";
 import {HOME_SPRITE_ATLASES} from "../../data/spriteAtlases";
 import {loadTexturedAtlasCanvas,getAtlasFrameCanvas} from "../../utils/spriteAtlas";
 import {createBookCanvasLoop} from "../../utils/bookCanvasLoop.js";
@@ -9,19 +10,22 @@ export default function LobsterChemicalPreview({controls,ruleGroup}){
   const [error,setError]=React.useState("");
   React.useEffect(()=>{controlsRef.current=controls;},[controls]);
   React.useEffect(()=>{
-    let model,frames,disposed=false,buffer,imageData,lastRevision=-1,wasVisible=true;
+    let model,frames,flow,disposed=false,buffer,imageData,lastRevision=-1,wasVisible=true;
     const loop=createBookCanvasLoop(canvasRef.current,{
       onResize:({width,height})=>{
-        model=createLobsterChemical(width/height);buffer=document.createElement("canvas");
+        model=createLobsterChemical(width/height);flow=createFlowMarkers(width,height,58);buffer=document.createElement("canvas");
         buffer.width=model.cols;buffer.height=model.rows;
         imageData=buffer.getContext("2d").createImageData(model.cols,model.rows);lastRevision=-1;wasVisible=true;
       },
       onFrame:({context:ctx,width,height,elapsedSeconds})=>{
         advanceLobsterChemical(model,controlsRef.current,elapsedSeconds);
+        const flowSpeed=Math.max(0,Math.min(100,controlsRef.current.water_flow??50))/100*1.6*width/model.width;
         const visible=lobsterChemicalAlpha(model.max)>0;
-        if(lastRevision===model.revision||(!visible&&!wasVisible))return;
+        if(flowSpeed===0&&(lastRevision===model.revision||(!visible&&!wasVisible)))return;
         lastRevision=model.revision;wasVisible=visible;
         ctx.clearRect(0,0,width,height);
+        advanceFlowMarkers(flow,Math.PI,flowSpeed,elapsedSeconds);
+        drawFlowMarkers(ctx,flow,Math.PI,flowSpeed);
         const bctx=buffer.getContext("2d");
         model.layers.forEach((layer,k)=>{
           const color=LOBSTER_CHEMICAL_COLORS[k];

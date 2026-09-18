@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import {advanceFixedStep,interpolatePose} from "../../utils/bookAnimation.js";
 import {createLobsterChemical,advanceLobsterChemical,sampleLobsterChemical} from "./lobsterChemicalModel.js";
 const STEP=1/60,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -13,7 +14,7 @@ function move(a,target){
   const dx=target.x-a.x,dy=target.y-a.y,d=Math.hypot(dx,dy);a.moving=d>0.08;if(!a.moving)return;
   const turn=Math.atan2(Math.sin(Math.atan2(dy,dx)-a.heading),Math.cos(Math.atan2(dy,dx)-a.heading));
   a.heading+=clamp(turn,-2.2*STEP,2.2*STEP);
-  const ds=Math.min(2,d*1.6)*STEP*Math.max(0.1,Math.cos(turn));a.x+=Math.cos(a.heading)*ds;a.y+=Math.sin(a.heading)*ds;a.distance+=ds;
+  const ds=Math.min(2,d*1.6)*BOOK_MOVEMENT_SCALE*STEP*Math.max(0.1,Math.cos(turn));a.x+=Math.cos(a.heading)*ds;a.y+=Math.sin(a.heading)*ds;a.distance+=ds;
 }
 export function diseaseDenBlocked(m){
   if(!m.removed&&m.age>=6)return true;
@@ -56,7 +57,7 @@ function step(m,c){
   // Replenishment and renewed random infection are exhibition maintenance, not transmission.
   if(m.removed&&!blocked&&m.agents.every(a=>a.state==="sheltered"&&!a.moving)){
     m.recovery+=STEP*rate;
-    if(m.recovery>=4){m.episode++;m.age=0;m.recovery=0;m.removed=false;m.infectedId=m.agents[Math.floor(random(m)*m.agents.length)].id;}
+    if(m.recovery>=2.5){m.episode++;m.age=0;m.recovery=0;m.removed=false;m.infectedId=m.agents[Math.floor(random(m)*m.agents.length)].id;}
   }else m.recovery=0;
   m.time+=STEP;
 }

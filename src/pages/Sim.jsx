@@ -2,6 +2,7 @@ import React from "react";
 import "../styles/Sim.css";
 import { animals } from "../behaviors/animalData";
 import SpriteAtlas from "../components/SpriteAtlas.jsx";
+import ThreatPointerOverlay from "../components/ThreatPointerOverlay.jsx";
 import { HOME_SPRITE_ATLASES } from "../data/spriteAtlases";
 import refreshIconUrl from "../assets/icons/refresh.svg";
 import blackPaperTextureUrl from "../assets/texture/paper/black-paper-texture-seamless.webp";
@@ -186,6 +187,7 @@ const CANVAS_POINTER_BLOCK_SELECTOR = [
 const CONTROL_RESET_LERP_DURATION_MS = 320;
 
 const PHASE_PREVIEW_CONTROLS = {
+  sardine: "IS_DAYTIME",
   krill: "LIGHT_PHASE",
   spiny_lobster: "CIRCADIAN_PHASE",
 };
@@ -749,6 +751,9 @@ function SwarmCanvas({
         const phaseControlKey = PHASE_PREVIEW_CONTROLS[animalId];
         if (phaseControlKey) {
           const nextPhase = nextControls?.[phaseControlKey];
+          if (animalId === "sardine") {
+            return typeof nextPhase === "boolean" ? (nextPhase ? "day" : "night") : null;
+          }
           if (animalId === "krill") {
             return KRILL_LIGHT_PHASES.has(nextPhase) ? nextPhase : null;
           }
@@ -1097,6 +1102,13 @@ function SwarmCanvas({
         </div>
       )}
       <div className="sim-overlay-stack">
+        <ThreatPointerOverlay containerRef={containerRef} enabled={Boolean(
+          resolvedControls && (
+            (['starling','sardine'].includes(animalId) && resolvedControls.IS_PREDATOR_ACTIVE) ||
+            (['bat','firefly','krill'].includes(animalId) && resolvedControls.INTERACTION_MODE === 'predator') ||
+            (animalId === 'bee' && resolvedControls.IS_THREAT_ACTIVE) ||
+            (animalId === 'spiny_lobster' && resolvedControls.THREAT_ACTIVE)
+          ))} />
         <button
           className="sim-overlay-button sim-back-button"
           onClick={onBackClick}
@@ -1390,12 +1402,14 @@ function Sim(props) {
   const [spinyLobsterCircadianPhase, setSpinyLobsterCircadianPhase] =
     React.useState(null);
   const [krillLightPhase, setKrillLightPhase] = React.useState(null);
+  const [sardineLightPhase, setSardineLightPhase] = React.useState(null);
   const animalLabel = selectedAnimal ? animalNames[selectedAnimal] : "";
   const textureUrl = selectedAnimal ? SIM_TEXTURES[selectedAnimal] : null;
   const stickyNote = selectedAnimal ? SIM_STICKY_NOTES[selectedAnimal] : null;
   const isBat = selectedAnimal === "bat";
   const isSpinyLobster = selectedAnimal === "spiny_lobster";
   const isKrill = selectedAnimal === "krill";
+  const isSardine = selectedAnimal === "sardine";
   const batLightProgress = isBat
     ? clamp01(((batLightIntensityLux ?? 1.4) - 1.4) / (400 - 1.4))
     : 0;
@@ -1518,8 +1532,8 @@ function Sim(props) {
         transition: "opacity 180ms linear",
       }
     : null;
-  const krillPhaseVisual = isKrill
-    ? getKrillPhaseVisual(krillLightPhase ?? "day")
+  const krillPhaseVisual = isKrill || isSardine
+    ? getKrillPhaseVisual((isSardine ? sardineLightPhase : krillLightPhase) ?? "day")
     : null;
   const krillStyle = krillPhaseVisual
     ? {
@@ -1649,8 +1663,11 @@ function Sim(props) {
             : snapshot.lightPhase,
         );
       }
+      if (isSardine) {
+        setSardineLightPhase(snapshot.lightPhase);
+      }
     },
-    [isBat, isSpinyLobster, isKrill],
+    [isBat, isSpinyLobster, isKrill, isSardine],
   );
 
   React.useEffect(() => {
@@ -1663,7 +1680,10 @@ function Sim(props) {
     if (!isKrill) {
       setKrillLightPhase(null);
     }
-  }, [isBat, isSpinyLobster, isKrill]);
+    if (!isSardine) {
+      setSardineLightPhase(null);
+    }
+  }, [isBat, isSpinyLobster, isKrill, isSardine]);
 
   React.useEffect(() => {
     if (PRELOAD_TEXTURE_URLS.length === 0) {
@@ -1756,7 +1776,7 @@ function Sim(props) {
           isPaused={isPaused}
           inactivityRemainingSeconds={inactivityRemainingSeconds}
           onControlSnapshot={
-            isBat || isSpinyLobster || isKrill
+            isBat || isSpinyLobster || isKrill || isSardine
               ? handleControlSnapshot
               : undefined
           }

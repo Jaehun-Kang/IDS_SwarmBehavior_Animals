@@ -166,7 +166,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "BASE_SPEED",
-    label: "기본 유영 속도",
+    label: "헤엄 속도",
     min: bodyLengthsToPx(3.79),
     max: bodyLengthsToPx(8.42),
     step: 2,
@@ -175,7 +175,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "NEIGHBOR_RADIUS",
-    label: "이웃 인식 반경",
+    label: "이웃을 살피는 거리",
     min: bodyLengthsToPx(3.5),
     max: bodyLengthsToPx(10.5),
     step: 2,

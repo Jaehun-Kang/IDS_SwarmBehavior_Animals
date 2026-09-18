@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "../src/components/bookPreviews/bookMotion.js";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createSheepThreat,advanceSheepThreat,sheepThreatCue} from '../src/components/bookPreviews/sheepThreatModel.js';
@@ -24,7 +25,7 @@ test('prolonged moving threats stay finite and within the canvas without jumps',
       advanceSheepThreat(m,{dog_response:100,group_response:100,recovery_time:8},1/60,pointer);
       m.agents.forEach((a,j)=>{
         assert.ok(Number.isFinite(a.heading)&&a.x>0.6&&a.x<m.width-0.6&&a.y>0.6&&a.y<m.height-0.6);
-        assert.ok(Math.hypot(a.x-old[j].x,a.y-old[j].y)<0.03);
+        assert.ok(Math.hypot(a.x-old[j].x,a.y-old[j].y)<0.03*BOOK_MOVEMENT_SCALE);
       });
     }
   }

@@ -23,6 +23,7 @@ export function createBookCanvasLoop(canvas, { onResize, onFrame }) {
     }
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
     onFrame({ context, width, height, elapsedSeconds, timestamp });
+    canvas.dataset.bookFrameReady = "true";
     if (visible) requestFrame();
   }
   const resize = new ResizeObserver(([entry]) => {
@@ -38,6 +39,7 @@ export function createBookCanvasLoop(canvas, { onResize, onFrame }) {
     if (nextWidth !== width || nextHeight !== height) {
       width = nextWidth;
       height = nextHeight;
+      delete canvas.dataset.bookFrameReady;
       previous = null;
       onResize?.({ width, height });
       requestFrame();

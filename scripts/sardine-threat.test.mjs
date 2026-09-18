@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "../src/components/bookPreviews/bookMotion.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createSwimmingModel, stepSwimmingModel, swimThreatResponse } from "../src/components/bookPreviews/sardineSwimmingModel.js";
@@ -31,7 +32,7 @@ test("moving threats and edge targets never teleport, reflect or expel fish", ()
       stepSwimmingModel(model, { ...controls, threat_cohesion: attraction }, predator);
       model.agents.forEach((a, index) => {
         const old = model.previous[index];
-        assert.ok(Math.abs(Math.hypot(a.x - old.x, a.y - old.y) - 0.9 / 120) < 1e-10);
+        assert.ok(Math.abs(Math.hypot(a.x - old.x, a.y - old.y) - 0.9 * BOOK_MOVEMENT_SCALE / 120) < 1e-10);
         assert.ok(Math.abs(a.heading - old.heading) <= 160 * Math.PI / 180 / 120 + 1e-10);
         assert.ok(a.x > 0.2 && a.y > 0.2 && a.x < model.width - 0.2 && a.y < model.height - 0.2);
       });

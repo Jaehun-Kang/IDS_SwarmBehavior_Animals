@@ -310,7 +310,9 @@
   --sim-control-paper-x: 0px;
   top: 24px;
   right: 24px;
-  width: clamp(220px, 14.6vw, 280px);
+  width: -moz-max-content;
+  width: max-content;
+  min-width: 280px;
   max-width: calc(100vw - 48px);
   max-height: calc(100svh - 48px);
   padding: clamp(12px, 0.84vw, 16px) clamp(13px, 0.88vw, 16.8px) clamp(14px, 0.92vw, 17.6px);
@@ -374,6 +376,7 @@
   content: none;
 }
 .sim .sim-control-panel__title {
+  white-space: nowrap;
   position: relative;
   font-family: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", Arial, sans-serif;
   font-weight: 700;
@@ -423,6 +426,7 @@
   line-height: 1.2;
 }
 .sim .sim-control-panel__hint {
+  white-space: nowrap;
   margin: 18px 0 0;
   color: var(--sim-sticky-text);
   font-size: 14px;
@@ -440,13 +444,14 @@
 }
 .sim .sim-control-field__row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(max-content, 1fr) max-content;
   justify-content: stretch;
   align-items: center;
   gap: 12px;
   margin-bottom: 2px;
 }
 .sim .sim-control-field__row > span {
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   min-height: 26px;
@@ -461,8 +466,24 @@
   align-items: center;
   min-height: 26px;
   gap: 8px;
+  justify-self: end;
+}
+@media (max-width: 600px) {
+  .sim .sim-control-panel {
+    width: calc(100vw - 64px);
+    min-width: 0;
+    right: 24px;
+  }
+  .sim .sim-control-panel__content {
+    transform: translate(0, 8px) rotate(-5deg);
+  }
+  .sim .sim-control-field__row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
 }
 .sim .sim-control-field__value {
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   min-height: 26px;

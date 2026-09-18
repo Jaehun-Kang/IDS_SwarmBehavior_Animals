@@ -37,7 +37,7 @@ export default function StarlingFlightPreview({ ruleGroup, controls, engine = fl
       for (let index = 0; index < model.agents.length; index += 1) {
         const agent = model.agents[index];
         engine.pose(model, index, pose);
-        const phase = (renderTime * 8 + agent.id * 0.37) % 1;
+        const phase = (renderTime * 10 + agent.id * 0.37) % 1;
         const frame = frames[Math.floor(phase * frames.length)];
         context.save();
         context.translate((pose.x - viewport.x) * scale, (pose.y - viewport.y) * scale);

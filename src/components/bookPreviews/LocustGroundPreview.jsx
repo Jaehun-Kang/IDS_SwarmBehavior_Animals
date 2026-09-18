@@ -1,4 +1,6 @@
 import React from "react";
+import { drawThreatMarker } from "./bookThreatDrawing.js";
+import { drawGrassMark } from "./bookEnvironmentDrawing.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import { loadTexturedAtlasCanvas, getAtlasFrameCanvas } from "../../utils/spriteAtlas";
 import { resolveCanvasAtlasSprite } from "../../utils/spritePose";
@@ -34,15 +36,10 @@ export default function LocustGroundPreview({ controls, ruleGroup }) {
         context.clearRect(0, 0, width, height);
         const scale = width / model.width, size = scale * 3.4;
         if(interactive) {
-          context.strokeStyle = "#54714e"; context.lineWidth = 1.5;
-          for(const food of locustFoodTargets(model)) for(let i=0;i<7;i++) {
-            const x=(food.x+Math.cos(i*2.4)*2)*scale,y=(food.y+Math.sin(i*2.4)*2)*scale;
-            context.beginPath(); context.moveTo(x-3,y-4); context.lineTo(x,y+2); context.lineTo(x+3,y-5); context.stroke();
-          }
-          if(pointer) {
-            context.strokeStyle="#98424a"; context.beginPath();
-            const x=pointer.x*width,y=pointer.y*height;
-            context.moveTo(x-7,y);context.lineTo(x+7,y);context.moveTo(x,y-7);context.lineTo(x,y+7);context.stroke();
+          for(const food of locustFoodTargets(model)) for(let i=0;i<5;i++) {
+            const angle=i*2.39996,radius=i===0?0:1.8;
+            const x=(food.x+Math.cos(angle)*radius)*scale,y=(food.y+Math.sin(angle)*radius)*scale;
+            drawGrassMark(context,x,y,Math.max(7,Math.min(11,scale*1.05)));
           }
         }
         for (let i = 0; i < model.agents.length; i++) {
@@ -61,6 +58,7 @@ export default function LocustGroundPreview({ controls, ruleGroup }) {
             -size / 2, -size / 2, size, size * 110 / 115);
           context.restore();
         }
+        if(interactive && pointer) drawThreatMarker(context,pointer.x*width,pointer.y*height,width,height);
       },
     });
     loadTexturedAtlasCanvas(atlas).then(result => {

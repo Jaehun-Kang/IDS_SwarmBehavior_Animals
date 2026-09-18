@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "../src/components/bookPreviews/bookMotion.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createSwimmingModel, stepSwimmingModel, swimSocialForces } from "../src/components/bookPreviews/sardineSwimmingModel.js";
@@ -30,7 +31,7 @@ test("all neighbour control extremes remain in the page without changing speed",
         model.agents.forEach((a, index) => {
           assert.ok(a.x > 0.2 && a.y > 0.2 && a.x < model.width - 0.2 && a.y < model.height - 0.2);
           const old = model.previous[index];
-          assert.ok(Math.abs(Math.hypot(a.x - old.x, a.y - old.y) - 0.9 / 120) < 1e-10);
+          assert.ok(Math.abs(Math.hypot(a.x - old.x, a.y - old.y) - 0.9 * BOOK_MOVEMENT_SCALE / 120) < 1e-10);
         });
       }
     }

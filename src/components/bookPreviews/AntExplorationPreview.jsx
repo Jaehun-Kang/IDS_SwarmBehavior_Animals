@@ -57,8 +57,10 @@ export default function AntExplorationPreview({ controls, ruleGroup }) {
           context.translate(pose.x * scale, pose.y * scale);
           context.rotate(pose.heading);
           if (model.agents[i].carrying) {
-            context.fillStyle = "#775c37";
-            context.fillRect(-size * 0.16, -size * 0.19, size * 0.38, size * 0.38);
+            context.fillStyle = "rgba(210, 82, 58, 0.667)";
+            context.beginPath();
+            context.arc(size * 0.425, 0, size * 0.05, 0, Math.PI * 2);
+            context.fill();
           }
           context.drawImage(frame, -size / 2, -size * 70 / 320, size, size * 70 / 160);
           context.restore();

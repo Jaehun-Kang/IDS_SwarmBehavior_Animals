@@ -6,9 +6,9 @@ export function krillThreatControls(c){return {swim_speed:0.9,turn_rate:180,neig
 export function advanceKrillThreat(m,c,elapsed){
  const level=clamp(c.predator_approach??60,0,100)/100,settings=krillThreatControls(c);
  advanceFixedStep(m,elapsed,SWIM_STEP,0.35,()=>{
-  const target=m.width*(0.96-0.46*level);
-  m.predator.x+=(target-m.predator.x)*(1-Math.exp(-SWIM_STEP/0.5));
-  stepSwimmingModel(m,settings,level>0?m.predator:null);
+  const target=m.width*(level>0?0.96-0.46*level:1.2);
+  m.predator.x+=(target-m.predator.x)*(1-Math.exp(-SWIM_STEP/0.18));
+  stepSwimmingModel(m,settings,m.predator.x<=m.width?m.predator:null);
  });
 }
 export const krillThreatPose=swimmingPose;

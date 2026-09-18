@@ -1,4 +1,5 @@
 import React from "react";
+import { createFlowMarkers, advanceFlowMarkers, drawFlowMarkers } from "./bookEnvironmentDrawing.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import { loadTexturedAtlasCanvas, getAtlasFrameCanvas } from "../../utils/spriteAtlas";
 import { resolveCanvasAtlasSprite } from "../../utils/spritePose";
@@ -10,16 +11,20 @@ export default function LocustFlightPreview({ controls, ruleGroup }) {
   const [error, setError] = React.useState("");
   React.useEffect(() => { controlsRef.current = controls; }, [controls]);
   React.useEffect(() => {
-    let model, frameCanvases, disposed = false;
+    let model, frameCanvases, flow, disposed = false;
     const pose = {};
     const loop = createBookCanvasLoop(canvasRef.current, {
-      onResize: ({ width, height }) => { model = createLocustFlight(width/height); },
+      onResize: ({ width, height }) => { model = createLocustFlight(width/height); flow = createFlowMarkers(width,height); },
       onFrame: ({ context, width, height, elapsedSeconds }) => {
         advanceLocustFlight(model, controlsRef.current, elapsedSeconds);
         const view = locustFlightViewport(model), scale = width/view.width;
         context.clearRect(0,0,width,height);
+        const windAngle=(controlsRef.current.wind_direction??0)*Math.PI/180;
+        const windSpeed=Math.max(0,controlsRef.current.wind_speed??2)*scale*0.5;
+        advanceFlowMarkers(flow,windAngle,windSpeed,elapsedSeconds);
+        drawFlowMarkers(context,flow,windAngle,windSpeed);
         for(let j=1;j<16;j++) {
-          context.strokeStyle=`rgba(114, 104, 47, ${j/16*0.2})`;
+          context.strokeStyle=`rgba(114, 104, 47, ${j/16*0.12})`;
           context.lineWidth=1;
           context.beginPath();
           for(const a of model.agents) {
@@ -35,7 +40,7 @@ export default function LocustFlightPreview({ controls, ruleGroup }) {
           const sprite = resolveCanvasAtlasSprite(atlas, {
             space: "2d", position: pose, velocity: direction,
             state: { isFlying: pose.activity >= 0.05, directionX: direction.x, directionY: direction.y },
-            profile: "simulation", timestampMs: model.time * 1000, animationOffsetMs: i * 37,
+            profile: "simulation", timestampMs: model.time * 1250, animationOffsetMs: i * 37,
           });
           const size=scale*(0.8+pose.activity*0.15);
           context.save();

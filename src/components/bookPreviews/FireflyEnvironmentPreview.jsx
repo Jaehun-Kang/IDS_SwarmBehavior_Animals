@@ -1,4 +1,5 @@
 import React from "react";
+import { drawBookSpriteGlow } from "./bookGlowDrawing.js";
 import {HOME_SPRITE_ATLASES} from "../../data/spriteAtlases";
 import {loadTexturedAtlasCanvas,getAtlasFrameCanvas} from "../../utils/spriteAtlas";
 import {createBookCanvasLoop} from "../../utils/bookCanvasLoop.js";
@@ -32,6 +33,7 @@ export default function FireflyEnvironmentPreview({controls,ruleGroup}){
           ctx.drawImage(dark,x-size/2,y-h/2,size,h);
           const light=model.previousLight[i]+(a.light-model.previousLight[i])*alpha;
           if(light>0){ctx.globalAlpha=light;ctx.drawImage(lit,x-size/2,y-h/2,size,h);ctx.globalAlpha=1;}
+          drawBookSpriteGlow(ctx,lit,x-size/2,y-h/2,size,h,light);
         });
       },
     });

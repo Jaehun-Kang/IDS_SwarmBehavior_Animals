@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import {advanceFixedStep,interpolatePose} from "../../utils/bookAnimation.js";
 const STEP=1/60,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function createLobsterShelter(aspect){
@@ -14,7 +15,7 @@ function move(a,target){
   a.moving=d>0.1;if(!a.moving)return true;
   const angle=Math.atan2(dy,dx),turn=Math.atan2(Math.sin(angle-a.heading),Math.cos(angle-a.heading));
   a.heading+=clamp(turn,-STEP*2.2,STEP*2.2);
-  const step=Math.min(2.2,d*1.5)*STEP*Math.max(0.12,Math.cos(turn));
+  const step=Math.min(2.2,d*1.5)*BOOK_MOVEMENT_SCALE*STEP*Math.max(0.12,Math.cos(turn));
   a.x+=Math.cos(a.heading)*step;a.y+=Math.sin(a.heading)*step;a.distance+=step;
   return false;
 }
@@ -39,7 +40,7 @@ function step(m,c){
         if(move(a,m.homes[a.id]))a.state="sheltered";
       }else{
         // Bounded exploratory route; returning agents can discover the den locally.
-        a.phase+=STEP*0.22;
+        a.phase+=STEP*0.22*BOOK_MOVEMENT_SCALE;
         move(a,{x:m.width/2+Math.sin(a.phase)*m.width*0.3*radius,
           y:m.height/2+Math.sin(a.phase*2)*m.height*0.25*radius});
       }

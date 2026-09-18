@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "../src/components/bookPreviews/bookMotion.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createSwimmingModel, stepSwimmingModel, advanceSwimmingModel, swimSeparation,
@@ -11,7 +12,7 @@ test("swimming speed, turn limit and page bounds hold at all corners", () => {
         stepSwimmingModel(model, { swim_speed: speed, turn_rate: rate, spacing_strength: strength });
         model.agents.forEach((a, index) => {
           const old = model.previous[index];
-          assert.ok(Math.abs(Math.hypot(a.x - old.x, a.y - old.y) - speed * SWIM_STEP) < 1e-10);
+          assert.ok(Math.abs(Math.hypot(a.x - old.x, a.y - old.y) - speed * BOOK_MOVEMENT_SCALE * SWIM_STEP) < 1e-10);
           assert.ok(Math.abs(a.heading - old.heading) <= rate * Math.PI / 180 * SWIM_STEP + 1e-10);
           assert.ok(a.x > 0.2 && a.x < model.width - 0.2 && a.y > 0.2 && a.y < model.height - 0.2);
         });

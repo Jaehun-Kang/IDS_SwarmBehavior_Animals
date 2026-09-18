@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 const STEP = 1 / 120;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -34,8 +35,12 @@ export function advanceBatReturn(m, controls, elapsed, pointer = null) {
       dy += Math.max(0, 6 - a.y) * 0.3 - Math.max(0, a.y - m.height + 6) * 0.3;
       const targetSpeed = clamp(controls.entry_speed ?? 3, 1, 6) +
         (9 - clamp(controls.entry_speed ?? 3, 1, 6)) * clamp(distance / 20, 0, 1);
-      a.speed += (targetSpeed - a.speed) * (1 - Math.exp(-STEP * 2));
-      a.heading += clamp(angleDelta(a.heading, Math.atan2(dy, dx)), -1.8 * STEP, 1.8 * STEP);
+      // Leave room to turn when a threat blocks the entrance, without reflecting velocity.
+      const wallApproach = Math.max(0, -Math.cos(a.heading)) * wallOffset;
+      const clearance = 1 - wallApproach * (1 - clamp((a.x - 2) / 12, 0, 1));
+      a.speed += (targetSpeed * BOOK_MOVEMENT_SCALE * clearance - a.speed) * (1 - Math.exp(-STEP * 2));
+      const turnStep = 1.8 * BOOK_MOVEMENT_SCALE * STEP;
+      a.heading += clamp(angleDelta(a.heading, Math.atan2(dy, dx)), -turnStep, turnStep);
       a.x += Math.cos(a.heading) * a.speed * STEP;
       a.y += Math.sin(a.heading) * a.speed * STEP;
     }

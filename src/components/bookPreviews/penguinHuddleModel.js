@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 const STEP = 1 / 60;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -70,7 +71,7 @@ function step(model, controls) {
     const desired = strength > 0.015 ? Math.atan2(fy, fx) : a.heading;
     const turn = Math.atan2(Math.sin(desired - a.heading), Math.cos(desired - a.heading));
     a.heading += clamp(turn, -STEP * 1.6, STEP * 1.6);
-    const speed = strength > 0.015 ? Math.min(0.8, strength) * Math.max(0, Math.cos(turn)) : 0;
+    const speed = strength > 0.015 ? BOOK_MOVEMENT_SCALE * Math.min(0.8, strength) * Math.max(0, Math.cos(turn)) : 0;
     a.speed += (speed - a.speed) * (1 - Math.exp(-STEP * 5));
     a.x += Math.cos(a.heading) * a.speed * STEP;
     a.y += Math.sin(a.heading) * a.speed * STEP;

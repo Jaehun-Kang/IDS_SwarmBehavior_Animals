@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 
 export const FLIGHT_STEP_S = 1 / 120;
@@ -100,10 +101,11 @@ export function stepFlightModel(model, controls, dt = FLIGHT_STEP_S) {
     const inward = normalize(model.width / 2 - agent.x, model.height / 2 - agent.y);
     dx = dx * (1 - pressure) + inward.x * pressure * 3;
     dy = dy * (1 - pressure) + inward.y * pressure * 3;
-    const turn = controls.flight_speed / TURN_RADIUS_M * dt;
+    const speed = controls.flight_speed * BOOK_MOVEMENT_SCALE;
+    const turn = speed / TURN_RADIUS_M * dt;
     agent.heading += clamp(angleDelta(agent.heading, Math.atan2(dy, dx)), -turn, turn);
-    agent.x += Math.cos(agent.heading) * controls.flight_speed * dt;
-    agent.y += Math.sin(agent.heading) * controls.flight_speed * dt;
+    agent.x += Math.cos(agent.heading) * speed * dt;
+    agent.y += Math.sin(agent.heading) * speed * dt;
   }
   model.time += dt;
   model.history.push({ time: model.time, agents: snapshot(model.agents) });

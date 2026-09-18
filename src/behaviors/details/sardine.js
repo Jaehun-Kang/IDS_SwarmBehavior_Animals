@@ -5,7 +5,7 @@ export const SARDINE_DETAILS = {
   rules: [{
     id: "individual_swimming",
     previewId: "sardine_swimming",
-    category: "한 마리의 유영",
+    category: "개별 유영",
     behaviors: [
       {
         id: "swim_speed",
@@ -16,14 +16,14 @@ export const SARDINE_DETAILS = {
       },
       {
         id: "turn_rate",
-        name: "방향 바꾸기",
+        name: "선회",
         description: "정어리는 헤엄치는 방향을 바꾸며 이웃의 움직임을 따라간다. 방향을 바꾸는 동안에도 앞으로 나아가는 움직임이 이어진다.",
         parameter: { label: "선회 속도", unit: "도/초", min: 100, max: 220,
           step: 5, decimals: 0, defaultValue: 160 },
       },
       {
         id: "spacing_strength",
-        name: "서로의 간격",
+        name: "개체 간격",
         description: "정어리는 가까운 이웃과 간격을 조절하며 무리 안에서 헤엄친다. 개체 사이의 간격은 늘 일정하지 않고 무리의 상태에 따라 달라진다.",
         parameter: { label: "간격 벌리기 강도", unit: "퍼센트", min: 0, max: 100,
           step: 1, decimals: 0, defaultValue: 50 },
@@ -32,11 +32,11 @@ export const SARDINE_DETAILS = {
   }, {
     id: "neighbour_interactions",
     previewId: "sardine_swimming",
-    category: "이웃과 함께 헤엄치기",
+    category: "무리 유영",
     behaviors: [
       {
         id: "neighbor_radius",
-        name: "이웃 살피기",
+        name: "이웃 감지",
         description: "정어리는 주변 이웃의 움직임에 맞추어 헤엄친다. 서로를 알아볼 수 있는 환경은 무리를 이루는 데 영향을 준다.",
         parameter: { label: "참고하는 범위", unit: "미터", min: 0.6, max: 2.4,
           step: 0.1, decimals: 1, defaultValue: 1.6 },
@@ -50,39 +50,39 @@ export const SARDINE_DETAILS = {
       },
       {
         id: "cohesion_strength",
-        name: "이웃 곁에 머물기",
+        name: "무리 유지",
         description: "정어리들은 이웃 곁에서 헤엄치며 무리를 유지한다. 방향을 나란히 맞추는 것과 이웃과의 거리를 조절하는 움직임이 함께 나타난다.",
         parameter: { label: "이웃 접근 강도", unit: "퍼센트", min: 0, max: 100,
           step: 1, decimals: 0, defaultValue: 50 },
       },
       {
         id: "school_shape",
-        name: "달라지는 무리",
+        name: "무리의 형태",
         description: "정어리 무리는 이동하며 윤곽과 조밀한 정도가 달라진다. 같은 종의 무리라도 주변 환경과 활동에 따라 서로 다른 모습을 보인다.",
       },
     ],
   }, {
     id: "light_changes",
     previewId: "sardine_swimming",
-    category: "빛에 따른 변화",
+    category: "빛과 군집",
     behaviors: [
       {
         id: "light_level",
-        name: "밝을 때의 무리",
+        name: "주간 군집",
         description: "정어리는 낮 동안 서로 방향을 맞추어 무리 지어 헤엄친다. 무리가 얼마나 조밀한지는 빛뿐 아니라 먹이와 주변 환경에 따라서도 달라진다.",
         parameter: { label: "주변 밝기", unit: "퍼센트", min: 0, max: 100,
           step: 1, decimals: 0, defaultValue: 100 },
       },
       {
         id: "night_cohesion",
-        name: "어두울 때의 무리",
+        name: "야간 군집",
         description: "밤이 되면 무리가 느슨해지거나 흩어지기도 한다. 그러나 수역에 따라 밤에도 모여 헤엄치는 모습이 나타난다.",
         parameter: { label: "어두울 때의 결합", unit: "퍼센트", min: 0, max: 100,
           step: 1, decimals: 0, defaultValue: 20 },
       },
       {
         id: "adaptation_time",
-        name: "변화에 적응하기",
+        name: "명암 변화",
         description: "해가 뜨고 질 때 정어리 무리는 모이거나 흩어지며 움직임을 바꾼다. 이러한 변화의 빠르기도 수역에 따라 다르게 나타난다.",
         parameter: { label: "전환 시간", unit: "초", min: 1, max: 5,
           step: 0.5, decimals: 1, defaultValue: 2 },
@@ -92,26 +92,26 @@ export const SARDINE_DETAILS = {
     id: "predator_response",
     previewId: "sardine_swimming",
     interaction: "predator",
-    category: "위험을 피하는 무리",
+    category: "위협과 회피",
     behaviors: [
       {
         id: "threat_strength",
-        name: "위협 피하기",
+        name: "위협 회피",
         description: "포식자가 다가오면 정어리들은 움직임을 바꾸어 피한다. 가까운 개체들의 방향이 달라지면서 주변 무리의 움직임도 바뀐다.",
         parameter: { label: "회피 강도", unit: "퍼센트", min: 0, max: 100,
           step: 1, decimals: 0, defaultValue: 60 },
       },
       {
         id: "threat_cohesion",
-        name: "갈라짐과 모임",
+        name: "분산과 결집",
         description: "위협을 받는 무리는 갈라지거나 조밀하게 모이며 모양을 바꾸기도 한다. 각 개체가 피하는 방향과 이웃과의 거리가 달라지면서 무리의 윤곽도 변한다.",
         parameter: { label: "위협 중 이웃 접근", unit: "퍼센트", min: 0, max: 100,
           step: 1, decimals: 0, defaultValue: 50 },
       },
       {
         id: "recovery_time",
-        name: "다시 모이기",
-        description: "갈라진 정어리 무리들은 이동하는 동안 다른 무리와 만나 합쳐지기도 한다. 다시 모인 개체들은 주변 이웃과 방향과 간격을 맞추며 헤엄친다.",
+        name: "재결집",
+        description: "갈라진 정어리 무리들은 이동하는 동안 다른 무리와 만나 합쳐지기도 한다. 다시 모인 개체들은 주변 이웃에 맞춰 방향과 간격을 조절하며 헤엄친다.",
         parameter: { label: "회피 반응이 잦아드는 시간", unit: "초", min: 1, max: 5,
           step: 0.5, decimals: 1, defaultValue: 2 },
       },

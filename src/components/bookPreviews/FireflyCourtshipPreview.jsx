@@ -1,4 +1,5 @@
 import React from "react";
+import { drawBookSpriteGlow } from "./bookGlowDrawing.js";
 import {HOME_SPRITE_ATLASES} from "../../data/spriteAtlases";
 import {loadTexturedAtlasCanvas,getAtlasFrameCanvas} from "../../utils/spriteAtlas";
 import {createBookCanvasLoop} from "../../utils/bookCanvasLoop.js";
@@ -22,7 +23,7 @@ export default function FireflyCourtshipPreview({controls,ruleGroup}){
         ctx.fillStyle="#8f9f70";ctx.beginPath();ctx.ellipse(female.x*s,(female.y+0.7)*s,2.1*s,0.6*s,-0.3,0,Math.PI*2);ctx.fill();
         model.agents.forEach((a,i)=>{
           fireflyCourtshipPose(model,i,pose);
-          const walking=model.phase==="walk",fly=a.moving&&!walking,index=Math.floor(model.time*12)%2;
+          const walking=model.phase==="walk",fly=a.moving&&!walking,index=Math.floor(model.time*15)%2;
           const dark=fly?atlas.stages.firefly_dark_top_fly.frames[index]:atlas.stages.firefly_dark_top_idle.frame;
           const lit=fly?atlas.stages.firefly_lit_top_fly.frames[index]:atlas.stages.firefly_lit_top_idle.frame;
           const size=3*s,h=size*160/135,alpha=model.remainder/(1/60);
@@ -30,6 +31,7 @@ export default function FireflyCourtshipPreview({controls,ruleGroup}){
           ctx.save();ctx.translate(pose.x*s,pose.y*s);ctx.rotate(pose.heading);
           ctx.drawImage(getAtlasFrameCanvas(frames,dark),-size/2,-h/2,size,h);
           if(light>0){ctx.globalAlpha=light;ctx.drawImage(getAtlasFrameCanvas(frames,lit),-size/2,-h/2,size,h);}
+          drawBookSpriteGlow(ctx,getAtlasFrameCanvas(frames,lit),-size/2,-h/2,size,h,light);
           ctx.restore();
         });
       },

@@ -1,4 +1,6 @@
 import React from "react";
+import { drawThreatMarker } from "./bookThreatDrawing.js";
+import { drawBatEchoes } from "./batEchoDrawing.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import { loadTexturedAtlasCanvas, getAtlasFrameCanvas, resolveStageFrameSequence } from "../../utils/spriteAtlas";
 import { createBookCanvasLoop } from "../../utils/bookCanvasLoop.js";
@@ -19,14 +21,23 @@ export default function BatFlightPreview({ controls, ruleGroup }) {
   const [error, setError] = React.useState("");
   React.useEffect(() => { controlsRef.current = controls; }, [controls]);
   React.useEffect(() => {
-    let model, frames, disposed = false;
+    let model, frames, light, disposed = false;
     const pose = {};
     const loop = createBookCanvasLoop(canvasRef.current, {
-      onResize: ({ width, height }) => { model = engine.create(width / height); },
+      onResize: ({ width, height }) => {
+        model = engine.create(width / height);
+        light = Math.max(0, Math.min(1, (controlsRef.current.light_level ?? 30) / 100));
+      },
       onFrame: ({ context, width, height, elapsedSeconds }) => {
         engine.advance(model, controlsRef.current, elapsedSeconds, pointerRef.current);
         const scale = width / model.width;
         context.clearRect(0, 0, width, height);
+        if (ruleGroup.previewId === "bat_flight") {
+          const target = Math.max(0, Math.min(1, (controlsRef.current.light_level ?? 30) / 100));
+          light += (target - light) * (1 - Math.exp(-elapsedSeconds / 0.2));
+          context.fillStyle = `rgba(26,43,49,${(1 - light) * 0.24})`;
+          context.fillRect(0, 0, width, height);
+        }
         if (model.returnMode && pointerRef.current) {
           context.strokeStyle = "#98424a";
           context.lineWidth = 1.5;
@@ -42,32 +53,19 @@ export default function BatFlightPreview({ controls, ruleGroup }) {
           context.fillRect(0, bottom, scale * 1.5, height - bottom);
         }
         const focal = model.agents[0];
-        for (const pulse of focal?.pulses ?? []) {
-          const age = model.time - pulse.time, alpha = Math.max(0, 1 - age / 0.4);
-          context.strokeStyle = `rgba(34,105,116,${alpha * 0.65})`;
-          context.lineWidth = 1.2;
-          context.beginPath();
-          context.arc(pulse.x * scale, pulse.y * scale, age * 20 * scale,
-            pulse.heading - 1.25, pulse.heading + 1.25);
-          context.stroke();
-        }
-        for (const echo of focal?.echoes ?? []) {
-          context.strokeStyle = `rgba(34,105,116,${Math.exp(-(model.time - echo.time) / 0.15) * 0.65})`;
-          context.lineWidth = 1;
-          context.beginPath();
-          context.moveTo(echo.x * scale, echo.y * scale);
-          context.lineTo(focal.x * scale, focal.y * scale);
-          context.stroke();
-        }
+        drawBatEchoes(context, focal?.pulses ?? [], model.time, scale);
         for (let i = 0; i < model.agents.length; i++) {
           engine.pose(model, i, pose);
           const left = Math.cos(pose.heading) < 0;
-          const frame = frames[Math.floor((model.time + model.agents[i].id * 0.037) * 10) % frames.length];
+          const frame = frames[Math.floor((model.time + model.agents[i].id * 0.037) * 12.5) % frames.length];
           const size = scale * 1.5;
           context.save(); context.translate(pose.x * scale, pose.y * scale);
           context.rotate(pose.heading - (left ? Math.PI : 0)); context.scale(left ? -1 : 1, 1);
           context.drawImage(frame, -size / 2, -size * 215 / 190, size, size * 215 / 95);
           context.restore();
+        }
+        if (model.returnMode && pointerRef.current) {
+          drawThreatMarker(context,pointerRef.current.x*width,pointerRef.current.y*height,width,height);
         }
       },
     });
@@ -78,7 +76,7 @@ export default function BatFlightPreview({ controls, ruleGroup }) {
       loop.start();
     }).catch(() => { if (!disposed) setError("박쥐 이미지를 불러오지 못했습니다."); });
     return () => { disposed = true; loop.dispose(); };
-  }, [engine]);
+  }, [engine, ruleGroup.previewId]);
   return <div className="canvas-placeholder rule-preview" aria-label={`${ruleGroup.category} 미니 시뮬레이션`}>
     {error ? <span role="alert">{error}</span> : null}
     <canvas ref={canvasRef} className="rule-preview__canvas"

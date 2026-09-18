@@ -6,7 +6,7 @@ export const STARLING_DETAILS = {
     {
       id: "individual_parameters",
       previewId: "starling_flight",
-      category: "한 마리의 비행",
+      category: "개별 비행",
       behaviors: [
         {
           id: "flight_speed",
@@ -25,7 +25,7 @@ export const STARLING_DETAILS = {
         },
         {
           id: "minimum_spacing",
-          name: "충돌을 피하는 거리",
+          name: "개체 간 거리",
           parameter: {
             label: "최소 간격",
             unit: "미터",
@@ -55,7 +55,7 @@ export const STARLING_DETAILS = {
         },
         {
           id: "lateral_influence",
-          name: "이웃의 위치",
+          name: "이웃의 배치",
           parameter: {
             label: "측면 이웃의 영향",
             unit: "퍼센트",
@@ -73,7 +73,7 @@ export const STARLING_DETAILS = {
     {
       id: "interaction_rules",
       previewId: "starling_interactions",
-      category: "이웃과 함께 날기",
+      category: "무리 비행",
       behaviors: [
         {
           id: "neighbor_count",
@@ -86,7 +86,7 @@ export const STARLING_DETAILS = {
             defaultValue: 7,
             decimals: 0,
           },
-          name: "참고하는 이웃 수",
+          name: "이웃 선택",
           description:
             "찌르레기는 가까운 이웃들의 움직임에 맞춰 날아간다. 무리 안에서 서로 영향을 주고받는 범위는 가까운 이웃 약 6~7마리로 나타난다.",
         },
@@ -101,7 +101,7 @@ export const STARLING_DETAILS = {
             defaultValue: 50,
             decimals: 0,
           },
-          name: "가까운 이웃 피하기",
+          name: "충돌 회피",
           description:
             "이웃이 너무 가까워지면 부딪히지 않도록 움직임을 조절한다. 이렇게 거리를 벌리는 동안 무리 안에서 서로의 위치도 달라진다.",
         },
@@ -122,7 +122,7 @@ export const STARLING_DETAILS = {
         },
         {
           id: "cohesion_strength",
-          name: "무리에서 떨어지지 않기",
+          name: "무리 유지",
           parameter: {
             label: "이웃 접근 강도",
             unit: "퍼센트",
@@ -140,7 +140,7 @@ export const STARLING_DETAILS = {
     {
       id: "specific_maneuvers",
       previewId: "starling_turns",
-      category: "함께 방향 바꾸기",
+      category: "집단 선회",
       behaviors: [
         {
           id: "turn_radius",
@@ -168,7 +168,7 @@ export const STARLING_DETAILS = {
             defaultValue: 23,
             decimals: 0,
           },
-          name: "몸 기울이기",
+          name: "몸의 기울기",
           description:
             "찌르레기는 방향을 바꿀 때 몸을 옆으로 기울인다. 기울어진 몸과 날개는 바라보는 위치에 따라 넓거나 좁게 보인다.",
         },
@@ -183,13 +183,13 @@ export const STARLING_DETAILS = {
             defaultValue: 30,
             decimals: 0,
           },
-          name: "회전의 전달",
+          name: "회전 전달",
           description:
             "몇 마리가 먼저 방향을 바꾸면 이웃들이 짧은 시간 차를 두고 뒤따른다. 이 변화는 새가 날아가는 속도보다 빠르게 무리 안으로 퍼질 수 있다.",
         },
         {
           id: "agitation_wave",
-          name: "위협 때 보이는 파동",
+          name: "위협 반응 파동",
           description:
             "포식자가 공격할 때는 어두운 띠가 무리를 가로질러 흐르기도 한다. 몸과 날개의 방향 변화가 이 띠를 만든다는 설명이 있지만, 정확한 원리는 아직 밝혀지는 중이다.",
         },
@@ -198,7 +198,7 @@ export const STARLING_DETAILS = {
     {
       id: "flock_structure",
       previewId: "starling_shape",
-      category: "무리의 모양",
+      category: "무리의 형태",
       behaviors: [
         {
           id: "flock_shape",
@@ -241,13 +241,13 @@ export const STARLING_DETAILS = {
             defaultValue: 30,
             decimals: 0,
           },
-          name: "바라보는 방향",
+          name: "관찰 시점",
           description:
             "같은 무리도 옆에서 보면 얇은 띠로, 위에서 보면 넓게 펼쳐진 모습으로 보인다. 새들이 시선 방향으로 겹치므로 화면의 짙기만으로 실제 밀도를 판단하기는 어렵다.",
         },
         {
           id: "turn_origin",
-          name: "회전의 시작",
+          name: "회전 시작",
           description:
             "포식자가 없어도 길게 뻗은 가장자리의 몇 마리가 먼저 방향을 바꾸며 무리의 회전이 시작되기도 한다. 주변 이웃들이 이 움직임을 따라가면서 무리 전체의 진행 방향이 달라진다.",
         },

@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 const STEP=1/120;
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -42,7 +43,7 @@ export function advanceSheepThreat(m,controls,elapsed,pointer=null) {
       const desiredHeading=Math.atan2(dy,dx),delta=Math.atan2(Math.sin(desiredHeading-a.heading),Math.cos(desiredHeading-a.heading));
       a.heading+=clamp(delta,-1.8*STEP,1.8*STEP);
       const desired=Math.min(1.6,Math.hypot(dx,dy)*(1+a.alarm))*Math.max(0,Math.cos(delta))*clamp((nearestAhead-1)/0.8,0,1);
-      a.speed+=clamp(desired-a.speed,-2*STEP,2*STEP);
+      a.speed+=clamp(desired*BOOK_MOVEMENT_SCALE-a.speed,-2*STEP,2*STEP);
       a.x+=Math.cos(a.heading)*a.speed*STEP;a.y+=Math.sin(a.heading)*a.speed*STEP;
       a.distance+=a.speed*STEP;
     }

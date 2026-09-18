@@ -16,7 +16,7 @@ export default function KrillRestPreview({controls,ruleGroup}){
     advanceKrillRest(model,controlsRef.current,elapsedSeconds);still=model.agents.some(a=>a.moving)?0:still+1;if(still>2)return;
     ctx.clearRect(0,0,width,height);const s=width/model.width,size=3.5*s,h=size*75/145;
     ctx.strokeStyle="rgba(0,67,94,0.18)";ctx.lineWidth=1;
-    for(const x of [0.375,0.625]){ctx.beginPath();ctx.moveTo(width*x,height*0.12);ctx.lineTo(width*x,height*0.88);ctx.stroke();}
+    for(const x of [1/3,2/3]){ctx.beginPath();ctx.moveTo(width*x,height*0.12);ctx.lineTo(width*x,height*0.88);ctx.stroke();}
     model.agents.forEach((a,i)=>{
      krillRestPose(model,i,pose);ctx.save();ctx.translate(pose.x*s,pose.y*s);ctx.rotate(pose.heading);
      ctx.drawImage(getAtlasFrameCanvas(frames,atlas.stages.krill_swim.frame),-size/2,-h/2,size,h);ctx.restore();

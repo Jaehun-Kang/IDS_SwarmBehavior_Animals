@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 const STEP=1/60;
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
@@ -31,13 +32,13 @@ function step(m,c) {
     const dx=target.x-a.x,dy=target.y-a.y,d=Math.hypot(dx,dy);
     const turn=Math.atan2(Math.sin(Math.atan2(dy,dx)-a.heading),Math.cos(Math.atan2(dy,dx)-a.heading));
     a.heading+=clamp(turn,-STEP*3,STEP*3);
-    const desired=Math.min(5*speedScale,d*2)*Math.max(0,Math.cos(turn));
+    const desired=BOOK_MOVEMENT_SCALE*Math.min(5*speedScale,d*2)*Math.max(0,Math.cos(turn));
     a.speed+=(desired-a.speed)*(1-Math.exp(-STEP*8));
     const move=Math.min(d,a.speed*STEP);
     a.x+=Math.cos(a.heading)*move; a.y+=Math.sin(a.heading)*move;a.distance+=move;
     if(d<0.18){
       a.speed=0;
-      if(a.state==="returning"){a.state="inside";a.trips++;a.timer=1+(a.id%5)*0.3;}
+      if(a.state==="returning"){a.state="inside";a.trips++;a.timer=0.65+(a.id%5)*0.2;}
       else {a.state="gathering";a.timer=clamp(c.collection_time??2,0.5,5);}
     }
   }

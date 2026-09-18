@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "../src/components/bookPreviews/bookMotion.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createLocustGroundModel, advanceLocustGround, stepLocustGround, LOCUST_STEP,
@@ -27,7 +28,7 @@ test("ground control extremes preserve page margins, stops and launch direction"
           if (["pause", "prepare", "land"].includes(a.state)) {
             assert.equal(a.x, old.x); assert.equal(a.y, old.y);
           }
-          if (a.state === "walk") assert.ok(Math.abs(Math.hypot(a.x-old.x,a.y-old.y)-speed*LOCUST_STEP)<1e-10);
+          if (a.state === "walk") assert.ok(Math.abs(Math.hypot(a.x-old.x,a.y-old.y)-speed*BOOK_MOVEMENT_SCALE*LOCUST_STEP)<1e-10);
           assert.ok(Number.isFinite(locustGroundPose(model,j).z));
         });
       }

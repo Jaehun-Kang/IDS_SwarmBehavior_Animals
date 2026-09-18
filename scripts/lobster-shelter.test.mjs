@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "../src/components/bookPreviews/bookMotion.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {createLobsterShelter,advanceLobsterShelter} from "../src/components/bookPreviews/lobsterShelterModel.js";
@@ -27,7 +28,7 @@ test("stage edits keep continuous turning and movement in the canvas",()=>{
     const m=createLobsterShelter(aspect);
     for(let i=0;i<6000;i++){
       const old=m.agents.map(a=>({...a}));advanceLobsterShelter(m,{light_level:i%2000<1000?0:100,home_memory:0,explore_range:100},1/60);
-      m.agents.forEach((a,j)=>{assert.ok(Math.hypot(a.x-old[j].x,a.y-old[j].y)<0.04);assert.ok(a.x>1.5&&a.x<m.width-1.5&&a.y>1.5&&a.y<m.height-1.5);});
+      m.agents.forEach((a,j)=>{assert.ok(Math.hypot(a.x-old[j].x,a.y-old[j].y)<0.04*BOOK_MOVEMENT_SCALE);assert.ok(a.x>1.5&&a.x<m.width-1.5&&a.y>1.5&&a.y<m.height-1.5);});
     }
   }
 });

@@ -1,4 +1,5 @@
 import React from "react";
+import { drawBookSpriteGlow } from "./bookGlowDrawing.js";
 import {HOME_SPRITE_ATLASES} from "../../data/spriteAtlases";
 import {loadTexturedAtlasCanvas,getAtlasFrameCanvas} from "../../utils/spriteAtlas";
 import {createBookCanvasLoop} from "../../utils/bookCanvasLoop.js";
@@ -23,7 +24,7 @@ export default function FireflyIndividualPreview({controls,ruleGroup}){
           const a=model.agents[i];fireflyIndividualPose(model,i,pose);
           const home=model.homes[i];
           ctx.fillStyle="#8f9f70";ctx.beginPath();ctx.ellipse(home.x*s,(home.y+0.7)*s,1.25*s,0.32*s,-0.3,0,Math.PI*2);ctx.fill();
-          const idle=a.flight===0,index=Math.floor(model.time*14+a.id)%2;
+          const idle=a.flight===0,index=Math.floor(model.time*17.5+a.id)%2;
           const dark=idle?atlas.stages.firefly_dark_top_idle.frame:atlas.stages.firefly_dark_top_fly.frames[index];
           const lit=idle?atlas.stages.firefly_lit_top_idle.frame:atlas.stages.firefly_lit_top_fly.frames[index];
           const size=s*1.45,h=size*160/135;
@@ -31,6 +32,7 @@ export default function FireflyIndividualPreview({controls,ruleGroup}){
           ctx.save();ctx.translate(pose.x*s,pose.y*s);ctx.rotate(pose.heading);
           ctx.drawImage(getAtlasFrameCanvas(frames,dark),-size/2,-h/2,size,h);
           if(light>0){ctx.globalAlpha=light;ctx.drawImage(getAtlasFrameCanvas(frames,lit),-size/2,-h/2,size,h);}
+          drawBookSpriteGlow(ctx,getAtlasFrameCanvas(frames,lit),-size/2,-h/2,size,h,light);
           ctx.restore();
         }
       },

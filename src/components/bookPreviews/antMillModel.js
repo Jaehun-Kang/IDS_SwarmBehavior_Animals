@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 import { createAntTrailField, sampleAntTrail, depositAntTrail, decayAntTrail } from "./antTrailField.js";
 const STEP = 1 / 120;
@@ -5,7 +6,7 @@ const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
 export function createAntMill(aspect = 1.5) {
   const width = 48 * Math.max(1, aspect), height = 48 / Math.min(1, aspect);
-  const cx = width * 0.45, cy = height * 0.5, radius = 9;
+  const cx = width * 0.45, cy = height * 0.5, radius = 10.5;
   const field = createAntTrailField(width, height);
   // Preset an existing loop to compare maintenance, not spontaneous mill formation.
   for (let y = 0; y < field.rows; y++) for (let x = 0; x < field.cols; x++) {
@@ -60,7 +61,7 @@ function update(model, controls) {
       turn = turn * Math.max(0, edge / 10) + delta * (1 - Math.max(0, edge) / 10) * 4;
     }
     a.heading += clamp(turn, -3, 3) * STEP;
-    const speed = 3 / (1 + pressure * 4);
+    const speed = 3 * BOOK_MOVEMENT_SCALE / (1 + pressure * 4);
     a.speed += (speed - a.speed) * (1 - Math.exp(-STEP * 8));
     a.x += Math.cos(a.heading) * a.speed * STEP;
     a.y += Math.sin(a.heading) * a.speed * STEP;

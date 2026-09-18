@@ -1,7 +1,8 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 
 export const TURN_STEP_S = 1 / 120;
-export const TURN_SPEED = 9.5;
+export const TURN_SPEED = 9.5 * BOOK_MOVEMENT_SCALE;
 const ANGLE = Math.PI / 2;
 const copy = (agent) => ({ ...agent });
 
@@ -12,7 +13,7 @@ export function createTurnModel(aspect, count = 24) {
     heading: 0, bank: 0, start: Infinity, turned: ANGLE,
   }));
   return { agents, previous: agents.map(copy), aspect, time: 0, remainder: 0,
-    nextEvent: 0.5, event: 0, direction: 1 };
+    nextEvent: 0.25, event: 0, direction: 1 };
 }
 
 function beginTurn(model) {
@@ -64,7 +65,7 @@ export function stepTurnModel(model, controls) {
   }
   model.time += dt;
   if (model.nextEvent === Infinity && model.agents.every((a) => a.turned >= ANGLE - 1e-10)) {
-    model.nextEvent = model.time + 1.5;
+    model.nextEvent = model.time + 0.65;
   }
 }
 

@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "../src/components/bookPreviews/bookMotion.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createLocustFlight, stepLocustFlight, advanceLocustFlight, locustFlightVelocity,
@@ -32,7 +33,7 @@ test("flight camera keeps every pose in frame through reversals without wrapping
         const p=locustFlightPose(model,j),a=model.agents[j],old=model.previous[j];
         assert.ok(p.x>view.x+1 && p.x<view.x+view.width-1);
         assert.ok(p.y>view.y+1 && p.y<view.y+view.width/aspect-1);
-        assert.ok(Math.hypot(a.x-old.x,a.y-old.y)<=10*FLIGHT_STEP+1e-10);
+        assert.ok(Math.hypot(a.x-old.x,a.y-old.y)<=10*BOOK_MOVEMENT_SCALE*FLIGHT_STEP+1e-10);
         assert.ok(a.trail.length<=16);
       }
     }

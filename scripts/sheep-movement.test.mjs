@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "../src/components/bookPreviews/bookMotion.js";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createSheepMovement, advanceSheepMovement } from '../src/components/bookPreviews/sheepMovementModel.js';
@@ -25,7 +26,7 @@ test('sheep stay within sprite margins without jumps at control extremes', () =>
       m.agents.forEach((a,i) => {
         assert.ok(Number.isFinite(a.heading));
         assert.ok(a.x > 1 && a.x < m.width-1 && a.y > 1 && a.y < m.height-1);
-        assert.ok(Math.hypot(a.x-previous[i].x,a.y-previous[i].y) < 0.04);
+        assert.ok(Math.hypot(a.x-previous[i].x,a.y-previous[i].y) < 0.04*BOOK_MOVEMENT_SCALE);
       });
     }
   }

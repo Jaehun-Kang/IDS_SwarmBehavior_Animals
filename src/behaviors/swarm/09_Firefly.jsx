@@ -156,7 +156,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "COUPLING_BETA",
-    label: "동기화 결합 강도",
+    label: "깜빡임 맞추기",
     min: 0.1,
     max: 0.4,
     step: 0.01,
@@ -164,7 +164,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "VISION_RADIUS_M",
-    label: "시야 반경",
+    label: "빛을 볼 수 있는 거리",
     min: 1,
     max: 10,
     step: 0.25,
@@ -172,7 +172,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "SHOW_PHASE_DEBUG",
-    label: "위상 링 보기",
+    label: "깜빡임 주기 표시",
     type: "toggle",
     formatValue: (value) => (value ? "ON" : "OFF"),
   },

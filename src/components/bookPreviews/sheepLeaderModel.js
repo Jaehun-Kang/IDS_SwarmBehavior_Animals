@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 const STEP=1/120;
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -25,7 +26,7 @@ function bindEpisode(m) {
 export function advanceSheepLeaders(m,controls,elapsed) {
   advanceFixedStep(m,elapsed,STEP,1,()=>{
     m.time+=STEP;m.episodeAge+=STEP;
-    if(m.episodeAge>=(m.paused?4:clamp(controls.episode_duration??15,5,25))) {
+    if(m.episodeAge>=(m.paused?2.5:clamp(controls.episode_duration??15,5,25))) {
       m.episodeAge=0;m.paused=!m.paused;
       if(!m.paused) bindEpisode(m);
     }
@@ -48,7 +49,7 @@ export function advanceSheepLeaders(m,controls,elapsed) {
       const speed=clamp(controls.leader_speed??1,0.5,1.5);
       const desired=m.paused?0:(front?Math.min(speed*1.4,Math.max(0,d-1.6)*response):speed)
         *clamp((nearest-1.1)/0.8,0,1)*Math.max(0,Math.cos(delta));
-      a.speed+=clamp(desired-a.speed,-2*STEP,2*STEP);
+      a.speed+=clamp(desired*BOOK_MOVEMENT_SCALE-a.speed,-2*STEP,2*STEP);
       if(!m.paused) a.heading+=clamp(delta,-1.5*response*STEP,1.5*response*STEP);
       a.x+=Math.cos(a.heading)*a.speed*STEP;a.y+=Math.sin(a.heading)*a.speed*STEP;
       a.distance+=a.speed*STEP;

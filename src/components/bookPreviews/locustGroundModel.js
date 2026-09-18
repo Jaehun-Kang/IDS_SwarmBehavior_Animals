@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 
 export const LOCUST_STEP = 1 / 120;
@@ -72,7 +73,7 @@ export function locustStimulus(agent, agents, controls, predator, foods) {
 }
 export function stepLocustGround(model, controls, predator = null) {
   model.previous = model.agents.map(a => ({ ...a }));
-  const speed = clamp(controls.walk_speed ?? 1.1, 0.5, 3);
+  const speed = clamp(controls.walk_speed ?? 1.1, 0.5, 3) * BOOK_MOVEMENT_SCALE;
   const pause = clamp(controls.pause_duration ?? 1.5, 0.5, 4);
   const foodMode = controls.hunger !== undefined;
   const foods = foodMode ? locustFoodTargets(model) : [];

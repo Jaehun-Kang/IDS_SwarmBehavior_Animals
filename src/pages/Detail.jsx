@@ -1,5 +1,6 @@
 ﻿import React from "react";
 import { getAnimalDetails } from "../behaviors/animalDetails";
+import { captureBookPage } from "../utils/bookPageCapture.js";
 import { behaviorMap } from "../behaviors/animalData";
 import RulePreview from "../components/RulePreview";
 import BookBehaviorPanel from "../components/BookBehaviorPanel";
@@ -443,404 +444,7 @@ const waitForSpreadKey = async (expectedKey, getNode) => {
   return false;
 };
 
-const getDocumentStyleText = () =>
-  Array.from(document.styleSheets)
-    .map((styleSheet) => {
-      try {
-        return Array.from(styleSheet.cssRules)
-          .map((rule) => rule.cssText)
-          .join("\n");
-      } catch {
-        return "";
-      }
-    })
-    .join("\n");
-
-const getLiveCanvasEntries = (sourceNode) => {
-  const rootRect = sourceNode.getBoundingClientRect();
-
-  return Array.from(sourceNode.querySelectorAll("canvas"))
-    .map((sourceCanvas) => {
-      const rect = sourceCanvas.getBoundingClientRect();
-
-      if (rect.width <= 0 || rect.height <= 0) {
-        return null;
-      }
-
-      return {
-        sourceCanvas,
-        x: rect.left - rootRect.left,
-        y: rect.top - rootRect.top,
-        width: rect.width,
-        height: rect.height,
-      };
-    })
-    .filter(Boolean);
-};
-
-const attachLiveCanvasRefresh = (targetCanvas, liveCanvasEntries) => {
-  if (!liveCanvasEntries.length) {
-    return null;
-  }
-
-  const context = targetCanvas.getContext("2d");
-  const baseCanvas = document.createElement("canvas");
-  const baseContext = baseCanvas.getContext("2d");
-
-  if (!context || !baseContext) {
-    return null;
-  }
-
-  baseCanvas.width = targetCanvas.width;
-  baseCanvas.height = targetCanvas.height;
-  baseContext.drawImage(targetCanvas, 0, 0);
-
-  return () => {
-    context.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
-    context.drawImage(baseCanvas, 0, 0);
-
-    liveCanvasEntries.forEach(({ sourceCanvas, x, y, width, height }) => {
-      try {
-        context.drawImage(sourceCanvas, x, y, width, height);
-      } catch {
-        // Ignore transient canvas read failures during page teardown.
-      }
-    });
-
-    return true;
-  };
-};
-
-const createCanvasSnapshotFromImage = ({
-  image,
-  width,
-  height,
-  cssWidth = width,
-  cssHeight = height,
-  liveCanvasEntries,
-  source,
-}) => {
-  const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d");
-
-  canvas.width = width;
-  canvas.height = height;
-  context?.drawImage(image, 0, 0, width, height);
-
-  const refresh = attachLiveCanvasRefresh(canvas, liveCanvasEntries);
-  refresh?.();
-
-  return {
-    image: canvas,
-    width: cssWidth,
-    height: cssHeight,
-    source,
-    refresh,
-  };
-};
-
-const createTransparentCanvasDataUrl = (width, height) => {
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, width);
-  canvas.height = Math.max(1, height);
-  return canvas.toDataURL("image/png");
-};
-
-const createCanvasDataUrl = (sourceCanvas) => {
-  const width = Math.max(
-    1,
-    sourceCanvas.width || Math.round(sourceCanvas.clientWidth) || 1,
-  );
-  const height = Math.max(
-    1,
-    sourceCanvas.height || Math.round(sourceCanvas.clientHeight) || 1,
-  );
-
-  try {
-    const snapshotCanvas = document.createElement("canvas");
-    const snapshotContext = snapshotCanvas.getContext("2d");
-    snapshotCanvas.width = width;
-    snapshotCanvas.height = height;
-    if (snapshotContext) {
-      snapshotContext.clearRect(0, 0, width, height);
-      snapshotContext.drawImage(sourceCanvas, 0, 0, width, height);
-    }
-    return snapshotCanvas.toDataURL("image/png");
-  } catch {
-    return createTransparentCanvasDataUrl(width, height);
-  }
-};
-
-const inlineCanvasSnapshots = (sourceNode, clonedNode) => {
-  const sourceCanvases = sourceNode.querySelectorAll("canvas");
-  const clonedCanvases = clonedNode.querySelectorAll("canvas");
-
-  sourceCanvases.forEach((sourceCanvas, index) => {
-    const clonedCanvas = clonedCanvases[index];
-
-    if (!clonedCanvas) {
-      return;
-    }
-
-    const cssWidth = Math.max(1, sourceCanvas.clientWidth);
-    const cssHeight = Math.max(1, sourceCanvas.clientHeight);
-    const snapshot = document.createElement("img");
-    snapshot.decoding = "sync";
-    snapshot.src = createCanvasDataUrl(sourceCanvas);
-    snapshot.width = cssWidth;
-    snapshot.height = cssHeight;
-    snapshot.style.width = `${cssWidth}px`;
-    snapshot.style.height = `${cssHeight}px`;
-    snapshot.style.display = "block";
-    snapshot.style.background = "transparent";
-    clonedCanvas.replaceWith(snapshot);
-  });
-};
-
-const waitForImages = async (node) => {
-  const images = Array.from(node.querySelectorAll("img"));
-
-  await Promise.all(
-    images.map((image) => {
-      if (image.complete && image.naturalWidth > 0) {
-        return Promise.resolve();
-      }
-
-      if (typeof image.decode === "function") {
-        return image.decode().catch(() => undefined);
-      }
-
-      return new Promise((resolve) => {
-        image.addEventListener("load", resolve, { once: true });
-        image.addEventListener("error", resolve, { once: true });
-      });
-    }),
-  );
-};
-
-const canUseHtmlInCanvas = () => {
-  const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d");
-
-  return (
-    typeof canvas.requestPaint === "function" &&
-    typeof context?.drawElementImage === "function"
-  );
-};
-
-const createHtmlInCanvasStage = ({
-  width,
-  height,
-  cssWidth,
-  cssHeight,
-  node,
-}) => {
-  const container = document.createElement("div");
-  const canvas = document.createElement("canvas");
-  const content = document.createElement("div");
-
-  container.className = "detail-html-canvas-stage";
-  container.style.position = "absolute";
-  container.style.right = "0";
-  container.style.bottom = "0";
-  container.style.width = "1px";
-  container.style.height = "1px";
-  container.style.overflow = "hidden";
-  container.style.pointerEvents = "none";
-  container.style.zIndex = "-1";
-
-  canvas.setAttribute("layoutsubtree", "");
-  canvas.width = width;
-  canvas.height = height;
-  canvas.style.position = "absolute";
-  canvas.style.top = "0";
-  canvas.style.left = "0";
-  canvas.style.width = `${cssWidth}px`;
-  canvas.style.height = `${cssHeight}px`;
-
-  content.style.width = `${cssWidth}px`;
-  content.style.height = `${cssHeight}px`;
-  content.style.boxSizing = "border-box";
-  content.appendChild(node);
-  canvas.appendChild(content);
-  container.appendChild(canvas);
-  document.body.appendChild(container);
-
-  return { container, canvas, content };
-};
-
-const captureHtmlNodeWithHtmlInCanvas = (node, coverTextureUrl) =>
-  new Promise((resolve, reject) => {
-    if (!canUseHtmlInCanvas()) {
-      reject(new Error("HTML-in-Canvas is not available"));
-      return;
-    }
-
-    const rect = node.getBoundingClientRect();
-    const cssWidth = Math.max(1, rect.width);
-    const cssHeight = Math.max(1, rect.height);
-    const width = Math.max(1, Math.round(cssWidth));
-    const height = Math.max(1, Math.round(cssHeight));
-    const liveCanvasEntries = getLiveCanvasEntries(node);
-    const clonedNode = node.cloneNode(true);
-
-    inlineCanvasSnapshots(node, clonedNode);
-    clonedNode.style.width = `${cssWidth}px`;
-    clonedNode.style.height = `${cssHeight}px`;
-    clonedNode.style.boxSizing = "border-box";
-    clonedNode.style.setProperty(
-      "--detail-paper-texture",
-      `url(${paperTextureUrl})`,
-    );
-    clonedNode.style.setProperty(
-      "--detail-cover-texture",
-      getCssImageValue(coverTextureUrl),
-    );
-
-    const { container, canvas, content } = createHtmlInCanvasStage({
-      width,
-      height,
-      cssWidth,
-      cssHeight,
-      node: clonedNode,
-    });
-    const context = canvas.getContext("2d");
-    let settled = false;
-    let timeoutId = 0;
-
-    const cleanup = () => {
-      window.clearTimeout(timeoutId);
-      container.remove();
-    };
-
-    const finish = () => {
-      if (settled) {
-        return;
-      }
-
-      settled = true;
-
-      try {
-        context.reset?.();
-        if (!context.reset) {
-          context.setTransform(1, 0, 0, 1, 0, 0);
-          context.clearRect(0, 0, canvas.width, canvas.height);
-        }
-        context.drawElementImage(content, 0, 0);
-        cleanup();
-        const refresh = attachLiveCanvasRefresh(canvas, liveCanvasEntries);
-        refresh?.();
-        resolve({
-          image: canvas,
-          width: cssWidth,
-          height: cssHeight,
-          source: "html-in-canvas",
-          refresh,
-        });
-      } catch (error) {
-        cleanup();
-        reject(error);
-      }
-    };
-
-    const fail = () => {
-      if (settled) {
-        return;
-      }
-
-      settled = true;
-      cleanup();
-      reject(new Error("HTML-in-Canvas paint timed out"));
-    };
-
-    waitForImages(content)
-      .then(() => {
-        if (settled) {
-          return;
-        }
-
-        canvas.addEventListener("paint", finish, { once: true });
-        canvas.onpaint = finish;
-        timeoutId = window.setTimeout(fail, 600);
-        canvas.requestPaint();
-      })
-      .catch((error) => {
-        cleanup();
-        reject(error);
-      });
-  });
-
-const captureHtmlNodeWithSvg = (node, coverTextureUrl) =>
-  new Promise((resolve, reject) => {
-    if (!node) {
-      reject(new Error("No node to capture"));
-      return;
-    }
-
-    const rect = node.getBoundingClientRect();
-    const cssWidth = Math.max(1, rect.width);
-    const cssHeight = Math.max(1, rect.height);
-    const width = Math.max(1, Math.round(cssWidth));
-    const height = Math.max(1, Math.round(cssHeight));
-    const liveCanvasEntries = getLiveCanvasEntries(node);
-    const clonedNode = node.cloneNode(true);
-
-    inlineCanvasSnapshots(node, clonedNode);
-    clonedNode.style.width = `${cssWidth}px`;
-    clonedNode.style.height = `${cssHeight}px`;
-    clonedNode.style.boxSizing = "border-box";
-    clonedNode.style.setProperty(
-      "--detail-paper-texture",
-      `url(${paperTextureUrl})`,
-    );
-    clonedNode.style.setProperty(
-      "--detail-cover-texture",
-      getCssImageValue(coverTextureUrl),
-    );
-
-    waitForImages(clonedNode)
-      .then(() => {
-        const styleText = getDocumentStyleText();
-        const container = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
-        container.setAttribute("style", `width:${width}px;height:${height}px;`);
-        const style = document.createElementNS("http://www.w3.org/1999/xhtml", "style");
-        style.textContent = styleText;
-        container.append(style, clonedNode);
-        // SVG requires XML-safe void elements and escaped text, including range inputs.
-        const html = new XMLSerializer().serializeToString(container);
-        const svg = `
-          <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-            <foreignObject width="100%" height="100%">${html}</foreignObject>
-          </svg>
-        `;
-        const image = new Image();
-
-        image.onload = () => {
-          resolve(
-            createCanvasSnapshotFromImage({
-              image,
-              width,
-              height,
-              cssWidth,
-              cssHeight,
-              liveCanvasEntries,
-              source: "svg-foreignObject",
-            }),
-          );
-        };
-        image.onerror = reject;
-        image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-      })
-      .catch(reject);
-  });
-
-const captureHtmlNodeAsImage = async (node, coverTextureUrl) => {
-  try {
-    return await captureHtmlNodeWithHtmlInCanvas(node, coverTextureUrl);
-  } catch {
-    return captureHtmlNodeWithSvg(node, coverTextureUrl);
-  }
-};
+const captureHtmlNodeAsImage = captureBookPage;
 
 const getCoverTurnMode = (fromPage, toPage) => {
   if (fromPage?.type === "cover" && toPage?.type === "intro") {
@@ -2344,28 +1948,10 @@ function Detail({
   };
 
   const getPageRenderData = (page) => {
-    const pageIndex = bookSpreads.findIndex((item) => item.key === page?.key);
-    const ruleIndex = Math.max(0, pageIndex - 2);
-    const pageLeftNumber =
-      page?.type === "cover"
-        ? null
-        : page?.type === "intro"
-          ? null
-          : 2 + ruleIndex * 2;
-    const pageRightNumber =
-      page?.type === "cover"
-        ? null
-        : page?.type === "intro"
-          ? null
-          : pageLeftNumber + 1;
     const controlKey = `${animalId}:${page?.key}`;
     const pagePreviewControls = resolveRuleControls(page?.ruleGroup, previewControls[controlKey]);
 
     return {
-      pageIndex,
-      ruleIndex,
-      leftNumber: pageLeftNumber,
-      rightNumber: pageRightNumber,
       previewControls: pagePreviewControls,
       controlKey,
     };
@@ -2373,8 +1959,6 @@ function Detail({
 
   const renderBookSpread = (page, { surfaceRef, isCapture = false } = {}) => {
     const {
-      leftNumber,
-      rightNumber,
       previewControls: pagePreviewControls,
       controlKey,
     } = getPageRenderData(page);
@@ -2521,21 +2105,11 @@ function Detail({
           style={bookSpreadStyle}
         >
           <div className="detail-book-page detail-book-page--simulation">
-            {isCapture ? (
-              <div
-                className="canvas-placeholder rule-preview rule-preview--capture"
-                aria-hidden="true"
-              />
-            ) : (
-              <RulePreview
-                animalId={animalId}
-                ruleGroup={page.ruleGroup}
-                previewControls={pagePreviewControls}
-              />
-            )}
-            <span className="detail-page-number detail-page-number--left">
-              {leftNumber}
-            </span>
+            <RulePreview
+              animalId={animalId}
+              ruleGroup={page.ruleGroup}
+              previewControls={pagePreviewControls}
+            />
           </div>
           <div className="detail-book-page detail-book-page--notes">
             <div className="detail-page-inner">
@@ -2564,9 +2138,6 @@ function Detail({
                 accentColor={animalAccentColor}
                 onChange={handleParameterChange}
               />
-              <span className="detail-page-number detail-page-number--right">
-                {rightNumber}
-              </span>
             </div>
           </div>
         </section>

@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 const STEP=1/60;
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
@@ -46,10 +47,10 @@ function step(m,c){
     if(d>0.05){
       const angle=Math.atan2(dy,dx),diff=Math.atan2(Math.sin(angle-a.heading),Math.cos(angle-a.heading));
       a.heading+=clamp(diff,-STEP*3,STEP*3);
-      const move=Math.min(d*STEP*2,STEP*2)*Math.max(0,Math.cos(diff));
+      const move=BOOK_MOVEMENT_SCALE*Math.min(d*STEP*2,STEP*2)*Math.max(0,Math.cos(diff));
       a.x+=Math.cos(a.heading)*move;a.y+=Math.sin(a.heading)*move;
     }
-    if(a.state==="leaving"&&d<0.2){a.state="resting";a.timer=2+a.id*0.3;}
+    if(a.state==="leaving"&&d<0.2){a.state="resting";a.timer=1.2+a.id*0.2;}
     if(a.state==="resting"&&a.timer===0){a.state="following";a.listened=0;a.knownAngle=null;}
   }
   m.time+=STEP;

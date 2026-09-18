@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "../src/components/bookPreviews/bookMotion.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {createLobsterQueue,advanceLobsterQueue,lobsterQueuePoint} from "../src/components/bookPreviews/lobsterQueueModel.js";
@@ -18,7 +19,7 @@ test("gap steps never reorder agents, teleport, or escape the canvas",()=>{
     const m=createLobsterQueue(aspect);
     for(let i=0;i<6000;i++){
       const old=m.agents.map(a=>({...a}));advanceLobsterQueue(m,{queue_speed:2,queue_gap:i%1200<600?0.8:1.3,follow_response:2},1/60);
-      m.agents.forEach((a,j)=>{assert.ok(Math.hypot(a.x-old[j].x,a.y-old[j].y)<0.14);assert.ok(a.x>1.5&&a.x<m.width-1.5&&a.y>1.5&&a.y<m.height-1.5);if(j)assert.ok(m.agents[j-1].s-a.s>=2.1-1e-8);});
+      m.agents.forEach((a,j)=>{assert.ok(Math.hypot(a.x-old[j].x,a.y-old[j].y)<0.14*BOOK_MOVEMENT_SCALE);assert.ok(a.x>1.5&&a.x<m.width-1.5&&a.y>1.5&&a.y<m.height-1.5);if(j)assert.ok(m.agents[j-1].s-a.s>=2.1-1e-8);});
     }
   }
 });

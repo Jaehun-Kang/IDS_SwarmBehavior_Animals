@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep } from "../../utils/bookAnimation.js";
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const hash = n => { const v = Math.sin(n * 127.1 + 17.3) * 43758.5453; return v - Math.floor(v); };
@@ -24,7 +25,7 @@ export function advanceStarlingShape(model, controls, elapsed) {
 export function starlingShapePoint(model, index, out = {}) {
   const seed = model.seeds[index];
   const radius = seed.volume ** (1 / (3 + model.density / 20));
-  const phase = model.time * 0.45 + seed.phase;
+  const phase = model.time * 0.45 * BOOK_MOVEMENT_SCALE + seed.phase;
   out.x = seed.x * radius * 9 + Math.sin(phase) * 0.12;
   out.y = seed.y * radius * 9 / model.ratio + Math.cos(phase * 0.83) * 0.05;
   out.z = seed.z * radius * 4.5 + Math.sin(phase * 0.91) * 0.1;

@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import {advanceFixedStep,interpolatePose} from "../../utils/bookAnimation.js";
 const STEP=1/60,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const delta=(a,b)=>Math.atan2(Math.sin(b-a),Math.cos(b-a));
@@ -16,13 +17,13 @@ function move(a,target,orientation){
   const turn=delta(a.heading,d>0.07?Math.atan2(dy,dx):orientation);
   a.heading+=clamp(turn,-2.2*STEP,2.2*STEP);
   a.moving=d>0.07||Math.abs(turn)>0.005;
-  if(d>0.07){const step=Math.min(2.2,d*1.6)*STEP*Math.max(0.1,Math.cos(turn));a.x+=Math.cos(a.heading)*step;a.y+=Math.sin(a.heading)*step;a.distance+=step;}
+  if(d>0.07){const step=Math.min(2.2,d*1.6)*BOOK_MOVEMENT_SCALE*STEP*Math.max(0.1,Math.cos(turn));a.x+=Math.cos(a.heading)*step;a.y+=Math.sin(a.heading)*step;a.distance+=step;}
 }
 function step(m,c){
   m.previous=m.agents.map(a=>({...a}));
   m.levels=[c.den_threat??50,c.near_threat??65,c.open_threat??65].map(v=>clamp(v,0,100)/100);
   m.threatMoving=false;
-  m.threats.forEach((p,i)=>{const target=m.width*(0.9-m.levels[i]*0.23),dx=target-p.x;const advance=clamp(dx,-1.5*STEP,1.5*STEP);p.x+=advance;if(Math.abs(dx)>0.001)m.threatMoving=true;});
+  m.threats.forEach((p,i)=>{const target=m.width*(0.9-m.levels[i]*0.23),dx=target-p.x;p.x+=dx*(1-Math.exp(-STEP/0.18));if(Math.abs(dx)>0.001)m.threatMoving=true;});
   for(const a of m.agents){
     const intensity=m.levels[a.row],home=m.homes[a.id];
     if(a.row===0){a.state="sheltered";move(a,home,Math.atan2(m.threats[0].y-a.y,m.threats[0].x-a.x));}

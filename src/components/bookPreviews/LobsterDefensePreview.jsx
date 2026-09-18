@@ -1,4 +1,5 @@
 import React from "react";
+import { drawThreatMarker } from "./bookThreatDrawing.js";
 import {HOME_SPRITE_ATLASES} from "../../data/spriteAtlases";
 import {loadTexturedAtlasCanvas,getAtlasFrameCanvas} from "../../utils/spriteAtlas";
 import {createBookCanvasLoop} from "../../utils/bookCanvasLoop.js";
@@ -24,7 +25,7 @@ export default function LobsterDefensePreview({controls,ruleGroup}){
         });
         ctx.fillStyle="rgba(48,52,43,0.35)";
         model.dens.forEach(d=>{ctx.beginPath();ctx.arc(d.x*s,d.y*s,2*s,0,Math.PI*2);ctx.fill();});
-        model.threats.forEach((p,i)=>{if(!model.levels[i])return;ctx.fillStyle="#8a003e";ctx.beginPath();ctx.arc(p.x*s,p.y*s,0.6*s,0,Math.PI*2);ctx.fill();});
+        model.threats.forEach((p,i)=>{if(model.levels[i])drawThreatMarker(ctx,p.x*s,p.y*s,width,height);});
       },
     });
     loadTexturedAtlasCanvas(atlas).then(result=>{if(!disposed){frames=result.frameCanvases;loop.start();}})

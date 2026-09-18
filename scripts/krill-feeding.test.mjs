@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "../src/components/bookPreviews/bookMotion.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {createKrillFeeding,advanceKrillFeeding,krillFoodAt} from "../src/components/bookPreviews/krillFeedingModel.js";
@@ -20,7 +21,7 @@ test("all control extremes maintain finite state and smooth bounded swimming",()
   for(const aspect of [0.6,2.5])for(const food_amount of [0,100]){
     const m=createKrillFeeding(aspect);for(let i=0;i<7200;i++){
       const old=m.agents.map(a=>({...a}));advanceKrillFeeding(m,{swim_speed:2,food_amount,digestion_rate:2},1/60);
-      m.agents.forEach((a,j)=>{assert.ok(a.x>1.2&&a.x<m.width-1.2&&a.y>1.2&&a.y<m.height-1.2);assert.ok(Math.hypot(a.x-old[j].x,a.y-old[j].y)<=0.081);assert.ok(Math.abs(a.heading-old[j].heading)<=0.031);assert.ok(a.stomach>=0&&a.stomach<=1);});
+      m.agents.forEach((a,j)=>{assert.ok(a.x>1.2&&a.x<m.width-1.2&&a.y>1.2&&a.y<m.height-1.2);assert.ok(Math.hypot(a.x-old[j].x,a.y-old[j].y)<=0.081*BOOK_MOVEMENT_SCALE);assert.ok(Math.abs(a.heading-old[j].heading)<=0.031);assert.ok(a.stomach>=0&&a.stomach<=1);});
     }
   }
 });

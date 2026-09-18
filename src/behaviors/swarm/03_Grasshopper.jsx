@@ -157,7 +157,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "ATTRACTION_WEIGHT",
-    label: "원거리 유인 가중치",
+    label: "먼 이웃에게 모이기",
     min: 0,
     max: 0.05,
     step: 0.001,
@@ -173,7 +173,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "WIND_SPEED_MPS",
-    label: "풍속",
+    label: "바람 세기",
     min: 0,
     max: 10,
     step: 0.1,
@@ -202,13 +202,13 @@ const CONTROL_FIELDS = [
   },
   {
     key: "ADULT_FLIGHT_MODE",
-    label: "성충 비행 환경 규칙",
+    label: "기온·바람에 따른 비행",
     type: "toggle",
     formatValue: (value) => (value ? "ON" : "OFF"),
   },
   {
     key: "HUNGER_MODE",
-    label: "허기 동족포식 압력",
+    label: "굶주릴 때 동료 공격",
     type: "toggle",
     formatValue: (value) => (value ? "ON" : "OFF"),
   },

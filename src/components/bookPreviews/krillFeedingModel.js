@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import {advanceFixedStep,interpolatePose} from "../../utils/bookAnimation.js";
 const STEP=1/60,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function createKrillFeeding(aspect=1){
@@ -8,7 +9,7 @@ export function createKrillFeeding(aspect=1){
 export function krillFoodAt(m,x,y){const d=Math.hypot(x-m.patch.x,y-m.patch.y)/m.patch.radius;return Math.max(0,1-d*d)*m.foodAmount;}
 function step(m,c){
   m.previous=m.agents.map(a=>({...a}));
-  const base=2.4*clamp(c.swim_speed??1,0,2),digestion=clamp(c.digestion_rate??1,0,2);
+  const base=2.4*BOOK_MOVEMENT_SCALE*clamp(c.swim_speed??1,0,2),digestion=clamp(c.digestion_rate??1,0,2);
   m.foodAmount=clamp(c.food_amount??65,0,100)/100;
   for(const a of m.agents){
     a.food=krillFoodAt(m,a.x,a.y);

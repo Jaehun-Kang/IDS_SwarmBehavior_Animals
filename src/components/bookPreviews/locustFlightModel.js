@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 export const FLIGHT_STEP = 1 / 120;
 const clamp = (v, low, high) => Math.max(low, Math.min(high, v));
@@ -32,7 +33,7 @@ export function stepLocustFlight(model, controls) {
       a.heading += clamp(delta, -1.2 * FLIGHT_STEP, 1.2 * FLIGHT_STEP) * a.activity;
     }
     const velocity = locustFlightVelocity(a, controls);
-    a.vx = velocity.x; a.vy = velocity.y;
+    a.vx = velocity.x * BOOK_MOVEMENT_SCALE; a.vy = velocity.y * BOOK_MOVEMENT_SCALE;
     a.x += a.vx * FLIGHT_STEP; a.y += a.vy * FLIGHT_STEP;
     if (model.ticks % 6 === 0) {
       a.trail.push({ x: a.x, y: a.y });

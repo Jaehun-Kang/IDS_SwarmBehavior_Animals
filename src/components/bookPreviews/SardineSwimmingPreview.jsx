@@ -1,4 +1,5 @@
 import React from "react";
+import { drawThreatMarker } from "./bookThreatDrawing.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import { loadTexturedAtlasCanvas, getAtlasFrameCanvas, resolveStageFrameSequence } from "../../utils/spriteAtlas";
 import { createBookCanvasLoop } from "../../utils/bookCanvasLoop.js";
@@ -55,13 +56,7 @@ export default function SardineSwimmingPreview({ ruleGroup, controls }) {
           context.restore();
         }
         if (pointer) {
-          const x = pointer.x * width, y = pointer.y * height;
-          context.strokeStyle = "#98424a";
-          context.lineWidth = 1.5;
-          context.beginPath();
-          context.moveTo(x - 7, y); context.lineTo(x + 7, y);
-          context.moveTo(x, y - 7); context.lineTo(x, y + 7);
-          context.stroke();
+          drawThreatMarker(context, pointer.x * width, pointer.y * height, width, height);
         }
       },
     });

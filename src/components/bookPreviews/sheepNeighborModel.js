@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 const STEP = 1 / 120, TAU = Math.PI * 2;
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
@@ -50,7 +51,7 @@ export function advanceSheepNeighbors(m, controls, elapsed) {
       const gap = Math.hypot(front.agent.x-a.x,front.agent.y-a.y);
       const spacing = clamp(controls.personal_space ?? 1.5, 1, 3);
       const target = a.moving ? 1.2 * clamp((gap - spacing) / 1.5, 0, 1) : 0;
-      a.speed += clamp(target-a.speed,-2*STEP,2*STEP);
+      a.speed += clamp(target*BOOK_MOVEMENT_SCALE-a.speed,-2*STEP,2*STEP);
       a.phase = (a.phase + a.speed * STEP / Math.hypot(m.rx*Math.sin(a.phase),m.ry*Math.cos(a.phase))) % TAU;
       a.x = m.width/2 + Math.cos(a.phase)*m.rx;
       a.y = m.height/2 + Math.sin(a.phase)*m.ry;

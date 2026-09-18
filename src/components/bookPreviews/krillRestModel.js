@@ -1,8 +1,9 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import {advanceFixedStep,interpolatePose} from "../../utils/bookAnimation.js";
 const STEP=1/60,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function createKrillRest(aspect=1){
  const width=24*Math.max(1,aspect),height=width/aspect;
- const agents=Array.from({length:3},(_,id)=>({id,x:width*(0.25+0.25*id),y:height*0.35,heading:0,vy:0,moving:true}));
+ const agents=Array.from({length:3},(_,id)=>({id,x:width*(id+0.5)/3,y:height*0.35,heading:0,vy:0,moving:true}));
  return {width,height,agents,previous:agents.map(a=>({...a})),time:0,remainder:0};
 }
 export function krillRestVelocity(id,c){
@@ -13,7 +14,7 @@ export function krillRestVelocity(id,c){
 function step(m,c){
  m.previous=m.agents.map(a=>({...a}));
  for(const a of m.agents){
-  a.vy+=(krillRestVelocity(a.id,c)-a.vy)*(1-Math.exp(-STEP/0.35));
+  a.vy+=(krillRestVelocity(a.id,c)*BOOK_MOVEMENT_SCALE-a.vy)*(1-Math.exp(-STEP/0.35));
   // Window limits only slow translation. They never empty a stomach or trigger swimming.
   const room=a.vy>0?m.height-3-a.y:a.y-3;
   const dy=a.vy*STEP*clamp(room/2,0,1);

@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "../src/components/bookPreviews/bookMotion.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { interactionForces, createInteractionModel, stepInteractionModel, interactionEngine } from "../src/components/bookPreviews/starlingInteractionModel.js";
@@ -67,7 +68,7 @@ test("all control corners stay finite and in frame without changing flight speed
           const a = model.agents[i], b = model.previous[i];
           assert.ok(Number.isFinite(a.heading));
           assert.ok(a.x > 0.3 && a.x < model.width - 0.3 && a.y > 0.3 && a.y < model.height - 0.3, `${aspect}/${mask}`);
-          assert.ok(Math.abs(Math.hypot(a.x - b.x, a.y - b.y) - 9.5 / 120) < 1e-8);
+          assert.ok(Math.abs(Math.hypot(a.x - b.x, a.y - b.y) - 9.5 * BOOK_MOVEMENT_SCALE / 120) < 1e-8);
         }
       }
     }

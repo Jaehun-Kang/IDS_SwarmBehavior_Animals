@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 import { createAntTrailField } from "./antTrailField.js";
 
@@ -10,8 +11,10 @@ export function createAntTraffic(aspect = 1.5) {
   const width = 48 * Math.max(1, aspect), height = 48 / Math.min(1, aspect);
   const home = { x: width * 0.2, y: height / 2 }, food = { x: width * 0.8, y: height / 2 };
   const agents = Array.from({ length: 40 }, (_, id) => {
-    const x = home.x + 3 + hash(id + 7) * (food.x - home.x - 6);
-    const y = height / 2 + (hash(id + 17) - 0.5) * 8;
+    // Both directions are mixed across the same corridor, not assigned separate lanes.
+    const slot = id * 17 % 40;
+    const x = home.x + 3 + (slot % 10 + (hash(id + 7) - 0.5) * 0.08) / 9 * (food.x - home.x - 6);
+    const y = height / 2 + (Math.floor(slot / 10) - 1.5) * 2.5 + (hash(id + 17) - 0.5) * 0.25;
     const returning = id % 2 === 0, heading = returning ? Math.PI : 0;
     return { id, x, y, heading, returning, carrying: false, speed: 3,
       previous: { x, y, heading }, trips: 0, distance: 0 };
@@ -59,7 +62,7 @@ export function antTrafficResponse(agent, neighbors, model, controls) {
   const turn = turnTo(agent.heading, targetHeading);
   const slowdown = clamp((controls.congestion_slowdown ?? 65) / 100, 0, 1);
   return { turn, turnRate: interacting ? 2.4 * responsiveness : 2.4,
-    speed: 5 * Math.max(0.12, Math.cos(turn)) / (1 + pressure * slowdown * 5), pressure };
+    speed: 5 * BOOK_MOVEMENT_SCALE * Math.max(0.12, Math.cos(turn)) / (1 + pressure * slowdown * 5), pressure };
 }
 
 function update(model, controls) {

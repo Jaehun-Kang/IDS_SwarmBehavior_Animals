@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 const STEP=1/60;
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
@@ -12,7 +13,7 @@ function step(m,c){
   m.previous=m.agents.map(a=>({...a}));m.previousThreat={...m.threat};
   const distance=clamp(c.threat_distance??55,0,100)/100;
   const targetX=m.width*0.3+2+distance*(m.width*0.55-2);
-  m.threat.x+=clamp(targetX-m.threat.x,-STEP*4,STEP*4);
+  m.threat.x+=(targetX-m.threat.x)*(1-Math.exp(-STEP/0.18));
   m.moving=Math.abs(targetX-m.threat.x)>0.001;
   const radius=clamp(c.alert_range??7,4,10);
   const close=m.threat.x<m.width*0.3+4;
@@ -38,7 +39,7 @@ function step(m,c){
     const turn=Math.atan2(Math.sin(heading-a.heading),Math.cos(heading-a.heading));
     a.heading+=clamp(turn,-STEP*3,STEP*3);
     if(gap>0.03){
-      const speed=Math.min(3,gap*3)*Math.max(0,Math.cos(turn));
+      const speed=BOOK_MOVEMENT_SCALE*Math.min(3,gap*3)*Math.max(0,Math.cos(turn));
       a.x+=Math.cos(a.heading)*speed*STEP;a.y+=Math.sin(a.heading)*speed*STEP;
     }
     if(gap>0.03||Math.abs(turn)>0.001||a.state!=="guarding")m.moving=true;

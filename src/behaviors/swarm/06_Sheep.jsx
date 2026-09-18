@@ -157,7 +157,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "DOG_PRESSURE",
-    label: "개 압박 강도",
+    label: "개를 피하는 정도",
     min: 0,
     max: 100,
     step: 1,
@@ -165,7 +165,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "NOISE",
-    label: "무작위성",
+    label: "움직임의 불규칙함",
     min: 0,
     max: 100,
     step: 1,
@@ -1584,9 +1584,9 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       if (dogEnabled) {
         ctx.save();
         ctx.translate(dogRef.current.x, dogRef.current.y);
-        ctx.fillStyle = "rgba(42, 38, 34, 0.95)";
+        ctx.fillStyle = "#000000";
         ctx.beginPath();
-        ctx.arc(0, 0, spriteHeight * 0.18, 0, Math.PI * 2);
+        ctx.arc(0, 0, 12, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }

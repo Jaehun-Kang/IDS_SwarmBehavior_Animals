@@ -1,4 +1,5 @@
 import React from "react";
+import { createFlowMarkers, advanceFlowMarkers, drawFlowMarkers } from "./bookEnvironmentDrawing.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import { loadTexturedAtlasCanvas, getAtlasFrameCanvas } from "../../utils/spriteAtlas";
 import { resolveCanvasAtlasSprite } from "../../utils/spritePose";
@@ -15,31 +16,25 @@ export default function PenguinColdPreview({controls,ruleGroup}) {
   const [error,setError] = React.useState("");
   React.useEffect(()=>{controlsRef.current=controls;},[controls]);
   React.useEffect(()=>{
-    let model,frames,disposed=false,idleFrames=0;
+    let model,frames,flow,disposed=false,idleFrames=0;
     const createModel = isWave ? createPenguinWave : isCooling ? createPenguinCooling : isHuddle ? createPenguinHuddle : createPenguinCold;
     const advanceModel = isWave ? advancePenguinWave : isHuddle || isCooling ? advancePenguinHuddle : advancePenguinCold;
     const getPose = isWave ? penguinWavePose : isHuddle || isCooling ? penguinHuddlePose : penguinColdPose;
     const pose={};
     const loop=createBookCanvasLoop(canvasRef.current,{
-      onResize:({width,height})=>{model=createModel(width/height);idleFrames=0;},
+      onResize:({width,height})=>{model=createModel(width/height);flow=createFlowMarkers(width,height);idleFrames=0;},
       onFrame:({context,width,height,elapsedSeconds})=>{
         advanceModel(model,controlsRef.current,elapsedSeconds);
         idleFrames = isWave && !model.active ? idleFrames + 1 : 0;
         if (idleFrames > 2) return;
         context.clearRect(0,0,width,height);
         const scale=width/model.width;
-        if (isHuddle) {
+        if (isHuddle || (!isWave && !isCooling)) {
           const angle = (controlsRef.current.wind_direction ?? 0) * Math.PI / 180;
-          const dx = Math.cos(angle), dy = Math.sin(angle);
-          context.strokeStyle = "#527c8b"; context.lineWidth = 1.2;
-          for (let i = 0; i < 72; i++) {
-            const x = ((i * 3.73 + model.time * dx * 2) % model.width + model.width) % model.width;
-            const y = ((i * 5.17 + model.time * dy * 2) % model.height + model.height) % model.height;
-            context.globalAlpha = penguinWindExposure({ x, y }, model.agents, angle) * 0.7;
-            context.beginPath(); context.moveTo(x * scale, y * scale);
-            context.lineTo((x + dx * 0.65) * scale, (y + dy * 0.65) * scale); context.stroke();
-          }
-          context.globalAlpha = 1;
+          const speed = (isHuddle ? 8 : controlsRef.current.wind_speed ?? 8) * 3;
+          advanceFlowMarkers(flow,angle,speed,elapsedSeconds);
+          drawFlowMarkers(context,flow,angle,speed,point=>
+            penguinWindExposure({x:point.x/scale,y:point.y/scale},model.agents,angle));
         }
         for(let i=0;i<model.agents.length;i++) {
           const a=model.agents[i];

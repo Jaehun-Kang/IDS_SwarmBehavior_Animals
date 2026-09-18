@@ -1,4 +1,5 @@
 import React from "react";
+import { renderFlower } from "../../utils/beeFlower.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import { loadTexturedAtlasCanvas, getAtlasFrameCanvas } from "../../utils/spriteAtlas";
 import { resolveCanvasAtlasSprite } from "../../utils/spritePose";
@@ -23,19 +24,17 @@ export default function BeeDailyPreview({controls,ruleGroup}){
         ctx.fillStyle="#a9b2ac";ctx.fillRect(0,0,nest.x*scale,height);
         ctx.fillStyle="#263c36";ctx.fillRect((nest.x-0.25)*scale,(nest.y-1)*scale,0.5*scale,2*scale);
         for(const f of model.flowers){
-          ctx.fillStyle="#b76c87";
-          for(let i=0;i<5;i++){
-            const angle=i*Math.PI*2/5;
-            ctx.beginPath();ctx.ellipse((f.x+Math.cos(angle)*0.45)*scale,(f.y+Math.sin(angle)*0.45)*scale,0.45*scale,0.3*scale,angle,0,Math.PI*2);ctx.fill();
-          }
-          ctx.fillStyle="#d6a925";ctx.beginPath();ctx.arc(f.x*scale,f.y*scale,0.25*scale,0,Math.PI*2);ctx.fill();
+          const flowerScale=scale*0.1;
+          ctx.save();ctx.translate(f.x*scale,f.y*scale);ctx.scale(flowerScale,flowerScale);
+          renderFlower(ctx,{x:0,y:0},model.time);
+          ctx.restore();
         }
         for(let i=0;i<model.agents.length;i++){
           const a=model.agents[i];if(a.state==="inside")continue;
           beeDailyPose(model,i,pose);
           const sprite=resolveCanvasAtlasSprite(atlas,{space:"2d",position:pose,
             velocity:{x:Math.cos(pose.heading),y:Math.sin(pose.heading)},profile:"simulation",
-            timestampMs:model.time*1000,animationOffsetMs:a.id*23});
+            timestampMs:model.time*1250,animationOffsetMs:a.id*23});
           const frame=a.state==="gathering"?atlas.stages.bee_top_idle.frame:sprite.frame;
           const size=scale*1.3;
           ctx.save();ctx.translate(pose.x*scale,pose.y*scale);ctx.rotate(sprite.rotation);ctx.scale(sprite.flipX,1);

@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 
 export const SWIM_STEP = 1 / 120;
@@ -79,7 +80,7 @@ export function swimThreatResponse(agent, controls, predator) {
 export function stepSwimmingModel(model, controls, predator = null) {
   const snapshot = model.agents.map(a => ({ ...a }));
   model.previous = snapshot;
-  const speed = clamp(controls.swim_speed ?? 0.9, 0.5, 1.6);
+  const speed = clamp(controls.swim_speed ?? 0.9, 0.5, 1.6) * BOOK_MOVEMENT_SCALE;
   const maxTurn = clamp(controls.turn_rate ?? 160, 100, 220) * Math.PI / 180 * SWIM_STEP;
   for (let index = 0; index < model.agents.length; index += 1) {
     const agent = model.agents[index], old = snapshot[index];

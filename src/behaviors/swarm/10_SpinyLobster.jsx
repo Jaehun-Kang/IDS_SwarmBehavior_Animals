@@ -247,7 +247,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "QUEUE_COHESION",
-    label: "대열 유지력",
+    label: "줄을 유지하는 힘",
     min: 0,
     max: 100,
     step: 1,
@@ -255,7 +255,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "ODOR_TRAILS",
-    label: "화학 신호 표시",
+    label: "냄새 신호 표시",
     type: "toggle",
     formatValue: (value) => (value ? "표시" : "숨김"),
   },

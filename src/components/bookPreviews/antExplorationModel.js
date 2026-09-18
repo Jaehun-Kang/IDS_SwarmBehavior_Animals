@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 import { createAntTrailField, depositAntTrail, decayAntTrail, antTrailTurn } from "./antTrailField.js";
 
@@ -13,8 +14,12 @@ export function createAntExploration(aspect = 1.5) {
   const home = { x: width * 0.22, y: height * 0.5 };
   const agents = Array.from({ length: 36 }, (_, id) => {
     const angle = (hash(id + 12) - 0.5) * 1.8;
-    const x = home.x + (id < 8 ? 2 + id * 0.8 : (hash(id + 20) - 0.5) * 6);
-    const y = home.y + (hash(id + 41) - 0.5) * 9;
+    // Separate the resting cluster from departing scouts without overlapping sprites.
+    const slot = id < 8 ? id : id - 8;
+    const x = home.x + (id < 8 ? 3.2 + slot % 4 * 3.4 : -8.3 + slot % 4 * 2.65)
+      + (hash(id + 20) - 0.5) * 0.3;
+    const y = home.y + (id < 8 ? (Math.floor(slot / 4) - 0.5) * 5 : (Math.floor(slot / 4) - 3) * 2.65)
+      + (hash(id + 41) - 0.5) * 0.25;
     return { id, x, y, heading: angle, previous: { x, y, heading: angle },
       state: id < 8 ? "outbound" : "reserve", trip: 0, target: null, speed: 0, distance: 0 };
   });
@@ -49,7 +54,7 @@ function update(model, controls) {
   }
   // Reducing participation recalls ants; it never deletes or teleports them.
   for (let i = desired; i < active.length; i++) active[i].state = "returning";
-  const speed = clamp(controls.walk_speed ?? 5, 2, 8);
+  const speed = clamp(controls.walk_speed ?? 5, 2, 8) * BOOK_MOVEMENT_SCALE;
   const exploration = clamp((controls.exploration ?? 35) / 100, 0, 1);
   const snapshot = model.agents.map(a => ({ x: a.x, y: a.y, state: a.state }));
   for (const a of model.agents) {

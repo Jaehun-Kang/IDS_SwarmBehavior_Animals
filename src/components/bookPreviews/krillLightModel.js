@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import {advanceFixedStep,interpolatePose} from "../../utils/bookAnimation.js";
 const STEP=1/60,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function createKrillLight(aspect=1){
@@ -7,7 +8,7 @@ export function createKrillLight(aspect=1){
 }
 export function krillLightTarget(m,a,c){
   const night=clamp(c.light_phase??0,0,100)/100,spacing=clamp(c.twilight_spacing??50,0,100)/100,cohesion=clamp(c.night_group??50,0,100)/100;
-  const i=a.id%10,angle=i*Math.PI*2/10+m.time*0.16;
+  const i=a.id%10,angle=i*Math.PI*2/10+m.time*0.16*BOOK_MOVEMENT_SCALE;
   // Three independent, prescribed comparisons; not an inferred universal diel state machine.
   if(a.row===0)return {x:m.width*(0.5+0.22*Math.cos(angle)),y:m.height*(0.14+0.14*night+0.035*Math.sin(angle))};
   if(a.row===1)return {x:m.width*(0.5+(0.08+0.18*spacing)*Math.cos(angle)),y:m.height*(0.51+(0.02+0.04*spacing)*Math.sin(angle))};
@@ -22,7 +23,7 @@ function step(m,c){
     const angle=Math.atan2(dy,dx),turn=Math.atan2(Math.sin(angle-a.heading),Math.cos(angle-a.heading));
     a.heading+=clamp(turn,-1.8*STEP,1.8*STEP);
     // Bounded target interpolation prevents overshoot in the compact comparison rows.
-    const k=1-Math.exp(-1.1*STEP);a.x+=dx*k;a.y+=dy*k;a.moving=d>0.01;
+    const k=1-Math.exp(-1.1*BOOK_MOVEMENT_SCALE*STEP);a.x+=dx*k;a.y+=dy*k;a.moving=d>0.01;
   }
   m.time+=STEP;
 }

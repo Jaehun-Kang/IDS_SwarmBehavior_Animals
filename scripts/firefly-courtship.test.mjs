@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "../src/components/bookPreviews/bookMotion.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {createFireflyCourtship,advanceFireflyCourtship} from "../src/components/bookPreviews/fireflyCourtshipModel.js";
@@ -21,7 +22,7 @@ test("approach follows reply, lands nearby, walks and returns without teleportin
     const m=createFireflyCourtship(aspect),phases=new Set();
     for(let i=0;i<7200;i++){
       const old={...m.agents[2]};advanceFireflyCourtship(m,{approach_speed:4},1/60);phases.add(m.phase);
-      const a=m.agents[2];assert.ok(Math.hypot(a.x-old.x,a.y-old.y)<=4/60+1e-8);
+      const a=m.agents[2];assert.ok(Math.hypot(a.x-old.x,a.y-old.y)<=4*BOOK_MOVEMENT_SCALE/60+1e-8);
       assert.ok(a.x>0&&a.x<m.width&&a.y>0&&a.y<m.height);
       assert.equal(m.agents[3].x,m.homes[3].x);assert.equal(m.agents[3].y,m.homes[3].y);
     }

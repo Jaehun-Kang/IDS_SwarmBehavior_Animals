@@ -327,7 +327,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "DENSITY_PER_M2",
-    label: "밀집도",
+    label: "모여 있는 정도",
     min: 10,
     max: 21,
     step: 0.5,

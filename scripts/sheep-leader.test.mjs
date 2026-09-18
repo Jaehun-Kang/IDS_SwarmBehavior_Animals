@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "../src/components/bookPreviews/bookMotion.js";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createSheepLeaders,advanceSheepLeaders} from '../src/components/bookPreviews/sheepLeaderModel.js';
@@ -17,7 +18,7 @@ test('leader model has no position jumps and stays within margins across episode
       advanceSheepLeaders(m,{episode_duration:5,following_response:100,leader_speed:1.5},1/60);
       m.agents.forEach((a,j)=>{
         assert.ok(Number.isFinite(a.heading));assert.ok(a.x>1&&a.x<m.width-1&&a.y>1&&a.y<m.height-1);
-        assert.ok(Math.hypot(a.x-old[j].x,a.y-old[j].y)<0.04);
+        assert.ok(Math.hypot(a.x-old[j].x,a.y-old[j].y)<0.04*BOOK_MOVEMENT_SCALE);
       });
     }
   }

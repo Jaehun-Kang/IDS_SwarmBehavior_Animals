@@ -1,4 +1,6 @@
 import React from "react";
+import { drawBookSpriteGlow } from "./bookGlowDrawing.js";
+import { drawThreatMarker } from "./bookThreatDrawing.js";
 import {HOME_SPRITE_ATLASES} from "../../data/spriteAtlases";
 import {loadTexturedAtlasCanvas,getAtlasFrameCanvas} from "../../utils/spriteAtlas";
 import {createBookCanvasLoop} from "../../utils/bookCanvasLoop.js";
@@ -15,15 +17,15 @@ export default function KrillThreatPreview({controls,ruleGroup}){
    onFrame:({context:ctx,width,height,elapsedSeconds})=>{
     advanceKrillThreat(model,controlsRef.current,elapsedSeconds);ctx.clearRect(0,0,width,height);
     const s=width/model.width,size=0.55*s,h=size*75/145,glow=Math.max(0,Math.min(1,(controlsRef.current.glow_display??60)/100));
-    if((controlsRef.current.predator_approach??60)>0){ctx.fillStyle="#9b3156";ctx.beginPath();ctx.arc(model.predator.x*s,model.predator.y*s,0.18*s,0,Math.PI*2);ctx.fill();}
     model.agents.forEach((a,i)=>{
      krillThreatPose(model,i,pose);ctx.save();ctx.translate(pose.x*s,pose.y*s);
      const left=Math.cos(pose.heading)<0;ctx.rotate(left?pose.heading-Math.PI:pose.heading);if(left)ctx.scale(-1,1);
      ctx.drawImage(getAtlasFrameCanvas(frames,atlas.stages.krill_swim.frame),-size/2,-h/2,size,h);
      // Display-only light marks. They do not enter threat sensing or social forces.
-     if(glow>0){ctx.fillStyle=`rgba(0,133,150,${glow})`;for(const x of [-0.12,0,0.12]){ctx.beginPath();ctx.arc(x*size,-h*0.15,Math.max(0.6,size*0.025),0,Math.PI*2);ctx.fill();}}
+     drawBookSpriteGlow(ctx,getAtlasFrameCanvas(frames,atlas.stages.krill_swim.frame),-size/2,-h/2,size,h,glow,"krill");
      ctx.restore();
     });
+    drawThreatMarker(ctx,model.predator.x*s,model.predator.y*s,width,height);
    },
   });
   loadTexturedAtlasCanvas(atlas).then(result=>{if(!disposed){frames=result.frameCanvases;loop.start();}})

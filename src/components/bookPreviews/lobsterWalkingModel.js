@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import {advanceFixedStep,interpolatePose} from "../../utils/bookAnimation.js";
 const STEP=1/60,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function createLobsterWalking(aspect){
@@ -7,7 +8,7 @@ export function createLobsterWalking(aspect){
 }
 function step(m,c){
   m.previous={...m.agent};
-  const speed=2.4*clamp(c.walk_speed??1,0,2);
+  const speed=2.4*BOOK_MOVEMENT_SCALE*clamp(c.walk_speed??1,0,2);
   m.speed+=clamp(speed-m.speed,-STEP*3,STEP*3);
   const targetRx=m.width*clamp(c.turn_width??50,30,70)/200;
   if(m.speed>0.001)m.rx+=clamp(targetRx-m.rx,-STEP*0.5,STEP*0.5);

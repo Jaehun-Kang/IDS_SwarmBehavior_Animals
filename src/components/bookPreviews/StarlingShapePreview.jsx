@@ -19,7 +19,10 @@ export default function StarlingShapePreview({ controls, ruleGroup }) {
       const scene = new THREE.Scene();
       const camera = new THREE.OrthographicCamera(-12, 12, 12, -12, 0.1, 100);
       geometry = new THREE.PlaneGeometry(0.5, 0.5);
-      textures = resolveStageFrameSequence(atlas, "starling_fly4").frames.map(frame => {
+      const sequences = ["starling_fly1", "starling_fly4"].map(stage =>
+        resolveStageFrameSequence(atlas, stage).frames);
+      let topView = model.angle >= 45;
+      textures = sequences.flat().map(frame => {
         const image = getAtlasFrameCanvas(result.frameCanvases, frame);
         if (!image) throw new Error("starling-shape-frame-missing");
         const texture = new THREE.CanvasTexture(image);
@@ -50,11 +53,16 @@ export default function StarlingShapePreview({ controls, ruleGroup }) {
           camera.position.set(0, Math.sin(angle) * 30, Math.cos(angle) * 30);
           camera.lookAt(0, 0, 0);
           camera.updateMatrixWorld();
+          // Hysteresis avoids flickering between views near the transition angle.
+          if (model.angle >= 50) topView = true;
+          else if (model.angle <= 40) topView = false;
+          const frameCount = sequences[topView ? 1 : 0].length;
+          const frameOffset = topView ? sequences[0].length : 0;
           for (let i = 0; i < model.seeds.length; i++) {
             starlingShapePoint(model, i, point);
             object.position.set(point.x, point.y, point.z);
             object.quaternion.copy(camera.quaternion);
-            const frame = Math.floor(model.time * 4 + i * 0.37) % meshes.length;
+            const frame = frameOffset + Math.floor(model.time * 6 + i * 0.37) % frameCount;
             for (let j = 0; j < meshes.length; j++) {
               object.scale.setScalar(j === frame ? 1 : 0);
               object.updateMatrix();

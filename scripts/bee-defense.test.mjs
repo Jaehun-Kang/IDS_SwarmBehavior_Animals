@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "../src/components/bookPreviews/bookMotion.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {createBeeDefense,advanceBeeDefense} from "../src/components/bookPreviews/beeDefenseModel.js";
@@ -31,7 +32,7 @@ test("changing targets stays bounded without position jumps",()=>{
     const m=createBeeDefense(aspect);
     for(let i=0;i<7200;i++){
       const old=m.agents.map(a=>({...a}));advanceBeeDefense(m,{threat_distance:Math.floor(i/600)%2?100:0,alert_range:10},1/60);
-      for(const a of m.agents){assert.ok(a.x>0&&a.x<m.width&&a.y>0&&a.y<m.height);assert.ok(Math.hypot(a.x-old[a.id].x,a.y-old[a.id].y)<=3/60+1e-9);}
+      for(const a of m.agents){assert.ok(a.x>0&&a.x<m.width&&a.y>0&&a.y<m.height);assert.ok(Math.hypot(a.x-old[a.id].x,a.y-old[a.id].y)<=3*BOOK_MOVEMENT_SCALE/60+1e-9);}
     }
   }
 });

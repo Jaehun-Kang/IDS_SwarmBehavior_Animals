@@ -1,4 +1,5 @@
 import React from "react";
+import { getFlowerBlossomPosition, renderFlower } from "../../utils/beeFlower.js";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
@@ -253,7 +254,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "SUN_AZIMUTH_DEG",
-    label: "태양 방위각",
+    label: "태양 방향",
     min: 0,
     max: 360,
     step: 1,
@@ -892,44 +893,6 @@ const createFlowerPatch = (x, y) => {
   }
 
   return flowers;
-};
-
-const getFlowerBlossomPosition = (flower, timeS = 0) => {
-  const sway = Math.sin(timeS * 2.4 + (flower.swayPhase ?? 0)) * 0.8;
-  return {
-    x: flower.x + sway,
-    y: flower.y,
-  };
-};
-
-const renderFlower = (ctx, flower, timeS) => {
-  const { x: blossomX, y: blossomY } = getFlowerBlossomPosition(flower, timeS);
-  const stemBaseX = flower.x;
-  const stemBaseY = flower.y + 20;
-  ctx.strokeStyle = "rgba(68, 126, 66, 0.68)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(blossomX, blossomY + 7);
-  ctx.lineTo(stemBaseX, stemBaseY);
-  ctx.stroke();
-
-  ctx.fillStyle = "rgba(247, 199, 66, 0.96)";
-  for (let petalIndex = 0; petalIndex < 6; petalIndex += 1) {
-    const angle = (petalIndex / 6) * Math.PI * 2 + timeS * 0.2;
-    ctx.beginPath();
-    ctx.arc(
-      blossomX + Math.cos(angle) * 5,
-      blossomY + Math.sin(angle) * 5,
-      3.4,
-      0,
-      Math.PI * 2,
-    );
-    ctx.fill();
-  }
-  ctx.fillStyle = "rgba(164, 80, 122, 0.92)";
-  ctx.beginPath();
-  ctx.arc(blossomX, blossomY, 3.3, 0, Math.PI * 2);
-  ctx.fill();
 };
 
 const pointInsideCurtain = (env, x, y, ratio = 1) => {

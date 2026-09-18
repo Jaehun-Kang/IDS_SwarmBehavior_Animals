@@ -1,4 +1,5 @@
 import React from "react";
+import { drawThreatMarker } from "./bookThreatDrawing.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import { loadTexturedAtlasCanvas, getAtlasFrameCanvas } from "../../utils/spriteAtlas";
 import { createBookCanvasLoop } from "../../utils/bookCanvasLoop.js";
@@ -29,10 +30,6 @@ export default function SheepMovementPreview({ controls, ruleGroup }) {
         const scale = width / model.width;
         context.clearRect(0, 0, width, height);
         if (model.threatMode && pointerRef.current) {
-          context.fillStyle = "#2a2622";
-          context.beginPath();
-          context.arc(pointerRef.current.x * width, pointerRef.current.y * height, scale * 0.3, 0, Math.PI * 2);
-          context.fill();
           context.strokeStyle = "#98424a";
           context.lineWidth = 1;
           context.beginPath();
@@ -50,6 +47,9 @@ export default function SheepMovementPreview({ controls, ruleGroup }) {
           context.scale(!vertical && Math.cos(pose.heading) < 0 ? -1 : 1, 1);
           context.drawImage(frame, -size / 2, -size * 75 / 230, size, size * 75 / 115);
           context.restore();
+        }
+        if (model.threatMode && pointerRef.current) {
+          drawThreatMarker(context,pointerRef.current.x*width,pointerRef.current.y*height,width,height);
         }
       },
     });

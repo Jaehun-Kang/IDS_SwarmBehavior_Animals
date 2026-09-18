@@ -1,7 +1,8 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 
 const STEP = 1 / 120;
-const SPEED = 9.5;
+const SPEED = 9.5 * BOOK_MOVEMENT_SCALE;
 const SPACING = 0.55;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const delta = (from, to) => Math.atan2(Math.sin(to - from), Math.cos(to - from));

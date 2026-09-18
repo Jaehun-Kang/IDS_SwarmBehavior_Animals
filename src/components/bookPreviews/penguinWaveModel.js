@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 const STEP = 1 / 60;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -32,7 +33,7 @@ function step(model, controls) {
       if (!a.started && model.neighbors[a.id].some(id => displacements[id] >= model.threshold)) a.started=true;
       if (!a.started || a.progress >= 1) { a.speed=0; continue; }
       const previousX=a.x;
-      a.progress=Math.min(1,a.progress+STEP/1.2);
+      a.progress=Math.min(1,a.progress+STEP*BOOK_MOVEMENT_SCALE/1.2);
       const t=a.progress;
       a.x=a.startX+model.stride*t*t*(3-2*t);
       a.speed=(a.x-previousX)/STEP; a.distance+=a.x-previousX;

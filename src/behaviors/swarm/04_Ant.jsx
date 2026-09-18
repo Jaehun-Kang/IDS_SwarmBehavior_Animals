@@ -406,7 +406,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "V_MAX_CM_S",
-    label: "모집 속도",
+    label: "먹이 길 이동 속도",
     min: bodyLengthsPerSecondToCmPerSecond(7),
     max: 14.5,
     step: 0.2,
@@ -414,7 +414,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "SENSORY_NOISE_RAD",
-    label: "탐색 노이즈",
+    label: "탐색 방향 흔들림",
     min: 0.2,
     max: 0.9,
     step: 0.02,
@@ -422,7 +422,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "RC_N_THRESHOLD",
-    label: "앤트밀 임계치",
+    label: "원형 행렬 형성 기준",
     min: -3,
     max: 0,
     step: 0.1,
@@ -430,7 +430,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "PHEROMONE_HALF_LIFE_MIN",
-    label: "페로몬 반감기",
+    label: "냄새가 반이 되는 시간",
     min: 5 / 60,
     max: 180 / 60,
     step: 5 / 60,
@@ -438,7 +438,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "ENABLE_MILL",
-    label: "앤트밀 활성화",
+    label: "원형 행렬 형성",
     type: "toggle",
     formatValue: (value) => (value ? "ON" : "OFF"),
   },

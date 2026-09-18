@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import { advanceFixedStep, interpolatePose } from "../../utils/bookAnimation.js";
 import { delayedBatHeading } from "./batNeighborModel.js";
 const STEP = 1 / 120;
@@ -54,8 +55,8 @@ function update(model, controls) {
     desired += clamp((8 - a.y) / 8, 0, 1) * 1.4;
     desired -= clamp((a.y - model.height + 8) / 8, 0, 1) * 1.4;
     a.heading += clamp(desired - a.heading, -1.2 * STEP, 1.2 * STEP);
-    a.x += Math.cos(a.heading) * 9 * STEP;
-    a.y += Math.sin(a.heading) * 9 * STEP;
+    a.x += Math.cos(a.heading) * 9 * BOOK_MOVEMENT_SCALE * STEP;
+    a.y += Math.sin(a.heading) * 9 * BOOK_MOVEMENT_SCALE * STEP;
   }
   if (model.neighborMode) for (const a of model.agents) {
     if (model.time - a.history.at(-1).time >= 1 / 30) {

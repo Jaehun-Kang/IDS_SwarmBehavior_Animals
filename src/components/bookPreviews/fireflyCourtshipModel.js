@@ -1,3 +1,4 @@
+import { BOOK_MOVEMENT_SCALE } from "./bookMotion.js";
 import {advanceFixedStep,interpolatePose} from "../../utils/bookAnimation.js";
 const STEP=1/60;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -18,7 +19,7 @@ function move(a,target,speed){
   if(!a.moving)return true;
   const angle=Math.atan2(dy,dx),turn=Math.atan2(Math.sin(angle-a.heading),Math.cos(angle-a.heading));
   a.heading+=clamp(turn,-2*STEP,2*STEP);
-  const distance=Math.min(d*STEP*1.5,speed*STEP)*Math.max(0.12,Math.cos(turn));
+  const distance=BOOK_MOVEMENT_SCALE*Math.min(d*STEP*1.5,speed*STEP)*Math.max(0.12,Math.cos(turn));
   a.x+=Math.cos(a.heading)*distance;a.y+=Math.sin(a.heading)*distance;
   return false;
 }
@@ -41,7 +42,7 @@ function step(m,c){
   }else if(m.phase==="walk"){
     if(move(m.agents[2],{x:female.x+1.3,y:female.y},0.4*clamp(c.approach_speed??2,1,4))){m.phase="nearby";m.phaseTime=0;}
   }else if(m.phase==="nearby"){
-    if(m.phaseTime>=2){m.phase="return";m.phaseTime=0;}
+    if(m.phaseTime>=1.2){m.phase="return";m.phaseTime=0;}
   }else if(m.phase==="return"){
     if(move(m.agents[2],m.homes[2],clamp(c.approach_speed??2,1,4))){m.phase="display";m.phaseTime=0;m.cycles++;}
   }

@@ -153,7 +153,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "FOOD_ABUNDANCE",
-    label: "플랑크톤 농도",
+    label: "먹이 양",
     min: 0,
     max: 100,
     step: 1,
@@ -161,7 +161,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "DENSITY_SURGE",
-    label: "박명기 응집 증폭",
+    label: "새벽·저녁 모이기",
     min: 50,
     max: 180,
     step: 1,
@@ -169,7 +169,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "NIGHT_COHESION",
-    label: "야간 응집 유지율",
+    label: "밤에 무리 유지하기",
     min: 40,
     max: 120,
     step: 1,
@@ -249,6 +249,8 @@ const numberOrDefault = (value, fallback) => {
   const nextValue = Number(value);
   return Number.isFinite(nextValue) ? nextValue : fallback;
 };
+const foodBiomass = (patch) =>
+  clamp(numberOrDefault(patch.biomass ?? 1, 0), 0, 1);
 
 const normalize2D = (x, y, fallback = { x: 1, y: 0 }) => {
   const length = magnitude(x, y);
@@ -420,6 +422,7 @@ const addUserFoodPatch = (foodField, x, y, width, height) => {
 };
 
 const sampleFood = (foodField, x, y, elapsedS, config) => {
+  if (![x, y, elapsedS].every(Number.isFinite)) return 0;
   const abundanceScale = lerp(0.02, 1.9, config.foodAbundance);
   const background =
     (PARAMS.FOOD_BACKGROUND_WEIGHT +
@@ -441,15 +444,16 @@ const sampleFood = (foodField, x, y, elapsedS, config) => {
       (1 + Math.sin(wobble * 0.5) * PARAMS.FOOD_PATCH_WOBBLE_SCALE * 0.12);
     const distanceSq = dx * dx + dy * dy;
     const gaussian = Math.exp(-distanceSq / (2 * radius * radius));
-    const biomass = clamp(patch.biomass ?? 1, 0, 1);
-    food += gaussian * patch.intensity * biomass * 0.95 * abundanceScale;
+    const contribution = gaussian * patch.intensity * foodBiomass(patch) * 0.95 * abundanceScale;
+    if (Number.isFinite(contribution)) food += contribution;
   });
 
   return clamp(food, 0, 1);
 };
 
 const consumeFoodAt = (foodField, x, y, elapsedS, amount) => {
-  if (amount <= 0) {
+  // Invalid agent state must not contaminate the shared food field.
+  if (![x, y, elapsedS, amount].every(Number.isFinite) || amount <= 0) {
     return;
   }
 
@@ -465,11 +469,11 @@ const consumeFoodAt = (foodField, x, y, elapsedS, amount) => {
     const dy = y - patchY;
     const gaussian = Math.exp(-(dx * dx + dy * dy) / (2 * radius * radius));
 
-    if (gaussian <= 0.01) {
+    if (!Number.isFinite(gaussian) || gaussian <= 0.01) {
       return;
     }
 
-    patch.biomass = clamp((patch.biomass ?? 1) - amount * gaussian, 0, 1);
+    patch.biomass = clamp(foodBiomass(patch) - amount * gaussian, 0, 1);
   });
 };
 
@@ -484,7 +488,7 @@ const calculateFoodAttractionForce = (foodField, agent, elapsedS, config) => {
   const abundanceScale = lerp(0.25, 1.6, config.foodAbundance);
 
   foodField.forEach((patch, index) => {
-    const biomass = clamp(patch.biomass ?? 1, 0, 1);
+    const biomass = foodBiomass(patch);
     if (biomass <= 0.02) {
       return;
     }
@@ -508,6 +512,7 @@ const calculateFoodAttractionForce = (foodField, agent, elapsedS, config) => {
       patch.intensity *
       abundanceScale *
       (patch.userPlaced ? 1.8 : 1);
+    if (!Number.isFinite(weight) || !Number.isFinite(dx) || !Number.isFinite(dy)) return;
     targetX += patchX * weight;
     targetY += patchY * weight;
     totalWeight += weight;
@@ -1753,7 +1758,8 @@ const drawFoodField = (ctx, foodField, elapsedS) => {
     const patchY =
       patch.anchorY + Math.sin(wobble * 0.87 + index) * patch.orbitY;
     const radius = patch.radius;
-    const biomass = clamp(patch.biomass ?? 1, 0, 1);
+    const biomass = foodBiomass(patch);
+    if (![patchX, patchY, radius].every(Number.isFinite) || radius <= 0 || biomass <= 0) return;
 
     const gradient = ctx.createRadialGradient(
       patchX,

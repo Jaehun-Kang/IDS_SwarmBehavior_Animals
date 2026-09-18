@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createKrillRest,advanceKrillRest,krillRestVelocity} from '../src/components/bookPreviews/krillRestModel.js';
+test('three comparisons are centered in equal-width columns',()=>{
+ for(const aspect of [0.7,1,1.3]){
+  const m=createKrillRest(aspect);
+  m.agents.forEach((a,i)=>assert.ok(Math.abs(a.x/m.width-(i+0.5)/3)<1e-12));
+ }
+});
 test('passive sinking, fullness and active swimming are independent comparisons',()=>{
  for(const [key,id] of [['sinking_rate',0],['fullness',1],['swimming_effort',2]])for(let i=0;i<3;i++){
   const a=krillRestVelocity(i,{[key]:0}),b=krillRestVelocity(i,{[key]:100});if(i===id)assert.notEqual(a,b);else assert.equal(a,b);

@@ -406,7 +406,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "V_MAX_CM_S",
-    label: "먹이 길 이동 속도",
+    label: "최대 이동 속도",
     min: bodyLengthsPerSecondToCmPerSecond(7),
     max: 14.5,
     step: 0.2,
@@ -422,7 +422,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "RC_N_THRESHOLD",
-    label: "원형 행렬 해제 기준",
+    label: "앤트밀 해제 기준",
     min: -3,
     max: 0,
     step: 0.1,
@@ -438,7 +438,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "ENABLE_MILL",
-    label: "원형 행렬 형성",
+    label: "앤트밀 형성",
     type: "toggle",
     formatValue: (value) => (value ? "ON" : "OFF"),
   },

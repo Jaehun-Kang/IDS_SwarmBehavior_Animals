@@ -84,6 +84,8 @@ export const drawFlashlightOverlay = (
     directionalWidthScale = FLASHLIGHT_PRESET.directionalWidthScale,
     sourceOffsetYPx = FLASHLIGHT_PRESET.sourceOffsetYPx,
     colors = FLASHLIGHT_PRESET.colors,
+    compositeOperation = "screen",
+    opacity = 1,
   } = {},
 ) => {
   if (
@@ -106,8 +108,8 @@ export const drawFlashlightOverlay = (
   );
 
   ctx.save();
-  ctx.globalCompositeOperation = "screen";
-  ctx.globalAlpha = 0.82;
+  ctx.globalCompositeOperation = compositeOperation;
+  ctx.globalAlpha = 0.82 * clamp(opacity, 0, 1);
 
   const atmosphere = ctx.createRadialGradient(
     pointerState.x + driftX * 0.45,

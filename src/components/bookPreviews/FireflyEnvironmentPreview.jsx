@@ -1,4 +1,5 @@
 import React from "react";
+import {drawFlashlightOverlay,FLASHLIGHT_PRESET} from "../../utils/flashlight.js";
 import { drawBookSpriteGlow } from "./bookGlowDrawing.js";
 import {HOME_SPRITE_ATLASES} from "../../data/spriteAtlases";
 import {loadTexturedAtlasCanvas,getAtlasFrameCanvas} from "../../utils/spriteAtlas";
@@ -18,6 +19,19 @@ export default function FireflyEnvironmentPreview({controls,ruleGroup}){
         const active=model.agents.some((a,i)=>a.light>0||model.previousLight[i]>0);
         stillFrames=active||c!==lastControls?0:stillFrames+1;lastControls=c;if(stillFrames>2)return;
         ctx.clearRect(0,0,width,height);
+        const exposure=Math.max(0,Math.min(1,(c.artificial_light??0)/100));
+        if(exposure>0){
+          const scale=Math.min(width,height)/600;
+          drawFlashlightOverlay(ctx,{active:true,x:width*0.5,y:height*0.5},{
+            ...FLASHLIGHT_PRESET,width,height,
+            radiusPx:FLASHLIGHT_PRESET.radiusPx*scale,
+            bloomRadiusPx:FLASHLIGHT_PRESET.bloomRadiusPx*scale,
+            sourceOffsetYPx:FLASHLIGHT_PRESET.sourceOffsetYPx*scale,
+            // Preserve the shared light shape; screen blending disappears on white paper.
+            compositeOperation:"source-over",opacity:exposure,
+            bloomAlpha:0.4,dustAlpha:0.35,directionalAlpha:0.2,
+          });
+        }
         const s=width/model.width,size=2.8*s,h=size*160/135,alpha=model.remainder/(1/60);
         const dark=getAtlasFrameCanvas(frames,atlas.stages.firefly_dark_top_idle.frame);
         const lit=getAtlasFrameCanvas(frames,atlas.stages.firefly_lit_top_idle.frame);

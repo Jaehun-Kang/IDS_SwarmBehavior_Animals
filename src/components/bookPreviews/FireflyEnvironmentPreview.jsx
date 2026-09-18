@@ -39,9 +39,21 @@ export default function FireflyEnvironmentPreview({controls,ruleGroup}){
           const x=a.x*s,y=a.y*s;
           if(a.trapped){
             ctx.strokeStyle="#8b7b79";ctx.lineWidth=1;
-            for(let j=-1;j<=1;j++){
-              ctx.beginPath();ctx.moveTo(x-size*0.7,y+j*size*0.22-size*0.2);ctx.lineTo(x+size*0.7,y+j*size*0.22+size*0.2);ctx.stroke();
-              ctx.beginPath();ctx.moveTo(x+j*size*0.22-size*0.2,y-size*0.55);ctx.lineTo(x+j*size*0.22+size*0.2,y+size*0.55);ctx.stroke();
+            const radiusX=size*0.7,radiusY=radiusX;
+            for(let ring=1;ring<=3;ring++){
+              ctx.beginPath();
+              for(let vertex=0;vertex<6;vertex++){
+                const angle=vertex*Math.PI/3;
+                const px=x+Math.cos(angle)*radiusX*ring/3;
+                const py=y+Math.sin(angle)*radiusY*ring/3;
+                if(vertex===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+              }
+              ctx.closePath();ctx.stroke();
+            }
+            for(let axis=0;axis<3;axis++){
+              const angle=axis*Math.PI/3;
+              const dx=Math.cos(angle)*radiusX,dy=Math.sin(angle)*radiusY;
+              ctx.beginPath();ctx.moveTo(x-dx,y-dy);ctx.lineTo(x+dx,y+dy);ctx.stroke();
             }
           }
           ctx.drawImage(dark,x-size/2,y-h/2,size,h);

@@ -475,7 +475,10 @@
     right: 24px;
   }
   .sim .sim-control-panel__content {
-    transform: translate(0, 8px) rotate(-5deg);
+    transform: none;
+  }
+  .sim .sim-control-panel::before, .sim .sim-control-panel::after, .sim .sim-control-paper {
+    transform: translateX(var(--sim-control-paper-x));
   }
   .sim .sim-control-field__row {
     grid-template-columns: minmax(0, 1fr);

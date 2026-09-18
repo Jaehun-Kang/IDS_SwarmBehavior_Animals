@@ -156,15 +156,15 @@ const CONTROL_FIELDS = [
   },
   {
     key: "COUPLING_BETA",
-    label: "깜빡임 맞추기",
+    label: "점멸 동조 강도",
     min: 0.1,
     max: 0.4,
     step: 0.01,
-    formatValue: (value) => value.toFixed(2),
+    displayScale: "range-percent",
   },
   {
     key: "VISION_RADIUS_M",
-    label: "빛을 볼 수 있는 거리",
+    label: "빛 감지 거리",
     min: 1,
     max: 10,
     step: 0.25,
@@ -172,7 +172,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "SHOW_PHASE_DEBUG",
-    label: "깜빡임 주기 표시",
+    label: "점멸 주기 표시",
     type: "toggle",
     formatValue: (value) => (value ? "ON" : "OFF"),
   },

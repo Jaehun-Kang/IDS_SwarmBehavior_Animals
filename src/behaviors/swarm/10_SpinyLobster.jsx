@@ -247,7 +247,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "QUEUE_COHESION",
-    label: "줄을 유지하는 힘",
+    label: "대열 유지력",
     min: 0,
     max: 100,
     step: 1,

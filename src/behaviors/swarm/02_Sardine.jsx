@@ -162,7 +162,7 @@ const CONTROL_FIELDS = [
     min: 240,
     max: 1800,
     step: 20,
-    formatValue: (value) => `${value}`,
+    formatValue: (value) => `${value} 마리`,
   },
   {
     key: "BASE_SPEED",
@@ -175,19 +175,19 @@ const CONTROL_FIELDS = [
   },
   {
     key: "NEIGHBOR_RADIUS",
-    label: "이웃을 살피는 거리",
+    label: "이웃 감지 거리",
     min: bodyLengthsToPx(3.5),
     max: bodyLengthsToPx(10.5),
     step: 2,
-    formatValue: (value) => `${pxToBodyLengths(value).toFixed(1)} 몸길이`,
+    formatValue: (value) => `몸길이 ${pxToBodyLengths(value).toFixed(1)}배`,
   },
   {
     key: "MIN_SPACING",
-    label: "최소 간격",
+    label: "간격 유지 강도",
     min: 0.5,
     max: 2.5,
     step: 0.05,
-    formatValue: (value) => value.toFixed(2),
+    displayScale: "range-percent",
   },
   {
     key: "IS_DAYTIME",

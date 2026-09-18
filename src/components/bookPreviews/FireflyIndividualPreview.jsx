@@ -22,8 +22,6 @@ export default function FireflyIndividualPreview({controls,ruleGroup}){
         const s=width/model.width;
         for(let i=0;i<model.agents.length;i++){
           const a=model.agents[i];fireflyIndividualPose(model,i,pose);
-          const home=model.homes[i];
-          ctx.fillStyle="#8f9f70";ctx.beginPath();ctx.ellipse(home.x*s,(home.y+0.7)*s,1.25*s,0.32*s,-0.3,0,Math.PI*2);ctx.fill();
           const idle=a.flight===0,index=Math.floor(model.time*17.5+a.id)%2;
           const dark=idle?atlas.stages.firefly_dark_top_idle.frame:atlas.stages.firefly_dark_top_fly.frames[index];
           const lit=idle?atlas.stages.firefly_lit_top_idle.frame:atlas.stages.firefly_lit_top_fly.frames[index];

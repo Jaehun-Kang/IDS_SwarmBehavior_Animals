@@ -19,8 +19,7 @@ export default function FireflyCourtshipPreview({controls,ruleGroup}){
         const active=model.agents.some((a,i)=>a.moving||model.previous[i].moving||a.light>0||model.previous[i].light>0);
         stillFrames=active?0:stillFrames+1;if(stillFrames>2)return;
         ctx.clearRect(0,0,width,height);
-        const s=width/model.width,female=model.agents[3];
-        ctx.fillStyle="#8f9f70";ctx.beginPath();ctx.ellipse(female.x*s,(female.y+0.7)*s,2.1*s,0.6*s,-0.3,0,Math.PI*2);ctx.fill();
+        const s=width/model.width;
         model.agents.forEach((a,i)=>{
           fireflyCourtshipPose(model,i,pose);
           const walking=model.phase==="walk",fly=a.moving&&!walking,index=Math.floor(model.time*15)%2;

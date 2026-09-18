@@ -327,11 +327,11 @@ const CONTROL_FIELDS = [
   },
   {
     key: "DENSITY_PER_M2",
-    label: "모여 있는 정도",
+    label: "무리 밀집도",
     min: 10,
     max: 21,
     step: 0.5,
-    formatValue: (value) => `${Number(value).toFixed(1)} /m²`,
+    formatValue: (value) => `${Number(value).toFixed(1)} 마리/m²`,
   },
   {
     key: "SHOW_THERMAL_MAP",

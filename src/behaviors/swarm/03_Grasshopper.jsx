@@ -157,11 +157,11 @@ const CONTROL_FIELDS = [
   },
   {
     key: "ATTRACTION_WEIGHT",
-    label: "먼 이웃에게 모이기",
+    label: "이웃 유인 강도",
     min: 0,
     max: 0.05,
     step: 0.001,
-    formatValue: (value) => value.toFixed(3),
+    displayScale: "range-percent",
   },
   {
     key: "TEMPERATURE_C",
@@ -202,13 +202,13 @@ const CONTROL_FIELDS = [
   },
   {
     key: "ADULT_FLIGHT_MODE",
-    label: "기온·바람에 따른 비행",
+    label: "환경에 따른 비행",
     type: "toggle",
     formatValue: (value) => (value ? "ON" : "OFF"),
   },
   {
     key: "HUNGER_MODE",
-    label: "굶주릴 때 동료 공격",
+    label: "동족포식",
     type: "toggle",
     formatValue: (value) => (value ? "ON" : "OFF"),
   },

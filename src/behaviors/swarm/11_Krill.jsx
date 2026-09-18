@@ -161,7 +161,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "DENSITY_SURGE",
-    label: "새벽·저녁 모이기",
+    label: "새벽·저녁 결집",
     min: 50,
     max: 180,
     step: 1,
@@ -169,7 +169,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "NIGHT_COHESION",
-    label: "밤에 무리 유지하기",
+    label: "야간 무리 유지",
     min: 40,
     max: 120,
     step: 1,

@@ -153,7 +153,7 @@ const CONTROL_FIELDS = [
     min: 0,
     max: 400,
     step: 0.1,
-    formatValue: (value) => `${Number(value).toFixed(1)} lx`,
+    formatValue: (value) => `${Number(value).toFixed(1)} 럭스`,
   },
   {
     key: "IS_EMERGING",

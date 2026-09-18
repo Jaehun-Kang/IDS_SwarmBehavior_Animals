@@ -22,11 +22,9 @@ export default function FireflyCouplingPreview({controls,ruleGroup}){
         ctx.clearRect(0,0,width,height);
         const s=width/model.width,wall=fireflyBarrier(model,c);
         if(wall.bottom>wall.top){
-          ctx.strokeStyle="#648349";ctx.lineWidth=2;
-          ctx.beginPath();ctx.moveTo(wall.x*s,wall.top*s);ctx.lineTo(wall.x*s,wall.bottom*s);ctx.stroke();
-          for(let y=wall.top+0.4;y<wall.bottom;y+=1.1){
-            ctx.fillStyle="#8f9f70";ctx.beginPath();ctx.ellipse(wall.x*s,y*s,0.65*s,0.25*s,-0.4,0,Math.PI*2);ctx.fill();
-          }
+          const thickness=Math.max(6,s*0.4);
+          ctx.fillStyle="#797e80";
+          ctx.fillRect(wall.x*s-thickness/2,wall.top*s,thickness,(wall.bottom-wall.top)*s);
         }
         const dark=getAtlasFrameCanvas(frames,atlas.stages.firefly_dark_top_idle.frame);
         const lit=getAtlasFrameCanvas(frames,atlas.stages.firefly_lit_top_idle.frame);

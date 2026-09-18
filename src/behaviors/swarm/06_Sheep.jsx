@@ -157,7 +157,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "DOG_PRESSURE",
-    label: "개를 피하는 정도",
+    label: "위협 회피 강도",
     min: 0,
     max: 100,
     step: 1,
@@ -165,7 +165,7 @@ const CONTROL_FIELDS = [
   },
   {
     key: "NOISE",
-    label: "움직임의 불규칙함",
+    label: "이동 불규칙성",
     min: 0,
     max: 100,
     step: 1,

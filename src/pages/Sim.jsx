@@ -1,4 +1,5 @@
 import React from "react";
+import { formatRangePercent } from "../utils/simControlDisplay";
 import "../styles/Sim.css";
 import { animals } from "../behaviors/animalData";
 import SpriteAtlas from "../components/SpriteAtlas.jsx";
@@ -305,6 +306,10 @@ const normalizeControlInputValue = (field, value) => {
 
 const formatControlDisplayValue = (field, controls, timeS) => {
   const value = normalizeControlDisplayValue(field, controls[field.key]);
+
+  if (field.displayScale === "range-percent") {
+    return formatRangePercent(value, field.min, field.max);
+  }
 
   return field.formatValue
     ? field.formatValue(value, controls, timeS)
@@ -1181,7 +1186,12 @@ function SwarmCanvas({
                   <div className="sim-control-field__row">
                     <span>{field.label}</span>
                     <div className="sim-control-field__value-group">
-                      <span className="sim-control-field__value">
+                      <span
+                        className="sim-control-field__value"
+                        title={field.displayScale === "range-percent"
+                          ? "설정 범위 내 상대값: 최소 0%, 최대 100%"
+                          : undefined}
+                      >
                         {formatControlDisplayValue(
                           field,
                           resolvedControls,
@@ -1329,6 +1339,13 @@ function SwarmCanvas({
                     <input
                       className="sim-control-slider"
                       type="range"
+                      aria-label={field.label}
+                      aria-valuetext={(() => {
+                        const display = formatControlDisplayValue(field, resolvedControls, controlValueTime);
+                        return typeof display === "string" || typeof display === "number"
+                          ? String(display)
+                          : undefined;
+                      })()}
                       style={{
                         "--sim-range-progress": `${Math.max(
                           0,

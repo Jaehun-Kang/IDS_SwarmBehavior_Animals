@@ -1036,14 +1036,15 @@
   list-style: none;
   color: inherit;
   font: inherit;
-  font-size: 12px;
+  font-size: 14px;
+  line-height: 1;
 }
 
 .sim-control-panel .sim-legend__item {
   display: inline-grid;
-  grid-template-columns: 32px max-content;
+  grid-template-columns: 1lh max-content;
   align-items: center;
-  min-height: 32px;
+  min-height: 1lh;
   padding: 0;
   margin: 0;
   line-height: 1;
@@ -1054,20 +1055,19 @@
 .sim-control-panel .sim-legend__label {
   display: flex;
   align-items: center;
-  height: 32px;
+  height: 1lh;
   margin: 0;
   padding: 0;
-  font-size: 14px;
+  font-size: inherit;
   font-weight: 600;
   line-height: 1;
 }
 
 .sim-control-panel .sim-legend__icon {
   display: block;
-  width: 32px;
-  height: 32px;
+  width: 1lh;
+  height: 1lh;
   margin: 0;
   padding: 0;
   align-self: center;
-  flex: 0 0 32px;
 }

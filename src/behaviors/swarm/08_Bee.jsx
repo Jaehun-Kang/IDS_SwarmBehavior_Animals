@@ -1,5 +1,10 @@
 import React from "react";
-import { getFlowerBlossomPosition, renderFlower, renderFlowerHead, FLOWER_HEAD_RADIUS } from "../../utils/beeFlower.js";
+import {
+  getFlowerBlossomPosition,
+  renderFlower,
+  renderFlowerHead,
+  FLOWER_HEAD_RADIUS,
+} from "../../utils/beeFlower.js";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
@@ -964,11 +969,7 @@ const buildAnchorSlots = (env, count, temperatureC) => {
       const startX = env.curtain.x - rowHalfWidth + rowOffset;
       const rowJitter = Math.sin(row * 1.618) * spacing * 0.04;
       let column = 0;
-      for (
-        let x = startX;
-        x <= env.curtain.x + rowHalfWidth;
-        x += spacing
-      ) {
+      for (let x = startX; x <= env.curtain.x + rowHalfWidth; x += spacing) {
         const px = x + rowJitter;
         const py = y;
         if (!pointInsideCurtain(env, px, py, 0.965)) {
@@ -1077,7 +1078,10 @@ const buildAnchorLayout = (
           Math.max(0, slot.y - env.entrance.y) * 2.4,
       );
   const workerSlots = defenderSelection.remaining.sort((left, right) => {
-    const leftRadius = Math.hypot(left.x - env.curtain.x, left.y - env.curtain.y);
+    const leftRadius = Math.hypot(
+      left.x - env.curtain.x,
+      left.y - env.curtain.y,
+    );
     const rightRadius = Math.hypot(
       right.x - env.curtain.x,
       right.y - env.curtain.y,
@@ -1111,8 +1115,10 @@ const takeNearestSlot = (availableSlots, agent, centerBias = 0) => {
     const movementCost = Math.hypot(slot.x - agent.x, slot.y - agent.y);
     const centerCost =
       centerBias > 0
-        ? Math.hypot(slot.x - agent.desiredAnchorX, slot.y - agent.desiredAnchorY) *
-          centerBias
+        ? Math.hypot(
+            slot.x - agent.desiredAnchorX,
+            slot.y - agent.desiredAnchorY,
+          ) * centerBias
         : 0;
     const score = movementCost + centerCost;
     if (score < bestScore) {
@@ -2309,13 +2315,7 @@ const chooseSurfaceTarget = (agent, env, occupiedSlotIds, toward = null) => {
   };
 };
 
-const updateSurfaceWandering = (
-  agent,
-  neighbors,
-  env,
-  target,
-  dt,
-) => {
+const updateSurfaceWandering = (agent, neighbors, env, target, dt) => {
   clearFlowerCollectionState(agent);
   agent.isAnchored = false;
   keepAgentInsideCurtain(agent, env, 0.97, dt, PARAMS.SURFACE_CRAWL_SPEED_CM_S);
@@ -2379,8 +2379,7 @@ const updateSettling = (agent, env, dt) => {
   agent.activityState = nextState;
   if (agent.role === ROLES.SCOUT && agent.scoutLaunchPending) {
     if (
-      getThreatType(env.controls || DEFAULT_CONTROL_STATE) !==
-      THREAT_TYPES.NONE
+      getThreatType(env.controls || DEFAULT_CONTROL_STATE) !== THREAT_TYPES.NONE
     ) {
       agent.scoutLaunchPending = false;
       agent.phaseTimer = randomBetween(
@@ -4221,14 +4220,14 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 
     loadTexturedAtlasCanvas(ATLAS).then(
       ({ image, frameSize, frameCanvases, canvas }) => {
-      if (cancelled) {
-        return;
-      }
+        if (cancelled) {
+          return;
+        }
 
-      imageRef.current = image;
-      frameSizeRef.current = frameSize;
-      frameCanvasesRef.current = frameCanvases;
-      rasterCanvasRef.current = canvas;
+        imageRef.current = image;
+        frameSizeRef.current = frameSize;
+        frameCanvasesRef.current = frameCanvases;
+        rasterCanvasRef.current = canvas;
       },
     );
 
@@ -4389,8 +4388,17 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 
     const shouldRenderFrame = createPausedFrameGate();
     const render = (timestamp) => {
-      if (!shouldRenderFrame(isPaused, window.innerWidth, window.innerHeight,
-        window.devicePixelRatio || 1, controls, rasterCanvasRef.current, frameCanvasesRef.current)) {
+      if (
+        !shouldRenderFrame(
+          isPaused,
+          window.innerWidth,
+          window.innerHeight,
+          window.devicePixelRatio || 1,
+          controls,
+          rasterCanvasRef.current,
+          frameCanvasesRef.current,
+        )
+      ) {
         lastTimeRef.current = timestamp * 0.001;
         animationFrameRef.current = window.requestAnimationFrame(render);
         return;
@@ -4710,10 +4718,20 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 
 App.ui = {
   controlFields: CONTROL_FIELDS,
-  legendEntries: () => [{label:"꽃 · 먹이",circle:true,border:false,draw:ctx=>{
-    ctx.save();ctx.translate(16,16);ctx.scale(14/FLOWER_HEAD_RADIUS,14/FLOWER_HEAD_RADIUS);
-    renderFlowerHead(ctx,0,0);ctx.restore();
-  }}],
+  legendEntries: () => [
+    {
+      label: "밀원",
+      circle: true,
+      border: false,
+      draw: (ctx) => {
+        ctx.save();
+        ctx.translate(16, 16);
+        ctx.scale(14 / FLOWER_HEAD_RADIUS, 14 / FLOWER_HEAD_RADIUS);
+        renderFlowerHead(ctx, 0, 0);
+        ctx.restore();
+      },
+    },
+  ],
   defaultControlState: DEFAULT_CONTROL_STATE,
 };
 

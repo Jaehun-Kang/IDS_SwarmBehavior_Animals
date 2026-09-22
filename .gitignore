@@ -22,7 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-*.scss
 
 # Local generated data
 chat.json

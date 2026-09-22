@@ -788,7 +788,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px 14px;
-  margin: 12px 0 0;
+  margin: 32px 0 0;
   padding: 0;
   list-style: none;
   color: inherit;
@@ -814,6 +814,8 @@
   height: 32px;
   margin: 0;
   padding: 0;
+  font-size: 14px;
+  font-weight: 600;
   line-height: 1;
 }
 

@@ -1,4 +1,5 @@
 import React from "react";
+import SimLegend from "../components/SimLegend.jsx";
 import { formatRangePercent } from "../utils/simControlDisplay";
 import "../styles/Sim.css";
 import { animals } from "../behaviors/animalData";
@@ -1384,6 +1385,7 @@ function SwarmCanvas({
               ))}
             </div>
             <p className="sim-control-panel__hint">마우스로 조작해보세요</p>
+            <SimLegend animalId={animalId} controls={resolvedControls} ui={swarmUi} />
           </div>
         </div>
       ) : null}

@@ -3178,18 +3178,17 @@ const mixColor = (dayColor, nightColor, amount) =>
 
 const formatRgb = (color) => color.join(", ");
 
+const resolveSignalColors = (nightProgress) => ({
+  healthy: mixColor([0, 96, 138], [0, 245, 255], smoothstep(0.15, 0.45, nightProgress)),
+  disease: [138, 0, 62],
+});
+
 const drawChemicalField = (ctx, field, nightProgress) => {
   ctx.save();
   ctx.globalCompositeOperation = "source-over";
   const twilightBoost = Math.sin(Math.PI * clamp(nightProgress, 0, 1));
   const alphaMultiplier = 1 + twilightBoost * 0.18;
-  const signalLightProgress = smoothstep(0.15, 0.45, nightProgress);
-  const healthySignalColor = mixColor(
-    [0, 96, 138],
-    [0, 245, 255],
-    signalLightProgress,
-  );
-  const diseaseSignalColor = [138, 0, 62];
+  const {healthy:healthySignalColor,disease:diseaseSignalColor} = resolveSignalColors(nightProgress);
 
   const drawLayer = (layer, color, alphaScale) => {
     for (let row = 0; row < field.rows; row += 1) {
@@ -3729,6 +3728,14 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 
 App.ui = {
   controlFields: CONTROL_FIELDS,
+  legendEntries: controls => {
+    if(!controls.ODOR_TRAILS)return [];
+    const colors=resolveSignalColors(resolveLightTransition(CIRCADIAN_PHASE_HOURS[normalizeCircadianPhase(controls.CIRCADIAN_PHASE)]));
+    return [
+      {label:"유인 신호",circle:true,color:colors.healthy},
+      {label:"감염 신호",circle:true,color:colors.disease},
+    ];
+  },
   defaultControlState: DEFAULT_CONTROL_STATE,
 };
 

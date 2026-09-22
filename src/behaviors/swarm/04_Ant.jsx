@@ -4899,16 +4899,17 @@ const drawAnt = (
   ctx.restore();
 };
 
+const drawFoodPatch = (ctx,x,y,radius) => drawCircle(ctx,x,y,radius,"rgba(210, 82, 58, 0.667)");
+
 const drawWorld = (ctx, world, spriteSheet, frameCanvases, frameSize) => {
   drawPheromoneField(ctx, world);
   drawBivouac(ctx, world);
   world.foodPatches.forEach((patch) => {
-    drawCircle(
+    drawFoodPatch(
       ctx,
       patch.position.x,
       patch.position.y,
       patch.radiusPx,
-      "rgba(210, 82, 58, 0.667)",
     );
   });
   const nowMs = world.time * 1000;
@@ -5144,6 +5145,11 @@ export function App({ controls, onGpuErrorChange, isPaused = false } = {}) {
 }
 
 App.ui = {
+  legendEntries: () => [
+    {label:"먹이",circle:true,border:false,draw:ctx=>drawFoodPatch(ctx,16,16,14)},
+    {label:"이동 신호",circle:true,color:ANT_SIGNAL_COLORS.trail},
+    {label:"먹이 신호",circle:true,color:ANT_SIGNAL_COLORS.recruitment},
+  ],
   controlFields: CONTROL_FIELDS,
   defaultControlState: DEFAULT_CONTROL_STATE,
 };

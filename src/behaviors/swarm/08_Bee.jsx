@@ -1,5 +1,5 @@
 import React from "react";
-import { getFlowerBlossomPosition, renderFlower } from "../../utils/beeFlower.js";
+import { getFlowerBlossomPosition, renderFlower, renderFlowerHead, FLOWER_HEAD_RADIUS } from "../../utils/beeFlower.js";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
@@ -4710,6 +4710,10 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 
 App.ui = {
   controlFields: CONTROL_FIELDS,
+  legendEntries: () => [{label:"꽃 · 먹이",circle:true,border:false,draw:ctx=>{
+    ctx.save();ctx.translate(16,16);ctx.scale(14/FLOWER_HEAD_RADIUS,14/FLOWER_HEAD_RADIUS);
+    renderFlowerHead(ctx,0,0);ctx.restore();
+  }}],
   defaultControlState: DEFAULT_CONTROL_STATE,
 };
 

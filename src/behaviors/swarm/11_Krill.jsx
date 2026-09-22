@@ -2351,7 +2351,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 App.ui = {
   controlFields: CONTROL_FIELDS,
   legendEntries: () => [{label:"먹이",circle:true,border:false,draw:ctx=>{
-    ctx.fillStyle=`rgba(${PARAMS.RENDER_FOOD_COLOR}, ${PARAMS.RENDER_FOOD_ALPHA})`;
+    ctx.fillStyle=`rgba(${PARAMS.RENDER_FOOD_COLOR}, ${Math.min(1, PARAMS.RENDER_FOOD_ALPHA * 6)})`;
     ctx.fillRect(0,0,32,32);
   }}],
   defaultControlState: DEFAULT_CONTROL_STATE,

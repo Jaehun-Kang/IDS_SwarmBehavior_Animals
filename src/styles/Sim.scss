@@ -679,11 +679,24 @@
 
   & .sim-control-field__value {
     white-space: nowrap;
-    display: inline-flex;
+    display: inline-grid;
     align-items: center;
     min-height: 26px;
     color: var(--sim-sticky-muted);
     line-height: 1;
+
+    & > .sim-control-field__value-current,
+    & > .sim-control-field__value-reserve {
+      grid-area: 1 / 1;
+      justify-self: end;
+    }
+
+    & > .sim-control-field__value-reserve {
+      display: block;
+      visibility: hidden;
+      pointer-events: none;
+      user-select: none;
+    }
   }
 
   & .sim-control-reset {

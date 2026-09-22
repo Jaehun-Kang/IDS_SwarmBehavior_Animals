@@ -3729,7 +3729,6 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 App.ui = {
   controlFields: CONTROL_FIELDS,
   legendEntries: controls => {
-    if(!controls.ODOR_TRAILS)return [];
     const colors=resolveSignalColors(resolveLightTransition(CIRCADIAN_PHASE_HOURS[normalizeCircadianPhase(controls.CIRCADIAN_PHASE)]));
     return [
       {label:"유인 신호",circle:true,color:colors.healthy},

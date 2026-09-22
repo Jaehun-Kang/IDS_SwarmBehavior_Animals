@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formatRangePercent } from '../src/utils/simControlDisplay.js';
+import { formatRangePercent, getControlDisplayCandidates } from '../src/utils/simControlDisplay.js';
+
+test('width candidates belong only to the current animal field', () => {
+  assert.deepEqual(getControlDisplayCandidates({type:'binary-toggle',offValue:'predator',onValue:'food'}), ['predator','food']);
+  assert.deepEqual(getControlDisplayCandidates({type:'toggle'}), [false,true]);
+  assert.deepEqual(getControlDisplayCandidates({type:'cycle-toggle',values:['day','night']}), ['day','night']);
+  assert.deepEqual(getControlDisplayCandidates({type:'static'}), []);
+  assert.deepEqual(getControlDisplayCandidates({type:'select',options:['a',{value:'b',label:'B'}]}), ['a','b']);
+});
 
 test('relative display preserves the meaning of the slider range', () => {
   assert.equal(formatRangePercent(0.01, 0, 0.05), '20 %');

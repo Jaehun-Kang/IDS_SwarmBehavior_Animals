@@ -36,13 +36,12 @@ function LegendIcon({ entry }) {
 
 function SimLegend({ animalId, controls, ui }) {
   const entries = [...(ui.legendEntries?.(controls) ?? [])];
-  if (["starling", "sardine", "spiny_lobster"].includes(animalId) ||
-      (["bat", "firefly", "krill"].includes(animalId) && controls.INTERACTION_MODE === "predator")) {
+  if (["starling", "sardine", "spiny_lobster", "bat", "firefly", "krill"].includes(animalId)) {
     entries.unshift(predator);
   } else if (animalId === "bee") {
     entries.unshift({ ...predator, label: "말벌" });
   }
-  if (["bat", "firefly"].includes(animalId) && ["flashlight", "light_threat"].includes(controls.INTERACTION_MODE)) entries.unshift(flashlight);
+  if (["bat", "firefly"].includes(animalId)) entries.unshift(flashlight);
   if (!entries.length) return null;
   return <div className="sim-legend" role="list" aria-label="시뮬레이션 범례">
     {entries.map(entry => <div className="sim-legend__item" role="listitem" key={entry.label}>

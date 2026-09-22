@@ -1,6 +1,6 @@
 import React from "react";
 import SimLegend from "../components/SimLegend.jsx";
-import { formatRangePercent } from "../utils/simControlDisplay";
+import { formatRangePercent, getControlDisplayCandidates } from "../utils/simControlDisplay";
 import "../styles/Sim.css";
 import { animals } from "../behaviors/animalData";
 import SpriteAtlas from "../components/SpriteAtlas.jsx";
@@ -1193,11 +1193,16 @@ function SwarmCanvas({
                           ? "설정 범위 내 상대값: 최소 0%, 최대 100%"
                           : undefined}
                       >
-                        {formatControlDisplayValue(
+                        {getControlDisplayCandidates(field).map((candidate, index) => (
+                          <span className="sim-control-field__value-reserve" hidden aria-hidden="true" key={index}>
+                            {formatControlDisplayValue(field, { ...resolvedControls, [field.key]: candidate }, controlValueTime)}
+                          </span>
+                        ))}
+                        <span className="sim-control-field__value-current">{formatControlDisplayValue(
                           field,
                           resolvedControls,
                           controlValueTime,
-                        )}
+                        )}</span>
                       </span>
                       {field.type === "static" ? null : field.type ===
                         "toggle" ? (

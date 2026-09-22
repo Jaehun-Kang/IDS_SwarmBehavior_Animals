@@ -1,4 +1,5 @@
 import React from "react";
+import { isPenguinEntryAnchor } from "../../utils/penguinEntry.js";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
@@ -443,6 +444,7 @@ const releaseCountTransition = (agent, simTime) => {
   );
 
   agent.countTransition = null;
+  // Keep entry provenance so arrivals cannot trigger chained docking.
   agent.countTransitionTarget = null;
   agent.countTransitionDirection = null;
   agent.countTransitionReleasedAt = simTime;
@@ -1825,14 +1827,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
               const dy = otherAgent.y - agent.y;
               const distance = Math.hypot(dx, dy) || 1;
               const isEstablishedStandingPenguin =
-                !otherAgent.countTransition &&
-                !otherAgent.countTransitionSource &&
-                otherAgent.mode !== AGENT_MODES.COOLING_EXIT &&
-                (otherAgent.mode === AGENT_MODES.REST_HUDDLE ||
-                  otherAgent.huddleMember ||
-                  otherAgent.isMainHuddleMember ||
-                  (otherAgent.lastMeasuredSpeed ?? 0) <
-                    PARAMS.SPRITE_SETTLE_SPEED_PX);
+                isPenguinEntryAnchor(otherAgent, AGENT_MODES.COOLING_EXIT);
               if (
                 agent.countTransition === "enter" &&
                 isEstablishedStandingPenguin &&
@@ -1853,6 +1848,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 
               if (
                 !otherAgent.countTransition &&
+                (agent.countTransition !== "enter" || isEstablishedStandingPenguin) &&
                 distance < socialSearchRadius &&
                 otherAgent.mode !== AGENT_MODES.COOLING_EXIT &&
                 (nearestSocialDistance === null ||
@@ -2915,6 +2911,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 
             if (agent.countTransition === "enter" && standingPenguinNearby) {
               releaseCountTransition(agent, simTime);
+              agent.vx = 0;
+              agent.vy = 0;
             }
 
             if (

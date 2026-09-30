@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef } from "react";
 import { drawThreatMarker } from "./bookPreviews/bookThreatDrawing.js";
+import { ANT_SIGNAL_LEGEND_ENTRIES } from "../data/antSignalColors.js";
 import { drawFlashlightOverlay, FLASHLIGHT_PRESET } from "../utils/flashlight.js";
 
 const predator = { label: "포식자", draw: (ctx) => drawThreatMarker(ctx, 16, 16, 32, 32) };
@@ -36,6 +37,7 @@ function LegendIcon({ entry }) {
 
 function SimLegend({ animalId, controls, ui }) {
   const entries = [...(ui.legendEntries?.(controls) ?? [])];
+  if (animalId === "ant") entries.push(...ANT_SIGNAL_LEGEND_ENTRIES);
   if (["starling", "sardine", "spiny_lobster", "bat", "firefly", "krill"].includes(animalId)) {
     entries.unshift(predator);
   } else if (animalId === "bee") {

@@ -324,7 +324,20 @@ const CONTROL_FIELDS = [
     min: 0,
     max: 30,
     step: 0.5,
-    formatValue: (value) => `${Number(value).toFixed(1)} m/s`,
+    animatedValue: true,
+    formatValue: (value, _controls, _timeS, displayState) => {
+      const wind = displayState?.penguinWind;
+      const hasDirection = Number(value) > 0 && wind && Math.hypot(wind.x, wind.y) > 0;
+      return <>
+        <span aria-hidden="true" style={{
+          display: "inline-flex",
+          visibility: hasDirection ? "visible" : "hidden",
+          transform: `rotate(${hasDirection ? Math.atan2(wind.y, wind.x) : 0}rad)`,
+          transformOrigin: "50% 50%",
+          transition: "transform 650ms ease",
+        }}>→</span>{" "}{Number(value).toFixed(1)} m/s
+      </>;
+    },
   },
   {
     key: "DENSITY_PER_M2",
@@ -1376,7 +1389,7 @@ const syncCanvasSize = (canvas, ctx) => {
 };
 
 // 플레이스홀더 앱
-export function App({ controls, onGpuErrorChange, isPaused = false }) {
+export function App({ controls, onGpuErrorChange, isPaused = false, displayStateRef }) {
   const canvasRef = React.useRef(null);
   const imageRef = React.useRef(null);
   const rasterCanvasRef = React.useRef(null);
@@ -1675,6 +1688,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           agentsRef.current,
           behavior,
         );
+        if (displayStateRef) displayStateRef.current.penguinWind = dynamicWind.forceDirection;
         let waveStartsThisFrame = 0;
         const provisionalTargets = agentsRef.current.map(
           (agent, agentIndex) => {
@@ -4647,7 +4661,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     return () => {
       window.cancelAnimationFrame(animationFrameRef.current);
     };
-  }, [controls, isPaused]);
+  }, [controls, isPaused, displayStateRef]);
 
   void controls;
 

@@ -305,7 +305,7 @@ const normalizeControlInputValue = (field, value) => {
   return Number(nextValue.toFixed(decimalPlaces));
 };
 
-const formatControlDisplayValue = (field, controls, timeS) => {
+const formatControlDisplayValue = (field, controls, timeS, displayState) => {
   const value = normalizeControlDisplayValue(field, controls[field.key]);
 
   if (field.displayScale === "range-percent") {
@@ -313,7 +313,7 @@ const formatControlDisplayValue = (field, controls, timeS) => {
   }
 
   return field.formatValue
-    ? field.formatValue(value, controls, timeS)
+    ? field.formatValue(value, controls, timeS, displayState)
     : String(value);
 };
 
@@ -504,6 +504,7 @@ function SwarmCanvas({
   const [controls, setControls] = React.useState(null);
   const [resetVisualValues, setResetVisualValues] = React.useState({});
   const [controlValueTime, setControlValueTime] = React.useState(0);
+  const displayStateRef = React.useRef({});
   const [retryCount, setRetryCount] = React.useState(0);
   const containerRef = React.useRef(null);
   const controlPanelRef = React.useRef(null);
@@ -690,6 +691,11 @@ function SwarmCanvas({
       return;
     }
 
+    if (animalId === "sheep" && isInteractiveTarget) {
+      canvas.dispatchEvent(new PointerEvent("pointerleave"));
+      return;
+    }
+
     const nativeEvent = event.nativeEvent;
     const proxyType =
       isInteractiveTarget && event.type === "pointerdown"
@@ -728,7 +734,7 @@ function SwarmCanvas({
     });
 
     canvas.dispatchEvent(proxiedEvent);
-  }, []);
+  }, [animalId]);
 
   const resolvedControls = React.useMemo(() => {
     if (!controls) {
@@ -1098,6 +1104,7 @@ function SwarmCanvas({
     >
       {SwarmComponent ? (
         <SwarmComponent
+          displayStateRef={displayStateRef}
           controls={resolvedControls}
           onGpuErrorChange={setGpuError}
           isPaused={isPaused}
@@ -1108,11 +1115,14 @@ function SwarmCanvas({
         </div>
       )}
       <div className="sim-overlay-stack">
-        <ThreatPointerOverlay containerRef={containerRef} enabled={Boolean(
+        <ThreatPointerOverlay containerRef={containerRef}
+          marker={animalId === 'sheep' ? 'external' : animalId === 'bee' && !resolvedControls?.IS_THREAT_ACTIVE ? 'flower' : 'threat'}
+          enabled={Boolean(
           resolvedControls && (
             (['starling','sardine'].includes(animalId) && resolvedControls.IS_PREDATOR_ACTIVE) ||
             (['bat','firefly','krill'].includes(animalId) && resolvedControls.INTERACTION_MODE === 'predator') ||
-            (animalId === 'bee' && resolvedControls.IS_THREAT_ACTIVE) ||
+            animalId === 'bee' ||
+            (animalId === 'sheep' && resolvedControls.DOG_ENABLED && !resolvedControls.DOG_AUTO_MODE) ||
             (animalId === 'spiny_lobster' && resolvedControls.THREAT_ACTIVE)
           ))} />
         <button
@@ -1202,6 +1212,7 @@ function SwarmCanvas({
                           field,
                           resolvedControls,
                           controlValueTime,
+                          displayStateRef.current,
                         )}</span>
                       </span>
                       {field.type === "static" ? null : field.type ===

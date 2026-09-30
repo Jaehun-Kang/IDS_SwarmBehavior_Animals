@@ -1,5 +1,9 @@
 ﻿.sim {
   --sim-left-overlay-width: 320px;
+  .sim-graphic-pointer-target {
+    // Simulation canvases may set an inline crosshair cursor.
+    cursor: none !important;
+  }
   --sim-overlay-gap: 14px;
   --sim-paper-texture: url("../assets/texture/paper/white-paper-texture-seamless.webp");
   --sim-black-paper-texture: url("../assets/texture/paper/black-paper-texture-seamless.webp");
@@ -754,6 +758,13 @@
     appearance: none;
     background: transparent;
     accent-color: var(--sim-range-active);
+    position: relative;
+    top: 5px;
+    height: 16px;
+    margin-block: -5px;
+    padding: 0;
+    border: 0;
+    box-sizing: border-box;
     cursor: pointer;
   }
 

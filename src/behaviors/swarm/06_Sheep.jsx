@@ -1,6 +1,7 @@
 import React from "react";
 
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
+import { drawDogMarker } from "../../utils/sheepDogMarker.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
   drawAtlasFrame,
@@ -12,10 +13,6 @@ import {
   applyTransparentCanvasStyle,
   clearTransparentCanvas2d,
 } from "../../utils/transparentCanvas";
-
-const drawDogMarker = (ctx,x,y) => {
-  ctx.fillStyle="#000000";ctx.beginPath();ctx.arc(x,y,12,0,Math.PI*2);ctx.fill();
-};
 
 const PARAMS = {
   DEFAULT_COUNT: 96,
@@ -1697,7 +1694,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         display: "block",
         cursor:
           controls?.DOG_ENABLED && !(controls?.DOG_AUTO_MODE ?? DEFAULT_CONTROL_STATE.DOG_AUTO_MODE)
-            ? "crosshair"
+            ? "none"
             : "default",
       }}
     />

@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 import { drawThreatMarker } from "./bookPreviews/bookThreatDrawing.js";
+import { renderFlowerHead, FLOWER_HEAD_RADIUS } from "../utils/beeFlower.js";
 
-export default function ThreatPointerOverlay({ enabled, containerRef }) {
+export default function ThreatPointerOverlay({ enabled, containerRef, marker = "threat" }) {
   const ref = useRef(null);
   useEffect(() => {
     const canvas = ref.current, container = containerRef.current;
@@ -12,20 +13,42 @@ export default function ThreatPointerOverlay({ enabled, containerRef }) {
     const ratio = window.devicePixelRatio || 1;
     canvas.width = canvas.height = Math.round(26 * ratio);
     const ctx = canvas.getContext('2d');ctx.scale(ratio, ratio);
-    drawThreatMarker(ctx,13,13,26,26);
-    const hide = () => { canvas.style.display = 'none'; };
+    if (marker === "flower") {
+      ctx.save();
+      ctx.translate(13, 13);
+      ctx.scale(12 / FLOWER_HEAD_RADIUS, 12 / FLOWER_HEAD_RADIUS);
+      renderFlowerHead(ctx, 0, 0);
+      ctx.restore();
+    } else if (marker !== "external") {
+      drawThreatMarker(ctx,13,13,26,26);
+    }
+    let pointerTarget = null;
+    const hide = () => {
+      canvas.style.display = 'none';
+      pointerTarget?.classList.remove('sim-graphic-pointer-target');
+      pointerTarget = null;
+    };
     const move = event => {
-      if (!(event.target instanceof Element) || event.target.closest('button,input,select,.sim-control-panel')) { hide(); return; }
+      // UI clicks are proxied to the simulation canvas, not to the visual pointer.
+      if (!event.isTrusted) return;
+      if (!(event.target instanceof Element) || !container.contains(event.target) || event.target.closest('button,input,select,.sim-control-panel')) { hide(); return; }
+      if (pointerTarget !== event.target) {
+        pointerTarget?.classList.remove('sim-graphic-pointer-target');
+        pointerTarget = event.target;
+        pointerTarget.classList.add('sim-graphic-pointer-target');
+      }
       canvas.style.display = 'block';
       canvas.style.transform = `translate(${event.clientX-13}px,${event.clientY-13}px)`;
     };
-    container.addEventListener('pointermove',move);
+    window.addEventListener('pointermove',move);
+    window.addEventListener('blur',hide);
     container.addEventListener('pointerleave',hide);
     container.addEventListener('pointercancel',hide);
     return () => {
-      hide();container.removeEventListener('pointermove',move);
+      hide();window.removeEventListener('pointermove',move);
+      window.removeEventListener('blur',hide);
       container.removeEventListener('pointerleave',hide);container.removeEventListener('pointercancel',hide);
     };
-  }, [enabled, containerRef]);
-  return enabled ? <canvas ref={ref} aria-hidden="true" /> : null;
+  }, [enabled, containerRef, marker]);
+  return enabled ? <canvas ref={ref} data-pointer-marker={marker} aria-hidden="true" /> : null;
 }

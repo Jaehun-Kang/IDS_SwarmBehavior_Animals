@@ -1,14 +1,14 @@
-import starlingSpriteSheetUrl from "../assets/sprite-sheets/01_starling.svg";
-import sardineSpriteSheetUrl from "../assets/sprite-sheets/02_sardine.svg";
-import grasshopperSpriteSheetUrl from "../assets/sprite-sheets/03_grasshopper.svg";
-import antSpriteSheetUrl from "../assets/sprite-sheets/04_ant.svg";
-import batSpriteSheetUrl from "../assets/sprite-sheets/05_bat.svg";
-import sheepSpriteSheetUrl from "../assets/sprite-sheets/06_sheep.svg";
-import penguinSpriteSheetUrl from "../assets/sprite-sheets/07_penguin.svg";
-import beeSpriteSheetUrl from "../assets/sprite-sheets/08_bee.svg";
-import fireflySpriteSheetUrl from "../assets/sprite-sheets/09_firefly.svg";
-import spinyLobsterSpriteSheetUrl from "../assets/sprite-sheets/10_spinylobster.svg";
-import krillSpriteSheetUrl from "../assets/sprite-sheets/11_krill.svg";
+import starlingSpriteSheetUrl from "../assets/sprite-sheets/01_starling.svg?no-inline";
+import sardineSpriteSheetUrl from "../assets/sprite-sheets/02_sardine.svg?no-inline";
+import grasshopperSpriteSheetUrl from "../assets/sprite-sheets/03_grasshopper.svg?no-inline";
+import antSpriteSheetUrl from "../assets/sprite-sheets/04_ant.svg?no-inline";
+import batSpriteSheetUrl from "../assets/sprite-sheets/05_bat.svg?no-inline";
+import sheepSpriteSheetUrl from "../assets/sprite-sheets/06_sheep.svg?no-inline";
+import penguinSpriteSheetUrl from "../assets/sprite-sheets/07_penguin.svg?no-inline";
+import beeSpriteSheetUrl from "../assets/sprite-sheets/08_bee.svg?no-inline";
+import fireflySpriteSheetUrl from "../assets/sprite-sheets/09_firefly.svg?no-inline";
+import spinyLobsterSpriteSheetUrl from "../assets/sprite-sheets/10_spinylobster.svg?no-inline";
+import krillSpriteSheetUrl from "../assets/sprite-sheets/11_krill.svg?no-inline";
 
 export const HOME_SPRITE_ATLASES = {
   starling: {

@@ -1,6 +1,7 @@
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const texturedAtlasCache = new Map();
 const imageLoadCache = new Map();
+const isolatedAtlasCache = new Map();
 
 const loadImage = (src) => {
   if (!src) {
@@ -34,7 +35,9 @@ const loadTransientImage = (src) =>
     image.src = src;
   });
 
-const isSvgSource = (src) => /\.svg(?:[?#]|$)/i.test(src || "");
+const isSvgSource = (src) =>
+  /\.svg(?:[?#]|$)/i.test(src || "") ||
+  /^data:image\/svg\+xml(?:;[^,]*)?,/i.test(src || "");
 
 const readSvgText = async (src) => {
   const response = await fetch(src);
@@ -248,7 +251,16 @@ const getAxisPosition = (index, cellCount) => {
   return `calc(${clamp(index, 0, cellCount - 1)} * 100% / ${cellCount - 1})`;
 };
 
-export const getAtlasFrameStyle = ({ atlas, imageSize, frame }) => {
+export const getAtlasFrameStyle = ({ atlas, imageSize, frame, frameSources }) => {
+  if (frameSources !== undefined) {
+    const src = frameSources?.get(getFrameKey(frame));
+    return {
+      backgroundImage: src ? `url("${src}")` : "none",
+      backgroundRepeat: "no-repeat",
+      backgroundSize: "100% 100%",
+      backgroundPosition: "0 0",
+    };
+  }
   const resolvedFrame = toFrameCoordinate(frame) || { x: 0, y: 0 };
   const grid = resolveAtlasGrid(atlas, imageSize);
 
@@ -285,10 +297,10 @@ export const createAtlasFrameCanvases = (source, frameSize, grid) => {
         context.clearRect(0, 0, frameWidth, frameHeight);
         context.drawImage(
           source,
-          x * frameWidth,
-          y * frameHeight,
-          frameWidth,
-          frameHeight,
+          x * frameSize.width,
+          y * frameSize.height,
+          frameSize.width,
+          frameSize.height,
           0,
           0,
           frameWidth,
@@ -312,44 +324,22 @@ const createAtlasFrameCanvasesFromSvg = async (src, frameSize, grid) => {
     return frames;
   }
 
-  const svgText = await readSvgText(src);
-  const parser = new DOMParser();
-  const serializer = new XMLSerializer();
+  const { frameSources } = await loadIsolatedAtlasFrames({ src, frameSize, grid });
 
   for (let y = 0; y < grid.rows; y += 1) {
     for (let x = 0; x < grid.columns; x += 1) {
-      const svgDocument = parser.parseFromString(svgText, "image/svg+xml");
-      const svg = svgDocument.documentElement;
+      const image = await loadTransientImage(frameSources.get(`${x}:${y}`));
+      const frameCanvas = document.createElement("canvas");
+      frameCanvas.width = frameWidth;
+      frameCanvas.height = frameHeight;
 
-      svg.setAttribute(
-        "viewBox",
-        `${x * frameWidth} ${y * frameHeight} ${frameWidth} ${frameHeight}`,
-      );
-      svg.setAttribute("width", String(frameWidth));
-      svg.setAttribute("height", String(frameHeight));
-      svg.setAttribute("preserveAspectRatio", "none");
-
-      const serializedSvg = serializer.serializeToString(svg);
-      const objectUrl = URL.createObjectURL(
-        new Blob([serializedSvg], { type: "image/svg+xml" }),
-      );
-
-      try {
-        const image = await loadTransientImage(objectUrl);
-        const frameCanvas = document.createElement("canvas");
-        frameCanvas.width = frameWidth;
-        frameCanvas.height = frameHeight;
-
-        const context = frameCanvas.getContext("2d");
-        if (context) {
-          context.clearRect(0, 0, frameWidth, frameHeight);
-          context.drawImage(image, 0, 0, frameWidth, frameHeight);
-        }
-
-        frames.set(`${x}:${y}`, frameCanvas);
-      } finally {
-        URL.revokeObjectURL(objectUrl);
+      const context = frameCanvas.getContext("2d");
+      if (context) {
+        context.clearRect(0, 0, frameWidth, frameHeight);
+        context.drawImage(image, 0, 0, frameWidth, frameHeight);
       }
+
+      frames.set(`${x}:${y}`, frameCanvas);
     }
   }
 
@@ -358,6 +348,69 @@ const createAtlasFrameCanvasesFromSvg = async (src, frameSize, grid) => {
 
 export const getAtlasFrameCanvas = (frameCanvases, frame) =>
   frameCanvases?.get(getFrameKey(frame)) || null;
+
+export const loadIsolatedAtlasFrames = (atlas) => {
+  const key = JSON.stringify([atlas.src, atlas.imageSize, atlas.frameSize,
+    atlas.grid, atlas.columns, atlas.rows]);
+  if (isolatedAtlasCache.has(key)) return isolatedAtlasCache.get(key);
+
+  const promise = loadImage(atlas.src).then(async (image) => {
+    const imageSize = atlas.imageSize || {
+      width: image.naturalWidth, height: image.naturalHeight,
+    };
+    const frameSize = resolveAtlasFrameSize(atlas, imageSize);
+    const grid = resolveAtlasGrid(atlas, imageSize);
+    const frameSources = new Map();
+    if (isSvgSource(atlas.src)) {
+      const doc = new DOMParser().parseFromString(await readSvgText(atlas.src), "image/svg+xml");
+      if (doc.querySelector("parsererror")) throw new Error("invalid-atlas-svg");
+      const serializer = new XMLSerializer();
+      for (let y = 0; y < grid.rows; y += 1) {
+        for (let x = 0; x < grid.columns; x += 1) {
+          // Isolate the viewport before scaling, retaining vector detail.
+          const svg = doc.documentElement.cloneNode(true);
+          svg.setAttribute("viewBox", `${x * frameSize.width} ${y * frameSize.height} ${frameSize.width} ${frameSize.height}`);
+          svg.setAttribute("width", String(Math.ceil(frameSize.width)));
+          svg.setAttribute("height", String(Math.ceil(frameSize.height)));
+          svg.setAttribute("preserveAspectRatio", "none");
+          svg.style.overflow = "hidden";
+          // A half-unit guard keeps boundary antialiasing from the adjacent cell out.
+          const ns = "http://www.w3.org/2000/svg";
+          const group = doc.createElementNS(ns, "g");
+          while (svg.firstChild) group.appendChild(svg.firstChild);
+          const clip = doc.createElementNS(ns, "clipPath");
+          clip.id = "atlas-frame-guard";
+          clip.setAttribute("clipPathUnits", "userSpaceOnUse");
+          const rect = doc.createElementNS(ns, "rect");
+          const inset = Math.min(0.5, frameSize.width / 4, frameSize.height / 4);
+          rect.setAttribute("x", String(x * frameSize.width + inset));
+          rect.setAttribute("y", String(y * frameSize.height + inset));
+          rect.setAttribute("width", String(frameSize.width - inset * 2));
+          rect.setAttribute("height", String(frameSize.height - inset * 2));
+          clip.appendChild(rect);
+          group.setAttribute("clip-path", "url(#atlas-frame-guard)");
+          svg.append(clip, group);
+          frameSources.set(`${x}:${y}`, `data:image/svg+xml;charset=utf-8,${encodeURIComponent(serializer.serializeToString(svg))}`);
+        }
+      }
+    } else {
+      const frames = createAtlasFrameCanvases(image, frameSize, grid);
+      frames.forEach((canvas, frameKey) => frameSources.set(frameKey, canvas.toDataURL()));
+    }
+    // Keep decoded frames alive so hover/animation swaps do not show blank images.
+    const frameImages = new Map(await Promise.all(
+      Array.from(frameSources, async ([frameKey, src]) => {
+        const frameImage = await loadTransientImage(src);
+        await frameImage.decode();
+        return [frameKey, frameImage];
+      }),
+    ));
+    return { imageSize, frameSources, frameImages };
+  });
+  isolatedAtlasCache.set(key, promise);
+  promise.catch(() => isolatedAtlasCache.delete(key));
+  return promise;
+};
 
 export const drawAtlasFrame = (
   context,
@@ -370,8 +423,8 @@ export const drawAtlasFrame = (
       frameCanvas,
       0,
       0,
-      frameSize.width,
-      frameSize.height,
+      frameCanvas.width,
+      frameCanvas.height,
       dx,
       dy,
       dWidth,

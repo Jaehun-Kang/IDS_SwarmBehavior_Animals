@@ -1,5 +1,5 @@
 import React from "react";
-import { drawThreatMarker } from "./bookThreatDrawing.js";
+import { drawDogMarker } from "../../utils/sheepDogMarker.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import { loadTexturedAtlasCanvas, getAtlasFrameCanvas } from "../../utils/spriteAtlas";
 import { createBookCanvasLoop } from "../../utils/bookCanvasLoop.js";
@@ -49,7 +49,7 @@ export default function SheepMovementPreview({ controls, ruleGroup }) {
           context.restore();
         }
         if (model.threatMode && pointerRef.current) {
-          drawThreatMarker(context,pointerRef.current.x*width,pointerRef.current.y*height,width,height);
+          drawDogMarker(context, pointerRef.current.x * width, pointerRef.current.y * height);
         }
       },
     });
@@ -65,6 +65,7 @@ export default function SheepMovementPreview({ controls, ruleGroup }) {
   return <div className="canvas-placeholder rule-preview" aria-label={`${ruleGroup.category} 미니 시뮬레이션`}>
     {error ? <span role="alert">{error}</span> : null}
     <canvas ref={canvasRef} className="rule-preview__canvas"
+      style={{ cursor: ruleGroup.previewId === "sheep_threat" ? "none" : undefined }}
       onPointerMove={event => {
         if (ruleGroup.previewId !== "sheep_threat") return;
         const r = event.currentTarget.getBoundingClientRect();

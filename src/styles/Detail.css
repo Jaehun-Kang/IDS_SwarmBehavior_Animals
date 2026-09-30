@@ -143,6 +143,9 @@
 }
 .detail-container.detail-container--closed .detail-book-stage,
 .detail-container.detail-container--closed .detail-book-spread {
+  pointer-events: none;
+}
+.detail-container.detail-container--closed .detail-book-page--cover {
   pointer-events: auto;
 }
 .detail-container.detail-container--returning .detail-book-stage,
@@ -733,6 +736,10 @@
   box-shadow: none;
   filter: none;
   accent-color: var(--detail-range-accent, var(--detail-animal-accent));
+  height: 16px;
+  margin-block: -5px;
+  padding: 0;
+  box-sizing: border-box;
   cursor: pointer;
 }
 .detail-parameter-row input[type=range]::-webkit-slider-runnable-track {

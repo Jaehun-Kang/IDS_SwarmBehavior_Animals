@@ -1,5 +1,6 @@
 ﻿import React from "react";
 import { getAnimalDetails } from "../behaviors/animalDetails";
+import useIsolatedAtlasFrames from "../hooks/useIsolatedAtlasFrames";
 import { captureBookPage } from "../utils/bookPageCapture.js";
 import { behaviorMap } from "../behaviors/animalData";
 import RulePreview from "../components/RulePreview";
@@ -641,6 +642,7 @@ function Detail({
   const animalAccentColor =
     ANIMAL_ACCENT_COLORS[animalId] || "rgb(80 62 42)";
   const introAtlas = HOME_SPRITE_ATLASES[animalId];
+  const introFrames = useIsolatedAtlasFrames(introAtlas);
   const coverTextureUrl = getBookCoverTexture(animalId);
   const coverTextureCssValue = getCssImageValue(coverTextureUrl);
   const introArtworkRef = React.useRef(null);
@@ -794,6 +796,7 @@ function Detail({
         ...getAtlasFrameStyle({
           atlas: resolvedAtlas,
           frame,
+          frameSources: introFrames?.frameSources || null,
         }),
         "--detail-intro-sprite-ratio": frameRatio,
         ...(animalId === "spiny_lobster"
@@ -808,7 +811,7 @@ function Detail({
         aspectRatio: `${frameSize.width} / ${frameSize.height}`,
       },
     };
-  }, [animalId, introAnimationTimeMs, introAtlas, introPointerVector]);
+  }, [animalId, introAnimationTimeMs, introAtlas, introPointerVector, introFrames]);
 
   const updateIntroPointerVector = React.useCallback((clientX, clientY) => {
     const node = introArtworkRef.current;

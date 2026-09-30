@@ -184,6 +184,10 @@ const PARAMS = {
   FLIGHT_DAMPING_PER_S: 0.22,
   CURTAIN_PULL_WEIGHT: 0.9,
   FANNING_TEMPERATURE_ON_C: 35,
+  // Exhibition tuning, not measured species-wide flight thresholds.
+  FORAGING_COLD_C: 5,
+  FORAGING_ACTIVE_C: 18,
+  COLD_RETURN_RATE_PER_S: 0.18,
   FANNING_TEMPERATURE_OFF_C: 33,
   FANNING_TRIGGER_PER_S: 0.72,
   FANNING_RELEASE_PER_S: 1.2,
@@ -338,6 +342,17 @@ const advanceAngle = (current, target, maxStep) => {
 
 const getThreatType = (controls = DEFAULT_CONTROL_STATE) =>
   controls?.IS_THREAT_ACTIVE ? THREAT_TYPES.VESPA_VELUTINA : THREAT_TYPES.NONE;
+
+const getForagingTemperatureFactor = (controls) => {
+  const temperatureC = controls?.TEMPERATURE_C ?? DEFAULT_CONTROL_STATE.TEMPERATURE_C;
+  const t = clamp(
+    (temperatureC - PARAMS.FORAGING_COLD_C) /
+      (PARAMS.FORAGING_ACTIVE_C - PARAMS.FORAGING_COLD_C),
+    0,
+    1,
+  );
+  return t * t * (3 - 2 * t);
+};
 
 const getFanningHeatFactor = (temperatureC) =>
   clamp(
@@ -2379,7 +2394,8 @@ const updateSettling = (agent, env, dt) => {
   agent.activityState = nextState;
   if (agent.role === ROLES.SCOUT && agent.scoutLaunchPending) {
     if (
-      getThreatType(env.controls || DEFAULT_CONTROL_STATE) !== THREAT_TYPES.NONE
+      getThreatType(env.controls || DEFAULT_CONTROL_STATE) !== THREAT_TYPES.NONE ||
+      Math.random() >= getForagingTemperatureFactor(env.controls)
     ) {
       agent.scoutLaunchPending = false;
       agent.phaseTimer = randomBetween(
@@ -2555,13 +2571,17 @@ const updateAnchoredIdle = (
     agent.workerResumeForagePending &&
     !threatActive
   ) {
+    const forageActivity = getForagingTemperatureFactor(env.controls);
+    if (forageActivity <= 0) return;
     if (agent.workerPostForageRestTimer > 0) {
       agent.workerPostForageRestTimer = Math.max(
         0,
-        agent.workerPostForageRestTimer - dt,
+        agent.workerPostForageRestTimer - dt * forageActivity,
       );
       return;
     }
+
+    if (forageActivity < 1 && Math.random() >= 1 - Math.exp(-3 * forageActivity * dt)) return;
 
     let didScheduleForage = false;
     if (
@@ -2608,7 +2628,8 @@ const updateAnchoredIdle = (
     !threatActive &&
     env.sharedForage?.active &&
     (env.sharedForage.recruitsRemaining || 0) > 0 &&
-    Math.random() < PARAMS.WORKER_FORAGE_COMMIT_PER_S * dt
+    Math.random() < PARAMS.WORKER_FORAGE_COMMIT_PER_S * dt *
+      getForagingTemperatureFactor(env.controls)
   ) {
     env.sharedForage.recruitsRemaining = Math.max(
       0,
@@ -2716,6 +2737,9 @@ const updateScoutState = (agent, neighbors, env, controls, dt) => {
   }
 
   if (getThreatType(controls) !== THREAT_TYPES.NONE) {
+    if (agent.activityState === ACTIVITY_STATES.WANDERING) {
+      return;
+    }
     if (agent.activityState !== ACTIVITY_STATES.DANCING) {
       agent.phaseTimer = randomBetween(
         PARAMS.SCOUT_FORAGE_MIN_S,
@@ -2728,19 +2752,23 @@ const updateScoutState = (agent, neighbors, env, controls, dt) => {
         agent.activityState = ACTIVITY_STATES.IDLE;
       } else {
         agent.activityState = ACTIVITY_STATES.RETURNING;
-        agent.targetX = agent.anchorX;
-        agent.targetY = agent.anchorY;
+        agent.targetX = env.entrance.x;
+        agent.targetY = env.entrance.y;
       }
     }
-    return;
+    if (agent.isAnchored || agent.activityState === ACTIVITY_STATES.DANCING) {
+      return;
+    }
   }
 
   if (agent.isAnchored && agent.activityState === ACTIVITY_STATES.IDLE) {
+    const forageActivity = getForagingTemperatureFactor(controls);
+    if (forageActivity <= 0) return;
     if (agent.scoutRestTimer > 0) {
       agent.scoutRestTimer = Math.max(0, agent.scoutRestTimer - dt);
       return;
     }
-    agent.phaseTimer -= dt;
+    agent.phaseTimer -= dt * forageActivity;
     if (agent.phaseTimer <= 0) {
       const staleTarget =
         agent.staleForageVisitPending &&
@@ -3701,6 +3729,22 @@ const updateAgents = (agents, env, controls, dt) => {
       return;
     }
 
+    // Stagger cold-weather returns without changing position or flight velocity.
+    if (agent.activityState === ACTIVITY_STATES.FORAGING && !threatActive) {
+      const cold = 1 - getForagingTemperatureFactor(controls);
+      if (Math.random() < 1 - Math.exp(-PARAMS.COLD_RETURN_RATE_PER_S * cold * cold * dt)) {
+        clearFlowerCollectionState(agent);
+        clearFlowerTarget(agent);
+        agent.foragePauseTimer = 0;
+        agent.foragePauseStarted = false;
+        agent.recruitedByDance = false;
+        agent.recruitedSearchRetriesLeft = 0;
+        agent.activityState = ACTIVITY_STATES.RETURNING;
+        agent.targetX = agent.role === ROLES.SCOUT ? env.entrance.x : agent.anchorX;
+        agent.targetY = agent.role === ROLES.SCOUT ? env.entrance.y : agent.anchorY;
+      }
+    }
+
     if (agent.activityState === ACTIVITY_STATES.TAKEOFF) {
       updateTakeoff(agent, dt);
       return;
@@ -3713,6 +3757,9 @@ const updateAgents = (agents, env, controls, dt) => {
 
     if (agent.role === ROLES.SCOUT) {
       updateScoutState(agent, neighbors, env, controls, dt);
+      if (agent.activityState === ACTIVITY_STATES.SETTLING) {
+        return;
+      }
       updateShakingSignal(agent, neighbors, controls, dt, colonyActivity);
       const dancing = updateDance(agent, env, controls, dt);
       if (agent.isAnchored) {
@@ -3757,6 +3804,8 @@ const updateAgents = (agents, env, controls, dt) => {
             repulsionWeightScale: isScoutReturning ? 0.08 : 1,
             repelAnchored: !isScoutReturning,
             repelAirborne: !isScoutReturning,
+            arrivalRadiusCm: isScoutReturning ? PARAMS.RETURN_ARRIVAL_RADIUS_CM : 0,
+            minArrivalSpeedScale: isScoutReturning ? PARAMS.RETURN_MIN_SPEED_SCALE : 1,
           },
         );
       }
@@ -4717,7 +4766,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 }
 
 App.ui = {
-  controlFields: CONTROL_FIELDS,
+  controlFields: CONTROL_FIELDS.filter((field) => field.key !== "SUN_AZIMUTH_DEG"),
   legendEntries: () => [
     {
       label: "밀원",

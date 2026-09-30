@@ -155,6 +155,10 @@
 
     .detail-book-stage,
     .detail-book-spread {
+      pointer-events: none;
+    }
+
+    .detail-book-page--cover {
       pointer-events: auto;
     }
   }
@@ -868,6 +872,10 @@
     box-shadow: none;
     filter: none;
     accent-color: var(--detail-range-accent, var(--detail-animal-accent));
+    height: 16px;
+    margin-block: -5px;
+    padding: 0;
+    box-sizing: border-box;
     cursor: pointer;
   }
 

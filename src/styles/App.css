@@ -1,11 +1,18 @@
+@font-face {
+  font-family: "Noto Serif KR";
+  src: url("../assets/fonts/NotoSerifKR-VariableFont_wght.woff") format("woff");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
 :root {
   --theme-bg: oklch(0.9909 0.0123 91.51);
   --theme-bg-hex: #faf8f5;
   --theme-bg-rgb: 250 248 245;
   --theme-bg-soft: oklch(0.978 0.01 91.51);
-  --theme-title-font: "Playfair", serif;
+  --theme-title-font: "Playfair", "Noto Serif KR", serif;
   --theme-sim-title-font: "Griun Gowoon", serif;
-  --theme-ui-font: "Playfair", serif;
+  --theme-ui-font: "Playfair", "Noto Serif KR", serif;
   --theme-ui-title-font: "Kyobo 2025", serif;
   --theme-parameter-title-font: "Kyobo 2025", serif;
   --theme-title-spacing: -0.03em;

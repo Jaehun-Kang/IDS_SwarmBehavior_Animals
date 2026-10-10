@@ -1,0 +1,1 @@
+var e=(e,t,n)=>{e.fillStyle=`#000000`,e.beginPath(),e.arc(t,n,12,0,Math.PI*2),e.fill()};export{e as t};

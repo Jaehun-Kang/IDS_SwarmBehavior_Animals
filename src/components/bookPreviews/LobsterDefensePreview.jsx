@@ -7,17 +7,19 @@ import {createLobsterDefense,advanceLobsterDefense,lobsterDefensePose} from "./l
 const atlas=HOME_SPRITE_ATLASES.spiny_lobster;
 export default function LobsterDefensePreview({controls,ruleGroup}){
   const canvasRef=React.useRef(null),controlsRef=React.useRef(controls);
+  const loopRef=React.useRef(null);
   const [error,setError]=React.useState("");
-  React.useEffect(()=>{controlsRef.current=controls;},[controls]);
+  React.useEffect(()=>{controlsRef.current=controls;loopRef.current?.invalidate();},[controls]);
   React.useEffect(()=>{
     let model,frames,disposed=false,still=0,lastLevels="";
     const pose={};
     const loop=createBookCanvasLoop(canvasRef.current,{
+      onInvalidate:()=>{still=0;lastLevels="";},
       onResize:({width,height})=>{model=createLobsterDefense(width/height);still=0;lastLevels="";},
       onFrame:({context:ctx,width,height,elapsedSeconds})=>{
         advanceLobsterDefense(model,controlsRef.current,elapsedSeconds);
         const key=model.levels.join();
-        still=model.threatMoving||model.agents.some(a=>a.moving)||lastLevels!==key?0:still+1;lastLevels=key;if(still>2)return;
+        still=model.threatMoving||model.agents.some(a=>a.moving)||lastLevels!==key?0:still+1;lastLevels=key;if(still>2)return false;
         ctx.clearRect(0,0,width,height);const s=width/model.width,size=2.3*s,h=size*180/175;
         model.agents.forEach((a,i)=>{
           lobsterDefensePose(model,i,pose);ctx.save();ctx.translate(pose.x*s,pose.y*s);ctx.rotate(pose.heading);
@@ -28,9 +30,10 @@ export default function LobsterDefensePreview({controls,ruleGroup}){
         model.threats.forEach((p,i)=>{if(model.levels[i])drawThreatMarker(ctx,p.x*s,p.y*s,width,height);});
       },
     });
+    loopRef.current=loop;
     loadTexturedAtlasCanvas(atlas).then(result=>{if(!disposed){frames=result.frameCanvases;loop.start();}})
       .catch(()=>{if(!disposed)setError("닭새우 이미지를 불러오지 못했습니다.");});
-    return()=>{disposed=true;loop.dispose();};
+    return()=>{disposed=true;loopRef.current=null;loop.dispose();};
   },[]);
   return <div className="canvas-placeholder rule-preview" aria-label={`${ruleGroup.category} 미니 시뮬레이션`}>
     {error?<span role="alert">{error}</span>:null}<canvas ref={canvasRef} className="rule-preview__canvas" />

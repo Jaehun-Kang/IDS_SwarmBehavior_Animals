@@ -390,6 +390,7 @@
 }
 
 .detail-book-spread {
+  cursor: grab;
   position: relative;
   overflow: hidden;
   width: 100%;
@@ -838,6 +839,11 @@
 
 .detail-book-stage.is-turning.is-turn-snapshot-ready .detail-book-spread {
   visibility: hidden;
+}
+
+.detail-book-stage.is-dragging-page,
+.detail-book-stage.is-dragging-page * {
+  cursor: grabbing !important;
 }
 
 .detail-page-chevron {

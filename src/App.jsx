@@ -3,6 +3,7 @@ import "./styles/App.css";
 import Home from "./pages/Home.jsx";
 import Sim from "./pages/Sim.jsx";
 import Detail from "./pages/Detail.jsx";
+import { loadBookPreviews } from "./components/bookPreviews/loadBookPreviews.js";
 import { animals } from "./behaviors/animalData";
 
 const DETAIL_ENTER_DURATION = 400;
@@ -211,6 +212,12 @@ function App() {
       });
     };
   }, [currentPage]);
+
+  useEffect(() => {
+    if (!selectedAnimal) return;
+    // The visible preview handles failures and offers a retry when opened.
+    void loadBookPreviews(selectedAnimal).catch(() => {});
+  }, [selectedAnimal]);
 
   const inactivityRemainingSeconds =
     inactivityRemainingMs === null

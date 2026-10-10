@@ -6,6 +6,7 @@
   "homepage": "https://jaehun-kang.github.io/IDS_SwarmBehavior_Animals/",
   "scripts": {
     "dev": "cross-env BROWSER=chrome vite --open",
+    "sb": "npm run build && node scripts/start-kiosk.mjs",
     "build": "vite build && node scripts/copy-gh-pages-404.mjs",
     "lint": "eslint .",
     "preview": "cross-env BROWSER=chrome vite preview",

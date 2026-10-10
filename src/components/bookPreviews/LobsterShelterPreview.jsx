@@ -6,19 +6,26 @@ import {createLobsterShelter,advanceLobsterShelter,lobsterShelterPose} from "./l
 const atlas=HOME_SPRITE_ATLASES.spiny_lobster;
 export default function LobsterShelterPreview({controls,ruleGroup}){
   const canvasRef=React.useRef(null),controlsRef=React.useRef(controls);
+  const loopRef=React.useRef(null);
   const [error,setError]=React.useState("");
-  React.useEffect(()=>{controlsRef.current=controls;},[controls]);
+  React.useEffect(()=>{controlsRef.current=controls;loopRef.current?.invalidate();},[controls]);
   React.useEffect(()=>{
     let model,frames,disposed=false,stillFrames=0,light=0.4;
     const pose={};
     const loop=createBookCanvasLoop(canvasRef.current,{
+      onInvalidate:()=>{stillFrames=0;},
       onResize:({width,height})=>{model=createLobsterShelter(width/height);stillFrames=0;},
       onFrame:({context:ctx,width,height,elapsedSeconds})=>{
         advanceLobsterShelter(model,controlsRef.current,elapsedSeconds);
         const targetLight=Math.max(0,Math.min(1,(controlsRef.current.light_level??40)/100));
         light+=(targetLight-light)*(1-Math.exp(-elapsedSeconds/0.2));
         const active=Math.abs(targetLight-light)>0.001||model.agents.some((a,i)=>a.moving||model.previous[i].moving);
-        stillFrames=active?0:stillFrames+1;if(stillFrames>2)return;
+        stillFrames=active?0:stillFrames+1;
+        if(stillFrames>2){
+          // Waiting agents still have a departure timer even before they start moving.
+          const sheltered=model.agents.every(a=>a.state==="sheltered"&&targetLight*100>=30+a.id*5);
+          return sheltered?false:undefined;
+        }
         ctx.clearRect(0,0,width,height);
         ctx.fillStyle=`rgba(26,43,49,${(1-light)*0.24})`;ctx.fillRect(0,0,width,height);
         const s=width/model.width,size=2.1*s,h=size*180/175;
@@ -30,9 +37,10 @@ export default function LobsterShelterPreview({controls,ruleGroup}){
         ctx.fillStyle="rgba(63,59,55,0.42)";ctx.beginPath();ctx.arc(width/2,height/2,3*s,0,Math.PI*2);ctx.fill();
       },
     });
+    loopRef.current=loop;
     loadTexturedAtlasCanvas(atlas).then(result=>{if(!disposed){frames=result.frameCanvases;loop.start();}})
       .catch(()=>{if(!disposed)setError("닭새우 이미지를 불러오지 못했습니다.");});
-    return()=>{disposed=true;loop.dispose();};
+    return()=>{disposed=true;loopRef.current=null;loop.dispose();};
   },[]);
   return <div className="canvas-placeholder rule-preview" aria-label={`${ruleGroup.category} 미니 시뮬레이션`}>
     {error?<span role="alert">{error}</span>:null}<canvas ref={canvasRef} className="rule-preview__canvas" />

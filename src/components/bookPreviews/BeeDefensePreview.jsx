@@ -7,16 +7,18 @@ import { createBeeDefense, advanceBeeDefense, beeDefensePose } from "./beeDefens
 const atlas=HOME_SPRITE_ATLASES.bee;
 export default function BeeDefensePreview({controls,ruleGroup}){
   const canvasRef=React.useRef(null),controlsRef=React.useRef(controls);
+  const loopRef=React.useRef(null);
   const [error,setError]=React.useState("");
-  React.useEffect(()=>{controlsRef.current=controls;},[controls]);
+  React.useEffect(()=>{controlsRef.current=controls;loopRef.current?.invalidate();},[controls]);
   React.useEffect(()=>{
     let model,frames,disposed=false,stillFrames=0;
     const pose={};
     const loop=createBookCanvasLoop(canvasRef.current,{
+      onInvalidate:()=>{stillFrames=0;},
       onResize:({width,height})=>{model=createBeeDefense(width/height);stillFrames=0;},
       onFrame:({context:ctx,width,height,elapsedSeconds})=>{
         advanceBeeDefense(model,controlsRef.current,elapsedSeconds);
-        stillFrames=model.moving?0:stillFrames+1;if(stillFrames>2)return;
+        stillFrames=model.moving?0:stillFrames+1;if(stillFrames>2)return false;
         ctx.clearRect(0,0,width,height);
         const s=width/model.width;
         ctx.fillStyle="#a9b2ac";ctx.fillRect(0,0,width*0.23,height);
@@ -38,9 +40,10 @@ export default function BeeDefensePreview({controls,ruleGroup}){
         drawThreatMarker(ctx,x*s,y*s,width,height);
       },
     });
+    loopRef.current=loop;
     loadTexturedAtlasCanvas(atlas).then(result=>{if(!disposed){frames=result.frameCanvases;loop.start();}})
       .catch(()=>{if(!disposed)setError("꿀벌 이미지를 불러오지 못했습니다.");});
-    return()=>{disposed=true;loop.dispose();};
+    return()=>{disposed=true;loopRef.current=null;loop.dispose();};
   },[]);
   return <div className="canvas-placeholder rule-preview" aria-label={`${ruleGroup.category} 미니 시뮬레이션`}>
     {error?<span role="alert">{error}</span>:null}<canvas ref={canvasRef} className="rule-preview__canvas" />

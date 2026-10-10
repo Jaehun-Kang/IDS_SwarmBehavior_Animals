@@ -185,8 +185,9 @@ export const renderBookCurlTransition = ({
   beforeRender,
   onComplete,
   coverMode = 0,
+  renderer: sharedRenderer,
 }) => {
-  const renderer = createBookCurlRenderer({
+  const renderer = sharedRenderer || createBookCurlRenderer({
     canvas,
     fromImage,
     toImage,
@@ -238,7 +239,7 @@ export const renderBookCurlTransition = ({
 
     disposed = true;
     window.cancelAnimationFrame(frameId);
-    renderer.dispose();
+    if (!sharedRenderer) renderer.dispose();
   };
 
   draw(performance.now());
@@ -262,7 +263,7 @@ export const createBookCurlRenderer = ({
     preserveDrawingBuffer: false,
   });
 
-  if (!gl) {
+  if (!gl || gl.isContextLost()) {
     return null;
   }
 
@@ -339,11 +340,18 @@ export const createBookCurlRenderer = ({
     }
 
     disposed = true;
+    canvas.removeEventListener("webglcontextlost", handleContextLost);
     gl.deleteTexture(fromTexture);
     gl.deleteTexture(toTexture);
     gl.deleteBuffer(buffer);
     gl.deleteProgram(program);
   };
+
+  const handleContextLost = (event) => {
+    event.preventDefault();
+    dispose();
+  };
+  canvas.addEventListener("webglcontextlost", handleContextLost);
 
   render(1);
 
@@ -351,5 +359,13 @@ export const createBookCurlRenderer = ({
     render,
     updateTextures,
     dispose,
+    isUsable: () => !disposed && !gl.isContextLost(),
+    configure: (options) => {
+      width = options.width;
+      height = options.height;
+      direction = options.direction;
+      coverMode = options.coverMode ?? 0;
+      updateTextures(options);
+    },
   };
 };

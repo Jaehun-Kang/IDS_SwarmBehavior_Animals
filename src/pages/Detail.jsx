@@ -594,27 +594,13 @@ const drawBookTurnFrame = (
   ctx.restore();
 };
 
-function Detail({
-  animalId,
-  enterDuration = 400,
-  isOpen = true,
-  onOpen,
-  onBackClick,
-  onEnterComplete,
-  inactivityRemainingSeconds,
+const BookIntroSpread = React.memo(function BookIntroSpread({
+  animalId, animal, animalAccentColor, isOpen, isBookOpen,
+  idSuffix, surfaceRef, bookSpreadStyle,
 }) {
-  const [isAnimating, setIsAnimating] = React.useState(true);
-  const [activePageKey, setActivePageKey] = React.useState(null);
-  const [isTurningPage, setIsTurningPage] = React.useState(false);
-  const [turningTargetPageIndex, setTurningTargetPageIndex] =
-    React.useState(null);
-  const [isTurnSnapshotReady, setIsTurnSnapshotReady] = React.useState(false);
-  const [turnCapturePageKey, setTurnCapturePageKey] = React.useState(null);
-  const [turnCaptureSize, setTurnCaptureSize] = React.useState(null);
-  const [isBookOpen, setIsBookOpen] = React.useState(false);
-  const [isBookReturning, setIsBookReturning] = React.useState(false);
-  const [isBookLaunching, setIsBookLaunching] = React.useState(false);
-  const [isBookExpanding, setIsBookExpanding] = React.useState(false);
+  const activePageKey = "intro";
+  const page = { key: "intro" };
+  const pageSurfaceRef = surfaceRef;
   const [introPointerVector, setIntroPointerVector] = React.useState({
     x: 1,
     y: 0,
@@ -624,10 +610,6 @@ function Detail({
     y: 0,
   });
   const [introAnimationTimeMs, setIntroAnimationTimeMs] = React.useState(0);
-  const bookOpenTimerRef = React.useRef(null);
-  const bookCloseTimerRef = React.useRef(null);
-  const bookLaunchFrameRef = React.useRef(null);
-  const bookTransitionLockRef = React.useRef(false);
   const introPointerTargetRef = React.useRef({
     x: 0,
     y: 0,
@@ -637,120 +619,12 @@ function Detail({
   });
   const introHomeAnimalRef = React.useRef(null);
   const introHomeAnimalIdRef = React.useRef(null);
-  const [previewControls, setPreviewControls] = React.useState({});
-  const animal = getAnimalDetails(animalId);
-  const animalAccentColor =
-    ANIMAL_ACCENT_COLORS[animalId] || "rgb(80 62 42)";
   const introAtlas = HOME_SPRITE_ATLASES[animalId];
   const introFrames = useIsolatedAtlasFrames(introAtlas);
-  const coverTextureUrl = getBookCoverTexture(animalId);
-  const coverTextureCssValue = getCssImageValue(coverTextureUrl);
   const introArtworkRef = React.useRef(null);
   const introHomeSlotRef = React.useRef(null);
   const introLayoutRef = React.useRef(null);
   const [introLayout, setIntroLayout] = React.useState(null);
-  const pageSurfaceRef = React.useRef(null);
-  const turnCaptureSurfaceRef = React.useRef(null);
-  const turnCanvasRef = React.useRef(null);
-  const isPageTurnRunningRef = React.useRef(false);
-  const dragStartXRef = React.useRef(null);
-  const dragTurnRef = React.useRef(null);
-  const didAutoFirstTurnRef = React.useRef(false);
-  const pendingCloseAfterCoverRef = React.useRef(false);
-  const closeBookFromCoverRef = React.useRef(null);
-
-  const ruleSpreads = React.useMemo(() => {
-    return Array.isArray(animal?.rules)
-      ? animal.rules.map((ruleGroup) => ({
-          key: ruleGroup.id,
-          label: ruleGroup.category,
-          ruleGroup,
-          type: "rule",
-        }))
-      : [];
-  }, [animal]);
-
-  const bookSpreads = React.useMemo(
-    () => [
-      {
-        key: "cover",
-        label: "Cover",
-        type: "cover",
-      },
-      {
-        key: "intro",
-        label: "소개",
-        type: "intro",
-      },
-      ...ruleSpreads,
-    ],
-    [ruleSpreads],
-  );
-
-  const activePageIndex = React.useMemo(() => {
-    if (!bookSpreads.length) {
-      return -1;
-    }
-
-    const foundIndex = bookSpreads.findIndex(
-      (page) => page.key === activePageKey,
-    );
-
-    return foundIndex >= 0 ? foundIndex : 0;
-  }, [activePageKey, bookSpreads]);
-
-  const activePage = activePageIndex >= 0 ? bookSpreads[activePageIndex] : null;
-  const navigationPageIndex = turningTargetPageIndex ?? activePageIndex;
-  const turnCapturePage = React.useMemo(() => {
-    if (!turnCapturePageKey) {
-      return null;
-    }
-
-    return bookSpreads.find((page) => page.key === turnCapturePageKey) || null;
-  }, [bookSpreads, turnCapturePageKey]);
-  const isBookSpreadOpen = isOpen && isBookOpen;
-  const isBookClosedSpread = !isBookSpreadOpen;
-  const bookStageStyle = {
-    position: "relative",
-    width: "min(94rem, calc(100% - 1.5rem))",
-    height: "min(58rem, calc(100vh - 1rem))",
-    margin: "0 auto",
-    padding: 0,
-    boxSizing: "border-box",
-    perspective: "90rem",
-  };
-  const bookContainerStyle = {
-    width: "100%",
-    padding: 0,
-    margin: 0,
-  };
-  const turnCanvasStyle = {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    zIndex: 230,
-    pointerEvents: "none",
-    opacity: isTurningPage && isTurnSnapshotReady ? 1 : 0,
-    transformOrigin: "left center",
-  };
-  const bookSpreadStyle = {
-    display: "grid",
-    gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-    height: "100%",
-  };
-  const turnCaptureWrapperStyle = turnCaptureSize
-    ? {
-        position: "fixed",
-        left: "-10000px",
-        top: 0,
-        width: `${turnCaptureSize.width}px`,
-        height: `${turnCaptureSize.height}px`,
-        pointerEvents: "none",
-        overflow: "hidden",
-        opacity: 1,
-        zIndex: -1,
-      }
-    : null;
   const introSprite = React.useMemo(() => {
     if (!introAtlas) {
       return null;
@@ -812,7 +686,6 @@ function Detail({
       },
     };
   }, [animalId, introAnimationTimeMs, introAtlas, introPointerVector, introFrames]);
-
   const updateIntroPointerVector = React.useCallback((clientX, clientY) => {
     const node = introArtworkRef.current;
 
@@ -868,47 +741,6 @@ function Detail({
       };
     }
   }, []);
-
-  const clearTurnCanvas = React.useCallback(() => {
-    const canvas = turnCanvasRef.current;
-
-    if (!canvas) {
-      return;
-    }
-
-    canvas.width = 0;
-    canvas.height = 0;
-    canvas.style.width = "0px";
-    canvas.style.height = "0px";
-    setIsTurnSnapshotReady(false);
-  }, []);
-
-  const clearTurnCapture = React.useCallback(() => {
-    setTurnCapturePageKey(null);
-    setTurnCaptureSize(null);
-  }, []);
-
-  const capturePreparedPage = React.useCallback(
-    async (pageKey, size) => {
-      setTurnCaptureSize(size);
-      setTurnCapturePageKey(pageKey);
-
-      await waitForSpreadKey(pageKey, () => turnCaptureSurfaceRef.current);
-
-      const captureNode = turnCaptureSurfaceRef.current;
-
-      if (!captureNode) {
-        throw new Error("Turn capture surface was not mounted");
-      }
-
-      return captureHtmlNodeAsImage(captureNode, coverTextureUrl);
-    },
-    [coverTextureUrl],
-  );
-
-  React.useEffect(() => {
-    setActivePageKey("cover");
-  }, [animalId]);
 
   React.useLayoutEffect(() => {
     const node = introArtworkRef.current;
@@ -1242,6 +1074,308 @@ function Detail({
     };
   }, [activePageKey, animalId, introAtlas, isOpen]);
 
+
+      return (
+        <section
+          key={`${page.key}${idSuffix}`}
+          data-page-key={page.key}
+          className={[
+            "detail-book-spread",
+            "detail-book-spread--intro",
+            isBookOpen ? "is-open" : "is-closed",
+          ].join(" ")}
+          aria-labelledby={`detail-intro-title${idSuffix}`}
+          ref={surfaceRef}
+          style={bookSpreadStyle}
+        >
+          {introSprite ? (
+            <div
+              ref={introArtworkRef}
+              className="detail-intro-artwork detail-intro-artwork--spread"
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                inset: 0,
+                zIndex: 1,
+                pointerEvents: "none",
+              }}
+            >
+              <span
+                className={[
+                  "detail-header-artwork__image",
+                  "detail-header-artwork__sprite",
+                  introAtlas.baseClassName,
+                  introSprite.stage,
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                style={{
+                  ...introSprite.style,
+                  position: "absolute",
+                  left: introLayout?.x ?? "74%",
+                  top: introLayout?.y ?? "42%",
+                  width: introLayout?.width,
+                  transform: `translate(-50%, -50%) translate(${introSpriteOffset.x}px, ${introSpriteOffset.y}px) rotate(${introSprite.rotationDeg || 0}deg) scaleX(${introSprite.scaleX}) scaleY(${introSprite.scaleY ?? 1})`,
+                  transformOrigin:
+                    animalId === "penguin" && introHomeAnimalRef.current?.introPointerInside
+                      ? "50% 100%" : "50% 50%",
+                }}
+              />
+            </div>
+          ) : null}
+          <div className="detail-book-page detail-book-page--inside-cover" />
+          <div className="detail-book-page detail-book-page--intro">
+            <div className="detail-page-inner detail-page-inner--intro">
+              <div className="detail-intro-artwork" aria-hidden="true">
+                {introSprite ? <span
+                  ref={introHomeSlotRef}
+                  className="detail-header-artwork__image"
+                  style={{ ...introSprite.style, visibility: "hidden" }}
+                /> : null}
+              </div>
+              <div className="detail-intro-copy">
+                <h1
+                  id={`detail-intro-title${idSuffix}`}
+                  className="theme-page-title"
+                  style={{ color: animalAccentColor }}
+                >
+                  {animal.korean}
+                </h1>
+                <p
+                  className="detail-english"
+                  style={{ color: animalAccentColor }}
+                >
+                  {animal.english}
+                </p>
+                <p
+                  className="detail-scientific"
+                  style={{ color: animalAccentColor }}
+                >
+                  {animal.scientific}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      );
+});
+
+function Detail({
+  animalId,
+  enterDuration = 400,
+  isOpen = true,
+  onOpen,
+  onBackClick,
+  onEnterComplete,
+  inactivityRemainingSeconds,
+}) {
+  const [isAnimating, setIsAnimating] = React.useState(true);
+  const [activePageKey, setActivePageKey] = React.useState(null);
+  const [isTurningPage, setIsTurningPage] = React.useState(false);
+  const [isDraggingPage, setIsDraggingPage] = React.useState(false);
+  const [turningTargetPageIndex, setTurningTargetPageIndex] =
+    React.useState(null);
+  const [isTurnSnapshotReady, setIsTurnSnapshotReady] = React.useState(false);
+  const [turnCapturePageKey, setTurnCapturePageKey] = React.useState(null);
+  const [turnCaptureSize, setTurnCaptureSize] = React.useState(null);
+  const [isBookOpen, setIsBookOpen] = React.useState(false);
+  const [isBookReturning, setIsBookReturning] = React.useState(false);
+  const [isBookLaunching, setIsBookLaunching] = React.useState(false);
+  const [isBookExpanding, setIsBookExpanding] = React.useState(false);
+  const bookOpenTimerRef = React.useRef(null);
+  const bookCloseTimerRef = React.useRef(null);
+  const bookLaunchFrameRef = React.useRef(null);
+  const bookTransitionLockRef = React.useRef(false);
+  const [previewControls, setPreviewControls] = React.useState({});
+  const animal = getAnimalDetails(animalId);
+  const animalAccentColor =
+    ANIMAL_ACCENT_COLORS[animalId] || "rgb(80 62 42)";
+  const coverTextureUrl = getBookCoverTexture(animalId);
+  const coverTextureCssValue = getCssImageValue(coverTextureUrl);
+  const pageSurfaceRef = React.useRef(null);
+  const turnCaptureSurfaceRef = React.useRef(null);
+  const turnCanvasRef = React.useRef(null);
+  const isPageTurnRunningRef = React.useRef(false);
+  const dragStartXRef = React.useRef(null);
+  const dragTurnRef = React.useRef(null);
+  const curlRendererRef = React.useRef(null);
+  const autoTurnDisposeRef = React.useRef(null);
+  const turnGenerationRef = React.useRef(0);
+  const prepareCurlRenderer = React.useCallback((options) => {
+    if (!curlRendererRef.current?.isUsable()) {
+      curlRendererRef.current?.dispose();
+      curlRendererRef.current = createBookCurlRenderer(options);
+    } else {
+      curlRendererRef.current.configure(options);
+    }
+    return curlRendererRef.current;
+  }, []);
+  React.useEffect(() => () => {
+    turnGenerationRef.current += 1;
+    autoTurnDisposeRef.current?.();
+    autoTurnDisposeRef.current = null;
+    window.cancelAnimationFrame(dragTurnRef.current?.frameId);
+    dragTurnRef.current = null;
+    dragStartXRef.current = null;
+    isPageTurnRunningRef.current = false;
+    curlRendererRef.current?.dispose();
+    curlRendererRef.current = null;
+  }, [isOpen, isBookOpen, animalId]);
+  const didAutoFirstTurnRef = React.useRef(false);
+  const pendingCloseAfterCoverRef = React.useRef(false);
+  const closeBookFromCoverRef = React.useRef(null);
+
+  const ruleSpreads = React.useMemo(() => {
+    return Array.isArray(animal?.rules)
+      ? animal.rules.map((ruleGroup) => ({
+          key: ruleGroup.id,
+          label: ruleGroup.category,
+          ruleGroup,
+          type: "rule",
+        }))
+      : [];
+  }, [animal]);
+
+  const bookSpreads = React.useMemo(
+    () => [
+      {
+        key: "cover",
+        label: "Cover",
+        type: "cover",
+      },
+      {
+        key: "intro",
+        label: "소개",
+        type: "intro",
+      },
+      ...ruleSpreads,
+    ],
+    [ruleSpreads],
+  );
+
+  const activePageIndex = React.useMemo(() => {
+    if (!bookSpreads.length) {
+      return -1;
+    }
+
+    const foundIndex = bookSpreads.findIndex(
+      (page) => page.key === activePageKey,
+    );
+
+    return foundIndex >= 0 ? foundIndex : 0;
+  }, [activePageKey, bookSpreads]);
+
+  const activePage = activePageIndex >= 0 ? bookSpreads[activePageIndex] : null;
+  const navigationPageIndex = turningTargetPageIndex ?? activePageIndex;
+  const turnCapturePage = React.useMemo(() => {
+    if (!turnCapturePageKey) {
+      return null;
+    }
+
+    return bookSpreads.find((page) => page.key === turnCapturePageKey) || null;
+  }, [bookSpreads, turnCapturePageKey]);
+  const isBookSpreadOpen = isOpen && isBookOpen;
+  const isBookClosedSpread = !isBookSpreadOpen;
+  const bookStageStyle = {
+    position: "relative",
+    width: "min(94rem, calc(100% - 1.5rem))",
+    height: "min(58rem, calc(100vh - 1rem))",
+    margin: "0 auto",
+    padding: 0,
+    boxSizing: "border-box",
+    perspective: "90rem",
+  };
+  const bookContainerStyle = {
+    width: "100%",
+    padding: 0,
+    margin: 0,
+  };
+  const turnCanvasStyle = {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    zIndex: 230,
+    pointerEvents: "none",
+    opacity: isTurningPage && isTurnSnapshotReady ? 1 : 0,
+    transformOrigin: "left center",
+  };
+  const bookSpreadStyle = {
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+    height: "100%",
+  };
+  const turnCaptureWrapperStyle = turnCaptureSize
+    ? {
+        position: "fixed",
+        left: "-10000px",
+        top: 0,
+        width: `${turnCaptureSize.width}px`,
+        height: `${turnCaptureSize.height}px`,
+        pointerEvents: "none",
+        overflow: "hidden",
+        opacity: 1,
+        zIndex: -1,
+      }
+    : null;
+
+
+  const clearTurnCanvas = React.useCallback(() => {
+    const canvas = turnCanvasRef.current;
+
+    if (!canvas) {
+      return;
+    }
+
+    canvas.width = 0;
+    canvas.height = 0;
+    canvas.style.width = "0px";
+    canvas.style.height = "0px";
+    setIsTurnSnapshotReady(false);
+  }, []);
+
+  const clearTurnCapture = React.useCallback(() => {
+    setTurnCapturePageKey(null);
+    setTurnCaptureSize(null);
+  }, []);
+
+  const capturePreparedPage = React.useCallback(
+    async (pageKey, size) => {
+      setTurnCaptureSize(size);
+      setTurnCapturePageKey(pageKey);
+
+      await waitForSpreadKey(pageKey, () => turnCaptureSurfaceRef.current);
+
+      const captureNode = turnCaptureSurfaceRef.current;
+
+      if (!captureNode) {
+        throw new Error("Turn capture surface was not mounted");
+      }
+
+      return captureHtmlNodeAsImage(captureNode, coverTextureUrl);
+    },
+    [coverTextureUrl],
+  );
+
+  const captureTurnPages = React.useCallback(
+    async (pageNode, nextPageKey) => {
+      const { width, height } = pageNode.getBoundingClientRect();
+      const snapshots = await Promise.allSettled([
+        captureHtmlNodeAsImage(pageNode, coverTextureUrl),
+        capturePreparedPage(nextPageKey, { width, height }),
+      ]);
+      // Let both captures finish before their shared capture surface is cleared.
+      const failed = snapshots.find((snapshot) => snapshot.status === "rejected");
+      if (failed) throw failed.reason;
+      return snapshots.map((snapshot) => snapshot.value);
+    },
+    [capturePreparedPage, coverTextureUrl],
+  );
+
+  React.useEffect(() => {
+    setActivePageKey("cover");
+  }, [animalId]);
+
+
   React.useEffect(() => {
     window.clearTimeout(bookOpenTimerRef.current);
     window.clearTimeout(bookCloseTimerRef.current);
@@ -1376,55 +1510,34 @@ function Detail({
       isPageTurnRunningRef.current = true;
       setTurningTargetPageIndex(nextIndex);
 
+      const generation = turnGenerationRef.current;
       try {
-        const fromSnapshot = await captureHtmlNodeAsImage(
+        const [fromSnapshot, toSnapshot] = await captureTurnPages(
           pageNode,
-          coverTextureUrl,
+          nextPage.key,
         );
         const coverMode = getCoverTurnMode(activePage, nextPage);
 
+        if (generation !== turnGenerationRef.current) return;
+
         const direction = nextIndex > activePageIndex ? 1 : -1;
         const dpr = window.devicePixelRatio || 1;
-        const captureSize = {
-          width: fromSnapshot.width,
-          height: fromSnapshot.height,
-        };
 
         canvas.width = Math.round(fromSnapshot.width * dpr);
         canvas.height = Math.round(fromSnapshot.height * dpr);
         canvas.style.width = `${fromSnapshot.width}px`;
         canvas.style.height = `${fromSnapshot.height}px`;
 
-        let stagingRenderer = null;
-
-        try {
-          stagingRenderer = createBookCurlRenderer({
-            canvas,
-            fromImage: fromSnapshot.image,
-            toImage: fromSnapshot.image,
-            width: fromSnapshot.width,
-            height: fromSnapshot.height,
-            direction,
-            coverMode,
-          });
-          refreshSnapshotTextures(stagingRenderer, fromSnapshot, fromSnapshot);
-          stagingRenderer?.render(1);
-        } catch {
-          stagingRenderer = null;
-        }
-
         setIsTurningPage(true);
         setIsTurnSnapshotReady(false);
 
         window.requestAnimationFrame(async () => {
+          if (generation !== turnGenerationRef.current) return;
           try {
-            const toSnapshot = await capturePreparedPage(
-              nextPage.key,
-              captureSize,
-            );
             clearTurnCapture();
             setIsTurnSnapshotReady(true);
             const completeTurn = () => {
+              autoTurnDisposeRef.current = null;
               setActivePageKey(nextPage.key);
               setIsTurningPage(false);
               setIsTurnSnapshotReady(false);
@@ -1443,8 +1556,16 @@ function Detail({
             let dispose = null;
 
             try {
-              stagingRenderer?.dispose?.();
               dispose = renderBookCurlTransition({
+                renderer: prepareCurlRenderer({
+                  canvas,
+                  fromImage: fromSnapshot.image,
+                  toImage: toSnapshot.image,
+                  width: fromSnapshot.width,
+                  height: fromSnapshot.height,
+                  direction,
+                  coverMode,
+                }),
                 canvas,
                 fromImage: fromSnapshot.image,
                 toImage: toSnapshot.image,
@@ -1462,6 +1583,7 @@ function Detail({
             }
 
             if (dispose) {
+              autoTurnDisposeRef.current = dispose;
               return;
             }
 
@@ -1478,6 +1600,7 @@ function Detail({
             setIsTurnSnapshotReady(true);
 
             const draw = (now) => {
+              if (generation !== turnGenerationRef.current) return;
               const progress = Math.min(
                 1,
                 (now - startTime) / CANVAS_TURN_DURATION,
@@ -1503,7 +1626,6 @@ function Detail({
 
             window.requestAnimationFrame(draw);
           } catch {
-            stagingRenderer?.dispose?.();
             clearTurnCapture();
             setIsTurningPage(false);
             setIsTurnSnapshotReady(false);
@@ -1513,6 +1635,7 @@ function Detail({
           }
         });
       } catch {
+        if (generation !== turnGenerationRef.current) return;
         clearTurnCapture();
         setActivePageKey(nextPage.key);
         setIsTurningPage(false);
@@ -1526,10 +1649,11 @@ function Detail({
       activePage,
       activePageIndex,
       bookSpreads,
-      capturePreparedPage,
+      captureTurnPages,
       clearTurnCanvas,
       clearTurnCapture,
       coverTextureUrl,
+      prepareCurlRenderer,
     ],
   );
 
@@ -1558,8 +1682,7 @@ function Detail({
   }, []);
 
   const cleanupDragTurn = React.useCallback(() => {
-    dragTurnRef.current?.renderer?.dispose?.();
-    dragTurnRef.current?.stagingRenderer?.dispose?.();
+    window.cancelAnimationFrame(dragTurnRef.current?.frameId);
     dragTurnRef.current = null;
     dragStartXRef.current = null;
     setTurningTargetPageIndex(null);
@@ -1568,6 +1691,12 @@ function Detail({
   const finishInteractiveTurn = React.useCallback(
     ({ shouldComplete }) => {
       const dragTurn = dragTurnRef.current;
+
+      if (dragTurn) {
+        window.cancelAnimationFrame(dragTurn.frameId);
+        dragTurn.frameId = null;
+        dragTurn.releaseRequested = true;
+      }
 
       if (!dragTurn?.renderer) {
         if (dragTurn) {
@@ -1606,7 +1735,7 @@ function Detail({
         dragTurn.renderer.render(nextCurl, now);
 
         if (progress < 1) {
-          window.requestAnimationFrame(draw);
+          dragTurn.frameId = window.requestAnimationFrame(draw);
           return;
         }
 
@@ -1632,7 +1761,7 @@ function Detail({
         window.requestAnimationFrame(clearTurnCanvas);
       };
 
-      window.requestAnimationFrame(draw);
+      dragTurn.frameId = window.requestAnimationFrame(draw);
     },
     [bookSpreads, cleanupDragTurn, clearTurnCanvas],
   );
@@ -1730,29 +1859,27 @@ function Detail({
         nextIndex,
         direction,
         renderer: null,
-        stagingRenderer: null,
         fromSnapshot: null,
         toSnapshot: null,
         currentCurl: getCurlPosFromClientX(clientX, direction),
         pendingClientX: clientX,
         releaseRequested: false,
         shouldComplete: false,
+        frameId: null,
       };
 
       dragTurnRef.current = dragTurn;
 
       try {
-        const fromSnapshot = await captureHtmlNodeAsImage(
+        const [fromSnapshot, toSnapshot] = await captureTurnPages(
           pageNode,
-          coverTextureUrl,
+          nextPage.key,
         );
         const coverMode = getCoverTurnMode(activePage, nextPage);
 
+        if (dragTurnRef.current !== dragTurn) return;
+
         const dpr = window.devicePixelRatio || 1;
-        const captureSize = {
-          width: fromSnapshot.width,
-          height: fromSnapshot.height,
-        };
 
         dragTurn.fromSnapshot = fromSnapshot;
 
@@ -1760,26 +1887,6 @@ function Detail({
         canvas.height = Math.round(fromSnapshot.height * dpr);
         canvas.style.width = `${fromSnapshot.width}px`;
         canvas.style.height = `${fromSnapshot.height}px`;
-
-        try {
-          dragTurn.stagingRenderer = createBookCurlRenderer({
-            canvas,
-            fromImage: fromSnapshot.image,
-            toImage: fromSnapshot.image,
-            width: fromSnapshot.width,
-            height: fromSnapshot.height,
-            direction,
-            coverMode,
-          });
-          refreshSnapshotTextures(
-            dragTurn.stagingRenderer,
-            fromSnapshot,
-            fromSnapshot,
-          );
-          dragTurn.stagingRenderer?.render(1);
-        } catch {
-          dragTurn.stagingRenderer = null;
-        }
 
         setIsTurningPage(true);
         setIsTurnSnapshotReady(false);
@@ -1790,15 +1897,10 @@ function Detail({
           }
 
           try {
-            const toSnapshot = await capturePreparedPage(
-              nextPage.key,
-              captureSize,
-            );
             clearTurnCapture();
             dragTurn.fromSnapshot = fromSnapshot;
             dragTurn.toSnapshot = toSnapshot;
-            dragTurn.stagingRenderer?.dispose?.();
-            const renderer = createBookCurlRenderer({
+            const renderer = prepareCurlRenderer({
               canvas,
               fromImage: fromSnapshot.image,
               toImage: toSnapshot.image,
@@ -1837,6 +1939,7 @@ function Detail({
           }
         });
       } catch {
+        if (dragTurnRef.current !== dragTurn) return;
         clearTurnCapture();
         setIsTurningPage(false);
         setIsTurnSnapshotReady(false);
@@ -1850,13 +1953,14 @@ function Detail({
       activePage,
       activePageIndex,
       bookSpreads,
-      capturePreparedPage,
+      captureTurnPages,
       clearTurnCanvas,
       clearTurnCapture,
       cleanupDragTurn,
       coverTextureUrl,
       finishInteractiveTurn,
       getCurlPosFromClientX,
+      prepareCurlRenderer,
     ],
   );
 
@@ -1886,6 +1990,7 @@ function Detail({
     }
 
     event.currentTarget.setPointerCapture?.(event.pointerId);
+    setIsDraggingPage(true);
     dragStartXRef.current = event.clientX;
     startInteractiveTurn({ clientX: event.clientX, direction });
   };
@@ -1899,23 +2004,28 @@ function Detail({
 
     dragTurn.pendingClientX = event.clientX;
 
-    if (!dragTurn.renderer) {
+    if (!dragTurn.renderer || dragTurn.frameId != null || dragTurn.releaseRequested) {
       return;
     }
 
-    dragTurn.currentCurl = getCurlPosFromClientX(
-      event.clientX,
-      dragTurn.direction,
-    );
-    refreshSnapshotTextures(
-      dragTurn.renderer,
-      dragTurn.fromSnapshot,
-      dragTurn.toSnapshot,
-    );
-    dragTurn.renderer.render(dragTurn.currentCurl);
+    dragTurn.frameId = window.requestAnimationFrame((now) => {
+      dragTurn.frameId = null;
+      if (dragTurnRef.current !== dragTurn || dragTurn.releaseRequested) return;
+      dragTurn.currentCurl = getCurlPosFromClientX(
+        dragTurn.pendingClientX,
+        dragTurn.direction,
+      );
+      refreshSnapshotTextures(
+        dragTurn.renderer,
+        dragTurn.fromSnapshot,
+        dragTurn.toSnapshot,
+      );
+      dragTurn.renderer.render(dragTurn.currentCurl, now);
+    });
   };
 
   const handleBookPointerUp = (event) => {
+    setIsDraggingPage(false);
     if (dragStartXRef.current === null) {
       return;
     }
@@ -1937,10 +2047,13 @@ function Detail({
       (curlPos < 0.62 || Math.abs(deltaX) >= DRAG_TURN_THRESHOLD);
 
     dragTurn.currentCurl = curlPos;
+    dragTurn.pendingClientX = event.clientX;
     finishInteractiveTurn({ shouldComplete });
   };
 
   const handleBookPointerCancel = () => {
+    setIsDraggingPage(false);
+    dragStartXRef.current = null;
     const dragTurn = dragTurnRef.current;
 
     if (!dragTurn) {
@@ -2009,89 +2122,10 @@ function Detail({
     }
 
     if (page?.type === "intro") {
-      return (
-        <section
-          key={`${page.key}${idSuffix}`}
-          data-page-key={page.key}
-          className={[
-            "detail-book-spread",
-            "detail-book-spread--intro",
-            isBookOpen ? "is-open" : "is-closed",
-          ].join(" ")}
-          aria-labelledby={`detail-intro-title${idSuffix}`}
-          ref={surfaceRef}
-          style={bookSpreadStyle}
-        >
-          {introSprite ? (
-            <div
-              ref={isCapture ? null : introArtworkRef}
-              className="detail-intro-artwork detail-intro-artwork--spread"
-              aria-hidden="true"
-              style={{
-                position: "absolute",
-                inset: 0,
-                zIndex: 1,
-                pointerEvents: "none",
-              }}
-            >
-              <span
-                className={[
-                  "detail-header-artwork__image",
-                  "detail-header-artwork__sprite",
-                  introAtlas.baseClassName,
-                  introSprite.stage,
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                style={{
-                  ...introSprite.style,
-                  position: "absolute",
-                  left: introLayout?.x ?? "74%",
-                  top: introLayout?.y ?? "42%",
-                  width: introLayout?.width,
-                  transform: `translate(-50%, -50%) translate(${introSpriteOffset.x}px, ${introSpriteOffset.y}px) rotate(${introSprite.rotationDeg || 0}deg) scaleX(${introSprite.scaleX}) scaleY(${introSprite.scaleY ?? 1})`,
-                  transformOrigin:
-                    animalId === "penguin" && introHomeAnimalRef.current?.introPointerInside
-                      ? "50% 100%" : "50% 50%",
-                }}
-              />
-            </div>
-          ) : null}
-          <div className="detail-book-page detail-book-page--inside-cover" />
-          <div className="detail-book-page detail-book-page--intro">
-            <div className="detail-page-inner detail-page-inner--intro">
-              <div className="detail-intro-artwork" aria-hidden="true">
-                {introSprite ? <span
-                  ref={isCapture ? null : introHomeSlotRef}
-                  className="detail-header-artwork__image"
-                  style={{ ...introSprite.style, visibility: "hidden" }}
-                /> : null}
-              </div>
-              <div className="detail-intro-copy">
-                <h1
-                  id={`detail-intro-title${idSuffix}`}
-                  className="theme-page-title"
-                  style={{ color: animalAccentColor }}
-                >
-                  {animal.korean}
-                </h1>
-                <p
-                  className="detail-english"
-                  style={{ color: animalAccentColor }}
-                >
-                  {animal.english}
-                </p>
-                <p
-                  className="detail-scientific"
-                  style={{ color: animalAccentColor }}
-                >
-                  {animal.scientific}
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-      );
+      return <BookIntroSpread key={`${animalId}:${page.key}${idSuffix}`}
+        animalId={animalId} animal={animal} animalAccentColor={animalAccentColor}
+        isOpen={isOpen && !isCapture} isBookOpen={isBookOpen}
+        idSuffix={idSuffix} surfaceRef={surfaceRef} bookSpreadStyle={bookSpreadStyle} />;
     }
 
     if (page?.type === "rule") {
@@ -2215,6 +2249,7 @@ function Detail({
             isBookOpen ? "is-book-open" : "",
             isBookClosedSpread ? "is-book-closed-spread" : "",
             isTurningPage ? "is-turning" : "",
+            isDraggingPage ? "is-dragging-page" : "",
             isTurnSnapshotReady ? "is-turn-snapshot-ready" : "",
           ]
             .filter(Boolean)
@@ -2224,6 +2259,7 @@ function Detail({
           onPointerMove={handleBookPointerMove}
           onPointerUp={handleBookPointerUp}
           onPointerCancel={handleBookPointerCancel}
+          onLostPointerCapture={() => setIsDraggingPage(false)}
           onClick={handleClosedBookOpen}
         >
           {isOpen && inactivityRemainingSeconds !== null ? (

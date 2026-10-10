@@ -75,6 +75,7 @@ export default function LocustGroundPreview({ controls, ruleGroup }) {
   }, [ruleGroup.interaction]);
   return <div className="canvas-placeholder rule-preview" aria-label={`${ruleGroup.category} 미니 시뮬레이션`}>
     {error ? <span role="alert">{error}</span> : null}
-    <canvas ref={canvasRef} className="rule-preview__canvas" />
+    <canvas ref={canvasRef} className="rule-preview__canvas"
+      style={{ cursor: !error && ruleGroup.interaction === "food_threat" ? "none" : undefined }} />
   </div>;
 }

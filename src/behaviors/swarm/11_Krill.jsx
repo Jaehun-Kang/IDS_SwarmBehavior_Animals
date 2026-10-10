@@ -689,11 +689,18 @@ const ensureAgents = (agentsRef, config, width, height) => {
   });
 };
 
-const resolveTopologicalNeighbors = (neighbors) =>
-  neighbors
-    .slice()
-    .sort((left, right) => left.distance - right.distance)
-    .slice(0, PARAMS.TOPOLOGICAL_NEIGHBOR_COUNT);
+const resolveTopologicalNeighbors = (neighbors) => {
+  const nearest = [];
+  const count = PARAMS.TOPOLOGICAL_NEIGHBOR_COUNT;
+  for (const neighbor of neighbors) {
+    let index = nearest.findIndex(other => neighbor.distance < other.distance);
+    if (index < 0) index = nearest.length;
+    if (index >= count) continue;
+    nearest.splice(index, 0, neighbor);
+    if (nearest.length > count) nearest.pop();
+  }
+  return nearest;
+};
 
 const calculateSeparation = (neighbors, separationDistance) => {
   let forceX = 0;
@@ -756,6 +763,10 @@ const calculateDensityGradientCohesion = (neighbors, separationDistance) => {
   const preferredDistance = separationDistance * 1.55;
 
   neighbors.forEach((neighbor) => {
+    // Coincident positions have no radial direction (0 / 0 would poison motion).
+    if (!Number.isFinite(neighbor.distance) || neighbor.distance <= 1e-6) {
+      return;
+    }
     const directionX = neighbor.dx / neighbor.distance;
     const directionY = neighbor.dy / neighbor.distance;
     let shellWeight = 0;
@@ -1323,11 +1334,53 @@ const updateParachutingState = (agent, food, height, dt) => {
   }
 };
 
-const gatherNeighbors = (agents, agentIndex) => {
+const neighborCellKey = (agent) =>
+  Number.isFinite(agent.x) && Number.isFinite(agent.y)
+    ? `${Math.floor(agent.x / PARAMS.PERCEPTION_RADIUS_PX)}|${Math.floor(agent.y / PARAMS.PERCEPTION_RADIUS_PX)}`
+    : null;
+
+const updateNeighborGrid = (grid, agent, index) => {
+  const key = neighborCellKey(agent);
+  const previous = grid.keys[index];
+  if (previous === key) return;
+  if (previous != null) {
+    const bucket = grid.cells.get(previous);
+    bucket.delete(index);
+    if (!bucket.size) grid.cells.delete(previous);
+  }
+  grid.keys[index] = key;
+  if (key === null) return;
+  if (!grid.cells.has(key)) grid.cells.set(key, new Set());
+  grid.cells.get(key).add(index);
+};
+
+const createNeighborGrid = (agents) => {
+  const grid = { cells: new Map(), keys: [] };
+  agents.forEach((agent, index) => updateNeighborGrid(grid, agent, index));
+  return grid;
+};
+
+const nearbyIndices = (grid, agent) => {
+  if (neighborCellKey(agent) === null) return [];
+  const x = Math.floor(agent.x / PARAMS.PERCEPTION_RADIUS_PX);
+  const y = Math.floor(agent.y / PARAMS.PERCEPTION_RADIUS_PX);
+  const indices = [];
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      const bucket = grid.cells.get(`${x + dx}|${y + dy}`);
+      if (bucket) for (const index of bucket) indices.push(index);
+    }
+  }
+  // Preserve the original accumulation order and stable nearest-neighbor ties.
+  return indices.sort((a, b) => a - b);
+};
+
+const gatherNeighbors = (agents, agentIndex, grid) => {
   const agent = agents[agentIndex];
   const neighbors = [];
 
-  for (let index = 0; index < agents.length; index += 1) {
+  const candidates = grid ? nearbyIndices(grid, agent) : agents.keys();
+  for (const index of candidates) {
     if (index === agentIndex) {
       continue;
     }
@@ -1350,21 +1403,20 @@ const gatherNeighbors = (agents, agentIndex) => {
 };
 
 const calculateSwarmCenter = (agents) => {
-  if (agents.length === 0) {
-    return null;
+  let x = 0;
+  let y = 0;
+  let count = 0;
+  for (const agent of agents) {
+    if (!Number.isFinite(agent.x) || !Number.isFinite(agent.y)) continue;
+    x += agent.x;
+    y += agent.y;
+    count += 1;
   }
-
-  const total = agents.reduce(
-    (accumulator, agent) => ({
-      x: accumulator.x + agent.x,
-      y: accumulator.y + agent.y,
-    }),
-    { x: 0, y: 0 },
-  );
+  if (count === 0) return null;
 
   return {
-    x: total.x / agents.length,
-    y: total.y / agents.length,
+    x: x / count,
+    y: y / count,
   };
 };
 
@@ -1446,7 +1498,7 @@ const advanceAgent = (agent, index, agents, context) => {
       (predatorPointer?.active ? PARAMS.PREDATOR_REJOIN_COHESION_MULTIPLIER : 1)
     );
   })();
-  const neighbors = gatherNeighbors(agents, index);
+  const neighbors = gatherNeighbors(agents, index, context.neighborGrid);
   const topologicalNeighbors = resolveTopologicalNeighbors(neighbors);
   agent.localDensity = clamp(neighbors.length / 22, 0, 1);
 
@@ -2233,6 +2285,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           foodField: foodFieldRef.current,
           config: behaviorConfig,
           swarmCenter: calculateSwarmCenter(agentsRef.current),
+          neighborGrid: createNeighborGrid(agentsRef.current),
           predatorPointer:
             behaviorConfig.interactionMode === "predator"
               ? pointerRef.current
@@ -2241,6 +2294,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 
         agentsRef.current.forEach((agent, index) => {
           advanceAgent(agent, index, agentsRef.current, context);
+          // Later agents must see earlier agents at their updated positions.
+          updateNeighborGrid(context.neighborGrid, agent, index);
         });
       }
 

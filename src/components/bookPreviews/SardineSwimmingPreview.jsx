@@ -78,6 +78,7 @@ export default function SardineSwimmingPreview({ ruleGroup, controls }) {
   return <div className="canvas-placeholder rule-preview" aria-label={`${ruleGroup.category} 미니 시뮬레이션`}>
     {error ? <span role="alert">{error}</span> : null}
     <canvas ref={canvasRef} className="rule-preview__canvas"
+      style={{ cursor: !error && ruleGroup.interaction === "predator" ? "none" : undefined }}
       aria-label={ruleGroup.interaction === "predator" ? "포식자 위치에 반응하는 정어리 무리" : undefined} />
   </div>;
 }

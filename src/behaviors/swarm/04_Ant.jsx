@@ -244,10 +244,6 @@ const RECRUITMENT_RESERVE_ACTIVE_RATIO_BOOST = 0;
 const RECRUITMENT_RESERVE_RELEASE_NOISE_RAD = 0.18;
 const RECRUITMENT_NEAR_COLONY_JOIN_RADIUS = 2.45;
 const RECRUITMENT_NEAR_COLONY_JOIN_RATE_PER_S = 0;
-const FOOD_DEBUG_LOG_COOLDOWN_S = 0.25;
-const RECRUITMENT_DEBUG_LOG_COOLDOWN_S = 0.35;
-const TURNAROUND_DEBUG_LOG_COOLDOWN_S = 0.35;
-const BIVOUAC_DEBUG_LOG_COOLDOWN_S = 0.35;
 const INITIAL_ACTIVE_SEED_COUNT = 160;
 const INITIAL_ACTIVE_SEED_RATIO = 0.42;
 const INITIAL_SCOUT_FRONT_INNER_BODY_LENGTHS = 8;
@@ -338,7 +334,6 @@ const LONG_RANGE_MEMORY_DAMP = 0.48;
 const LONG_RANGE_FIELD_DAMP = 0.52;
 const RAID_FRONT_ARC_RAD = 1.2;
 const RAID_FRONT_LOCK_DURATION_S = 3.5;
-const DEBUG_LOG_INTERVAL_S = 2;
 
 const bodyLengthsPerSecondToCmPerSecond = (
   bodyLengthsPerSecond,
@@ -511,8 +506,6 @@ const pointToSegmentDistance = (point, start, end) => {
 };
 
 const wrapAngle = (angle) => Math.atan2(Math.sin(angle), Math.cos(angle));
-const roundDebug = (value, digits = 2) => Number(value.toFixed(digits));
-const ANT_DEBUG_VERSION = "food-gate-v37";
 
 const sampleGaussian = () => {
   let u = 0;
@@ -726,7 +719,6 @@ const createAnt = (world, controls, role, index = 0) => {
     vectorToAngle(outwardDir) +
     (Math.random() - 0.5) * LONG_RANGE_SEARCH_SPREAD_RAD;
   return {
-    debugId: index,
     position,
     heading,
     speedPxS: controls.V_SEARCH_CM_S * world.metrics.pxPerCm,
@@ -770,10 +762,6 @@ const createAnt = (world, controls, role, index = 0) => {
     foodCuePatchId: null,
     suppressFoodRecognitionS: 0,
     foodLinkedRecruitment: false,
-    lastFoodDebugLogTime: Number.NEGATIVE_INFINITY,
-    lastRecruitmentDebugLogTime: Number.NEGATIVE_INFINITY,
-    lastTurnaroundDebugLogTime: Number.NEGATIVE_INFINITY,
-    lastBivouacDebugLogTime: Number.NEGATIVE_INFINITY,
     informedBivouacOrbitAccum: 0,
     informedBivouacOrbitAngle: null,
     recruitmentMarkerCooldownS: Math.random() * RECRUITMENT_MARKER_INTERVAL_S,
@@ -788,7 +776,6 @@ const createWorld = (width, height, controls) => {
     height,
     time: 0,
     raidFrontAngle: Math.random() * Math.PI * 2 - Math.PI,
-    nextDebugLogTime: DEBUG_LOG_INTERVAL_S,
     fieldUpdateAccumulator: 0,
     reserveReleaseAccumulator: 0,
     colonyDemand: INITIAL_COLONY_DEMAND,
@@ -1708,147 +1695,9 @@ const resolveFoodPatchOverlap = (world, position) => {
   };
 };
 
-const logFoodRecognition = (
-  world,
-  ant,
-  patchContact,
-  source,
-  recognized,
-  reason,
-) => {
-  if (!patchContact.patch) {
-    return;
-  }
 
-  const now = world.time;
-  const shouldThrottle =
-    !recognized && now - ant.lastFoodDebugLogTime < FOOD_DEBUG_LOG_COOLDOWN_S;
-  if (shouldThrottle) {
-    return;
-  }
 
-  ant.lastFoodDebugLogTime = now;
-  console.info(
-    "[ant-food] " +
-      JSON.stringify({
-        version: ANT_DEBUG_VERSION,
-        t: roundDebug(now, 2),
-        antId: ant.debugId,
-        source,
-        recognized,
-        reason,
-        patchIndex: patchContact.patchIndex,
-        role: ant.role,
-        state: ant.state,
-        trailMode: ant.trailMode,
-        knowsFoodLocation: ant.knowsFoodLocation,
-        foodLinkedRecruitment: ant.foodLinkedRecruitment,
-        patchDistancePx: roundDebug(
-          distance(ant.position, patchContact.patch.position),
-          2,
-        ),
-        patchRadiusPx: roundDebug(patchContact.patch.radiusPx, 2),
-      }),
-  );
-};
 
-const logRecruitmentResponse = (
-  world,
-  ant,
-  localRecruitmentRatio,
-  tactileSignal,
-  recruitmentSignalStrength,
-  reaction,
-  detail,
-) => {
-  const now = world.time;
-  if (
-    now - ant.lastRecruitmentDebugLogTime <
-    RECRUITMENT_DEBUG_LOG_COOLDOWN_S
-  ) {
-    return;
-  }
-
-  ant.lastRecruitmentDebugLogTime = now;
-  console.info(
-    "[ant-recruitment] " +
-      JSON.stringify({
-        version: ANT_DEBUG_VERSION,
-        t: roundDebug(now, 2),
-        antId: ant.debugId,
-        reaction,
-        detail,
-        role: ant.role,
-        state: ant.state,
-        trailMode: ant.trailMode,
-        localRecruitmentRatio: roundDebug(localRecruitmentRatio, 3),
-        tactileRecruitmentCue: roundDebug(tactileSignal.recruitmentCue, 3),
-        tactileCue: roundDebug(tactileSignal.cue, 3),
-        recruitmentSignalStrength: roundDebug(recruitmentSignalStrength, 3),
-        foodLinkedRecruitment: ant.foodLinkedRecruitment,
-        knowsFoodLocation: ant.knowsFoodLocation,
-      }),
-  );
-};
-
-const logTurnaroundEvent = (world, ant, event, detail = null) => {
-  const now = world.time;
-  if (now - ant.lastTurnaroundDebugLogTime < TURNAROUND_DEBUG_LOG_COOLDOWN_S) {
-    return;
-  }
-
-  ant.lastTurnaroundDebugLogTime = now;
-  console.info(
-    "[ant-turnaround] " +
-      JSON.stringify({
-        version: ANT_DEBUG_VERSION,
-        t: roundDebug(now, 2),
-        antId: ant.debugId,
-        event,
-        detail,
-        role: ant.role,
-        state: ant.state,
-        trailMode: ant.trailMode,
-        knowsFoodLocation: ant.knowsFoodLocation,
-        foodLinkedRecruitment: ant.foodLinkedRecruitment,
-        targetFoodPatchIndex: ant.targetFoodPatchIndex,
-        colonyDistancePx: roundDebug(
-          distance(ant.position, world.trail.colony),
-          2,
-        ),
-        orbitAccumRad: roundDebug(ant.informedBivouacOrbitAccum, 2),
-      }),
-  );
-};
-
-const logBivouacSteering = (world, ant, metrics) => {
-  const now = world.time;
-  if (now - ant.lastBivouacDebugLogTime < BIVOUAC_DEBUG_LOG_COOLDOWN_S) {
-    return;
-  }
-
-  ant.lastBivouacDebugLogTime = now;
-  console.info(
-    "[ant-bivouac] " +
-      JSON.stringify({
-        version: ANT_DEBUG_VERSION,
-        t: roundDebug(now, 2),
-        antId: ant.debugId,
-        role: ant.role,
-        state: ant.state,
-        trailMode: ant.trailMode,
-        knowsFoodLocation: ant.knowsFoodLocation,
-        foodLinkedRecruitment: ant.foodLinkedRecruitment,
-        colonyDistancePx: roundDebug(metrics.colonyDistancePx, 2),
-        laneCorrection: roundDebug(metrics.laneCorrection, 3),
-        laneBiasMag: roundDebug(metrics.laneBiasMag, 3),
-        avoidanceMag: roundDebug(metrics.avoidanceMag, 3),
-        opposingTraffic: metrics.opposingTraffic,
-        radialGoalAlignment: roundDebug(metrics.radialGoalAlignment, 3),
-        tangentialGoalAlignment: roundDebug(metrics.tangentialGoalAlignment, 3),
-      }),
-  );
-};
 
 const resolveFoodLoopAnchor = (ant, patchContact, world) => {
   if (!patchContact.patch) {
@@ -1919,12 +1768,8 @@ const applyFoodDiscovery = (ant, patchContact, debugContext = null) => {
   }
 
   const world = debugContext?.world ?? null;
-  const source = debugContext?.source ?? "unknown";
 
   if (ant.state === "reserve") {
-    if (world) {
-      logFoodRecognition(world, ant, patchContact, source, false, "reserve");
-    }
     return false;
   }
 
@@ -1935,39 +1780,11 @@ const applyFoodDiscovery = (ant, patchContact, debugContext = null) => {
       ant.foodLinkedRecruitment &&
       ant.targetFoodPatchId === patchContact.patch.id
     ) {
-      if (world) {
-        logFoodRecognition(
-          world,
-          ant,
-          patchContact,
-          source,
-          false,
-          "loop-active",
-        );
-      }
       return false;
     }
     if (world && ant.role === "outbound" && ant.foodLinkedRecruitment) {
       performFoodCollectionTurnaround(ant, patchContact, world);
-      logFoodRecognition(
-        world,
-        ant,
-        patchContact,
-        source,
-        true,
-        "collection-turnaround",
-      );
       return true;
-    }
-    if (world) {
-      logFoodRecognition(
-        world,
-        ant,
-        patchContact,
-        source,
-        false,
-        "already-recognized",
-      );
     }
     return false;
   }
@@ -1999,9 +1816,6 @@ const applyFoodDiscovery = (ant, patchContact, debugContext = null) => {
     FOOD_DISCOVERY_AROUSAL_S * 0.9,
   );
 
-  if (world) {
-    logFoodRecognition(world, ant, patchContact, source, true, "recognized");
-  }
 
   return true;
 };
@@ -2741,7 +2555,6 @@ const performInformedRecruiterTurnaround = (ant, world, controls, detail) => {
   );
   ant.informedBivouacOrbitAccum = 0;
   ant.informedBivouacOrbitAngle = null;
-  logTurnaroundEvent(world, ant, "turnaround", detail);
 };
 
 const updateRoleSwap = (ant, world, controls) => {
@@ -2766,9 +2579,6 @@ const updateRoleSwap = (ant, world, controls) => {
     }
     ant.informedBivouacOrbitAngle = bivouacAngle;
 
-    if (ant.informedBivouacOrbitAccum >= Math.PI * 0.9) {
-      logTurnaroundEvent(world, ant, "orbit-detected", "informed-bivouac-loop");
-    }
   } else {
     ant.informedBivouacOrbitAccum = 0;
     ant.informedBivouacOrbitAngle = null;
@@ -3928,15 +3738,6 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
       ant.foodExcitementCooldownS <= 0 &&
       ant.loopingTime <= 0
     ) {
-      logRecruitmentResponse(
-        world,
-        ant,
-        localRecruitmentRatio,
-        tactileSignal,
-        recruitmentSignalStrength,
-        "loop-start",
-        "secondary-recruitment",
-      );
       startRecruitmentLoop(ant, {
         anchor: ant.position,
         durationScale:
@@ -3978,15 +3779,6 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
       ant.arousalTime,
       RECRUITMENT_CONTACT_AROUSAL_S * (0.8 + recruitmentSignalStrength * 0.6),
     );
-    logRecruitmentResponse(
-      world,
-      ant,
-      localRecruitmentRatio,
-      tactileSignal,
-      recruitmentSignalStrength,
-      "switch-recruitment",
-      ant.foodExcitementCooldownS > 0 ? "cooldown-active" : "direct-switch",
-    );
   } else if (exploratoryRecruitmentContact) {
     setAntTrailType(ant, ANT_TRAIL_TYPES.FOOD_TRAIL_FOLLOWING);
     if (
@@ -4004,19 +3796,6 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
     ant.arousalTime = Math.max(
       ant.arousalTime,
       RECRUITMENT_CONTACT_AROUSAL_S * (0.7 + recruitmentSignalStrength * 0.75),
-    );
-    logRecruitmentResponse(
-      world,
-      ant,
-      localRecruitmentRatio,
-      tactileSignal,
-      recruitmentSignalStrength,
-      "switch-recruitment",
-      distalTactileRecruitmentContact
-        ? "tactile-switch"
-        : ant.foodExcitementCooldownS > 0
-          ? "cooldown-switch"
-          : "field-edge-switch",
     );
   }
   ant.trappedTime =
@@ -4156,20 +3935,6 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
     ant.knowsFoodLocation &&
     ant.foodLinkedRecruitment &&
     colonyDistancePx <= world.trail.bivouacRadiusPx * 1.35;
-  if (informedInboundNearBivouac) {
-    logBivouacSteering(world, ant, {
-      colonyDistancePx,
-      laneCorrection,
-      laneBiasMag: length(laneBias),
-      avoidanceMag: avoidance.active ? length(avoidance.vector) : 0,
-      opposingTraffic: avoidance.opposingTraffic,
-      radialGoalAlignment: dot(
-        goalDir,
-        normalize(subtract(world.trail.colony, ant.position), goalDir),
-      ),
-      tangentialGoalAlignment: dot(goalDir, trailLateralDir),
-    });
-  }
   const informedInboundAvoidanceWeight = informedInboundNearBivouac
     ? 0
     : avoidance.active

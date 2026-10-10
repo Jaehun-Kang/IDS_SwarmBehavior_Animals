@@ -2,18 +2,26 @@ import React from "react";
 import {HOME_SPRITE_ATLASES} from "../../data/spriteAtlases";
 import {loadTexturedAtlasCanvas,getAtlasFrameCanvas} from "../../utils/spriteAtlas";
 import {createBookCanvasLoop} from "../../utils/bookCanvasLoop.js";
-import {createKrillRest,advanceKrillRest,krillRestPose} from "./krillRestModel.js";
+import {createKrillRest,advanceKrillRest,krillRestPose,krillRestVelocity} from "./krillRestModel.js";
+import {BOOK_MOVEMENT_SCALE} from "./bookMotion.js";
 const atlas=HOME_SPRITE_ATLASES.krill;
 export default function KrillRestPreview({controls,ruleGroup}){
  const canvasRef=React.useRef(null),controlsRef=React.useRef(controls);
+ const loopRef=React.useRef(null);
  const [error,setError]=React.useState("");
- React.useEffect(()=>{controlsRef.current=controls;},[controls]);
+ React.useEffect(()=>{controlsRef.current=controls;loopRef.current?.invalidate();},[controls]);
  React.useEffect(()=>{
   let model,frames,disposed=false,still=0;const pose={};
   const loop=createBookCanvasLoop(canvasRef.current,{
+   onInvalidate:()=>{still=0;},
    onResize:({width,height})=>{model=createKrillRest(width/height);still=0;},
    onFrame:({context:ctx,width,height,elapsedSeconds})=>{
-    advanceKrillRest(model,controlsRef.current,elapsedSeconds);still=model.agents.some(a=>a.moving)?0:still+1;if(still>2)return;
+    advanceKrillRest(model,controlsRef.current,elapsedSeconds);
+    still=model.agents.some(a=>a.moving)?0:still+1;
+    if(still>2){
+     const settled=model.agents.every(a=>Math.abs(a.vy-krillRestVelocity(a.id,controlsRef.current)*BOOK_MOVEMENT_SCALE)<1e-6);
+     return settled?false:undefined;
+    }
     ctx.clearRect(0,0,width,height);const s=width/model.width,size=3.5*s,h=size*75/145;
     ctx.strokeStyle="rgba(0,67,94,0.18)";ctx.lineWidth=1;
     for(const x of [1/3,2/3]){ctx.beginPath();ctx.moveTo(width*x,height*0.12);ctx.lineTo(width*x,height*0.88);ctx.stroke();}
@@ -23,9 +31,10 @@ export default function KrillRestPreview({controls,ruleGroup}){
     });
    },
   });
+  loopRef.current=loop;
   loadTexturedAtlasCanvas(atlas).then(result=>{if(!disposed){frames=result.frameCanvases;loop.start();}})
    .catch(()=>{if(!disposed)setError("크릴 이미지를 불러오지 못했습니다.");});
-  return()=>{disposed=true;loop.dispose();};
+  return()=>{disposed=true;loopRef.current=null;loop.dispose();};
  },[]);
  return <div className="canvas-placeholder rule-preview" aria-label={`${ruleGroup.category} 미니 시뮬레이션`}>
   {error?<span role="alert">{error}</span>:null}<canvas ref={canvasRef} className="rule-preview__canvas" />

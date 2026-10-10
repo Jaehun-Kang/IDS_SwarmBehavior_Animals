@@ -7,11 +7,13 @@ import {createLobsterChemical,advanceLobsterChemical,lobsterChemicalAlpha,LOBSTE
 const atlas=HOME_SPRITE_ATLASES.spiny_lobster;
 export default function LobsterChemicalPreview({controls,ruleGroup}){
   const canvasRef=React.useRef(null),controlsRef=React.useRef(controls);
+  const loopRef=React.useRef(null);
   const [error,setError]=React.useState("");
-  React.useEffect(()=>{controlsRef.current=controls;},[controls]);
+  React.useEffect(()=>{controlsRef.current=controls;loopRef.current?.invalidate();},[controls]);
   React.useEffect(()=>{
     let model,frames,flow,disposed=false,buffer,imageData,lastRevision=-1,wasVisible=true;
     const loop=createBookCanvasLoop(canvasRef.current,{
+      onInvalidate:()=>{lastRevision=-1;wasVisible=true;},
       onResize:({width,height})=>{
         model=createLobsterChemical(width/height);flow=createFlowMarkers(width,height,58);buffer=document.createElement("canvas");
         buffer.width=model.cols;buffer.height=model.rows;
@@ -21,7 +23,10 @@ export default function LobsterChemicalPreview({controls,ruleGroup}){
         advanceLobsterChemical(model,controlsRef.current,elapsedSeconds);
         const flowSpeed=Math.max(0,Math.min(100,controlsRef.current.water_flow??50))/100*1.6*width/model.width;
         const visible=lobsterChemicalAlpha(model.max)>0;
-        if(flowSpeed===0&&(lastRevision===model.revision||(!visible&&!wasVisible)))return;
+        if(flowSpeed===0&&(lastRevision===model.revision||(!visible&&!wasVisible))){
+          // Invisible chemicals can still decay, and release pulses can start later.
+          return (controlsRef.current.signal_release??65)<=0&&model.max===0?false:undefined;
+        }
         lastRevision=model.revision;wasVisible=visible;
         ctx.clearRect(0,0,width,height);
         advanceFlowMarkers(flow,Math.PI,flowSpeed,elapsedSeconds);
@@ -43,9 +48,10 @@ export default function LobsterChemicalPreview({controls,ruleGroup}){
         });
       },
     });
+    loopRef.current=loop;
     loadTexturedAtlasCanvas(atlas).then(result=>{if(!disposed){frames=result.frameCanvases;loop.start();}})
       .catch(()=>{if(!disposed)setError("닭새우 이미지를 불러오지 못했습니다.");});
-    return()=>{disposed=true;loop.dispose();};
+    return()=>{disposed=true;loopRef.current=null;loop.dispose();};
   },[]);
   return <div className="canvas-placeholder rule-preview" aria-label={`${ruleGroup.category} 미니 시뮬레이션`}>
     {error?<span role="alert">{error}</span>:null}<canvas ref={canvasRef} className="rule-preview__canvas" />

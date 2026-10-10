@@ -1,4 +1,6 @@
 const resources = new Map();
+const encodedStyles = new Map();
+const STYLE_CACHE_LIMIT = 96;
 const nextFrame = () => new Promise(resolve => requestAnimationFrame(resolve));
 
 const dataUrl = (url, base = document.baseURI) => {
@@ -27,15 +29,33 @@ async function embedUrls(text, base) {
   return text.replace(/url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*))\s*\)/g, () => replacements[index++]);
 }
 
+function encodedStyle(text, base = document.baseURI) {
+  // Key the resolved rule itself, so stylesheet/font changes cannot reuse stale CSS.
+  const key = `${base}\n${text}`;
+  if (!encodedStyles.has(key)) {
+    const pending = embedUrls(text, base).then(css => {
+      const style = document.createElementNS('http://www.w3.org/1999/xhtml', 'style');
+      style.textContent = css;
+      return encodeURIComponent(new XMLSerializer().serializeToString(style));
+    }).catch(error => {
+      if (encodedStyles.get(key) === pending) encodedStyles.delete(key);
+      throw error;
+    });
+    encodedStyles.set(key, pending);
+    if (encodedStyles.size > STYLE_CACHE_LIMIT) encodedStyles.delete(encodedStyles.keys().next().value);
+  }
+  return encodedStyles.get(key);
+}
+
 function copyStyle(source, target) {
+  const declarations = [];
   for (const property of source) {
     // Other computed properties already resolve variables. Inherited texture URLs
     // must not be embedded again on every descendant of the book.
     if (property.startsWith('--') && !['--detail-range-accent', '--detail-range-progress', '--detail-animal-accent'].includes(property)) continue;
-    target.setProperty(property, source.getPropertyValue(property));
+    declarations.push(`${property}:${source.getPropertyValue(property)};`);
   }
-  target.setProperty('animation', 'none', 'important');
-  target.setProperty('transition', 'none', 'important');
+  target.cssText = declarations.join('') + 'animation:none!important;transition:none!important;';
 }
 
 // Capture resolved styles in their original ancestor context, not a detached restyling.
@@ -43,18 +63,22 @@ export async function captureBookPage(node) {
   if (!node) throw new Error('Book capture node missing');
   await document.fonts.ready;
   const deadline = performance.now() + 1500;
-  while ([...node.querySelectorAll('canvas')].some(c => c.dataset.bookFrameReady !== 'true')) {
+  while (node.querySelector('[data-book-preview-loading="true"]') ||
+    [...node.querySelectorAll('canvas')].some(c => c.dataset.bookFrameReady !== 'true')) {
     if (node.querySelector('[role="alert"]') || performance.now() > deadline) {
       throw new Error('Book preview was not ready for capture');
     }
     await nextFrame();
+  }
+  if (node.querySelector('[role="alert"]')) {
+    throw new Error('Book preview failed to load');
   }
   const rect = node.getBoundingClientRect();
   const width = rect.width, height = rect.height;
   const clone = node.cloneNode(true);
   const sources = [node, ...node.querySelectorAll('*')];
   const targets = [clone, ...clone.querySelectorAll('*')];
-  const styles = [], jobs = [], families = new Set();
+  const styles = [], sharedStyles = [], jobs = [], families = new Set();
 
   sources.forEach((source, index) => {
     let target = targets[index];
@@ -96,11 +120,11 @@ export async function captureBookPage(node) {
       if (rule.type === CSSRule.FONT_FACE_RULE) {
         const family = rule.style.getPropertyValue('font-family').replace(/["']/g, '').trim();
         if (fontFamilies.includes(family.toLowerCase())) {
-          jobs.push(embedUrls(rule.cssText, base).then(css => { styles.push(css); }));
+          sharedStyles.push(encodedStyle(rule.cssText, base));
         }
       } else if (rule.selectorText && /::-(webkit-slider|moz-range)/.test(rule.selectorText)) {
         // Range parts are browser pseudo-elements, not cloneable DOM children.
-        styles.push(rule.cssText);
+        sharedStyles.push(encodedStyle(rule.cssText, base));
       } else if (rule.cssRules) visit(rule.cssRules, base);
     }
   };
@@ -108,7 +132,7 @@ export async function captureBookPage(node) {
     try { visit(sheet.cssRules, sheet.href || document.baseURI); }
     catch { /* Cross-origin sheets cannot be inspected; resolved element styles remain. */ }
   }
-  await Promise.all(jobs);
+  const [encodedSharedStyles] = await Promise.all([Promise.all(sharedStyles), Promise.all(jobs)]);
   clone.style.margin = '0';
   clone.style.width = `${width}px`;
   clone.style.height = `${height}px`;
@@ -120,11 +144,16 @@ export async function captureBookPage(node) {
   container.style.height = `${height}px`;
   const style = document.createElement('style');
   style.textContent = styles.join('\n');
-  container.append(style, clone);
-  const html = new XMLSerializer().serializeToString(container);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><foreignObject width="100%" height="100%">${html}</foreignObject></svg>`;
+  // Keep large embedded fonts out of per-page XML serialization and URL encoding.
+  // Dynamic computed styles, controls and canvas pixels are still captured each time.
+  const serializer = new XMLSerializer();
+  const shell = serializer.serializeToString(container);
+  const opening = shell.slice(0, shell.indexOf('>') + 1);
+  const prefix = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><foreignObject width="100%" height="100%">${opening}`;
+  const suffix = '</div></foreignObject></svg>';
+  const dynamicHtml = serializer.serializeToString(style) + serializer.serializeToString(clone);
   const image = new Image();
-  image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(prefix)}${encodedSharedStyles.join('')}${encodeURIComponent(dynamicHtml)}${encodeURIComponent(suffix)}`;
   await image.decode();
   const canvas = document.createElement('canvas');
   const ratio = window.devicePixelRatio || 1;

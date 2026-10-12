@@ -1277,8 +1277,9 @@ const updateBatAgents = (
       const remainingS = Math.max(0, agent.phaseTimerS - dt);
       const exitProgress =
         1 - remainingS / Math.max(PARAMS.EXITING_DURATION_S, 1e-6);
-      const nextX = lerp(agent.x, agent.exitTargetX, clamp(dt * 9.5, 0, 1));
-      const nextY = lerp(agent.y, agent.exitTargetY, clamp(dt * 9.5, 0, 1));
+      const exitBlend = 1 - Math.pow(1 - 9.5 / 60, dt * 60);
+      const nextX = lerp(agent.x, agent.exitTargetX, exitBlend);
+      const nextY = lerp(agent.y, agent.exitTargetY, exitBlend);
       const nextPhase =
         remainingS <= 1e-4 ? BAT_PHASES.EMERGING : BAT_PHASES.EXITING;
       const nextSpeedMps = lerp(
@@ -1323,8 +1324,9 @@ const updateBatAgents = (
         1 - remainingS / Math.max(enterDurationS, 1e-6);
       const targetX = environment.entrance.x;
       const targetY = environment.entrance.y;
-      const nextX = lerp(agent.x, targetX, clamp(dt * 10.5, 0, 1));
-      const nextY = lerp(agent.y, targetY, clamp(dt * 10.5, 0, 1));
+      const enterBlend = 1 - Math.pow(1 - 10.5 / 60, dt * 60);
+      const nextX = lerp(agent.x, targetX, enterBlend);
+      const nextY = lerp(agent.y, targetY, enterBlend);
       const nextPhase =
         remainingS <= 1e-4 ? BAT_PHASES.INSIDE : BAT_PHASES.ENTERING;
 
@@ -1829,18 +1831,18 @@ const updateBatAgents = (
     nextSpeedMps = lerp(
       agent.speedMps,
       targetSpeedMps,
-      clamp(dt * (PARAMS.BASE_SPEED_RESPONSE + speedResponseBoost), 0, 1),
+      1 - Math.pow(1 - clamp((PARAMS.BASE_SPEED_RESPONSE + speedResponseBoost) / 60, 0, 1), dt * 60),
     );
 
     if (evasionTimerS > 0) {
       nextSpeedMps = Math.max(
         targetBaseSpeedMps * 0.72,
-        nextSpeedMps * Math.max(PARAMS.EVASION_BRAKE_RATIO, 0.88),
+        nextSpeedMps * Math.pow(Math.max(PARAMS.EVASION_BRAKE_RATIO, 0.88), dt * 60),
       );
     }
 
     if (pointerInteraction.intensity > 0) {
-      nextSpeedMps *= pointerInteraction.brakeRatio;
+      nextSpeedMps *= Math.pow(pointerInteraction.brakeRatio, dt * 60);
     }
 
     nextSpeedMps = clamp(
@@ -2089,14 +2091,14 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     }
 
     const shouldRenderFrame = createPausedFrameGate();
-    const render = (timestamp, fixedDt) => {
+    const render = (timestamp, frame) => {
       if (!shouldRenderFrame(isPaused, window.innerWidth, window.innerHeight,
         window.devicePixelRatio || 1, resolvedControls, rasterCanvasRef.current, frameCanvasesRef.current)) {
         animationFrameRef.current = simulationFrames.request(render);
         return;
       }
       const now = timestamp * 0.001;
-      const dt = fixedDt;
+      const dt = frame.dt;
 
       const size = syncCanvasSize(canvas, ctx);
       const frameSize = frameSizeRef.current;
@@ -2109,6 +2111,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         resolvedControls.IS_EMERGING,
       );
 
+      frame.advance((dt, now) => {
       if (!isPaused) {
         updateBatAgents(
           agentsRef.current,
@@ -2121,6 +2124,9 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         );
       }
 
+      }, isPaused);
+
+      frame.draw(agentsRef.current, () => {
       clearTransparentCanvas2d(ctx, size.width, size.height);
 
       const environment = getEnvironment(size.width, size.height);
@@ -2138,7 +2144,6 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 
       const image = rasterCanvasRef.current || imageRef.current;
       if (!image) {
-        animationFrameRef.current = simulationFrames.request(render);
         return;
       }
 
@@ -2281,6 +2286,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         }
         ctx.restore();
       });
+      });
 
       animationFrameRef.current = simulationFrames.request(render);
     };
@@ -2290,7 +2296,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     return () => {
       simulationFrames.cancel(animationFrameRef.current);
     };
-  }, [isPaused, resolvedControls]);
+  }, [isPaused, resolvedControls, simulationFrames]);
 
   return (
     <canvas

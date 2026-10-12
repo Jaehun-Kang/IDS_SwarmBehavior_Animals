@@ -229,6 +229,9 @@ const smoothstep = (min, max, value) => {
   return t * t * (3 - 2 * t);
 };
 const length3D = (vector) => Math.hypot(vector.x, vector.y, vector.z);
+// Also scales a per-frame event probability without changing its 60 Hz value.
+const frameBlend = (amount, dt) =>
+  dt === 1 / 60 ? amount : 1 - Math.pow(1 - amount, dt * 60);
 
 const normalize3D = (vector, fallback = { x: 1, y: 0, z: 0 }) => {
   const magnitude = length3D(vector);
@@ -1276,14 +1279,14 @@ const getReferenceNeighbor = (boidIndex, boid, neighbors, boids, now, env) => {
   return nextReference;
 };
 
-const maybeTriggerLeaderTurn = (boid, env, now, predatorEnabled) => {
+const maybeTriggerLeaderTurn = (boid, env, now, predatorEnabled, dt) => {
   if (!boid.isLeader) {
     return;
   }
 
   const bias =
     (env.night > 0.45 ? 0.008 : 0.0052) * (predatorEnabled ? 0.16 : 1);
-  if (Math.random() > bias) {
+  if (Math.random() > frameBlend(bias, dt)) {
     return;
   }
 
@@ -1514,7 +1517,7 @@ const getTargetDensity = (env, predatorDayState, predatorNightState, now) => {
   return lerp(dispersedNightDensity, compressedDayDensity, env.daylight);
 };
 
-const resolveBoidState = (boid, neighbors, predatorInfluence, now, env) => {
+const resolveBoidState = (boid, neighbors, predatorInfluence, now, env, dt) => {
   const alerted = predatorInfluence.intensity > 0.16;
   const locallyActive =
     boid.recentTurnAngle >= PARAMS.LARGE_TURN_THRESHOLD &&
@@ -1525,7 +1528,7 @@ const resolveBoidState = (boid, neighbors, predatorInfluence, now, env) => {
     0,
   );
   const contagiousActive =
-    neighborActiveSignal > 0.12 && Math.random() < neighborActiveSignal * 0.72;
+    neighborActiveSignal > 0.12 && Math.random() < frameBlend(neighborActiveSignal * 0.72, dt);
 
   if (locallyActive || contagiousActive) {
     boid.state = "active";
@@ -1549,16 +1552,16 @@ const resolveBoidState = (boid, neighbors, predatorInfluence, now, env) => {
     boid.activeSignal = lerp(
       boid.activeSignal,
       predatorInfluence.intensity * 0.18,
-      0.18,
+      frameBlend(0.18, dt),
     );
   } else if (boid.stateExpiresAt <= now) {
     boid.state = "normal";
-    boid.activeSignal = lerp(boid.activeSignal, 0, 0.18);
+    boid.activeSignal = lerp(boid.activeSignal, 0, frameBlend(0.18, dt));
   } else {
     boid.activeSignal = lerp(
       boid.activeSignal,
       boid.state === "active" ? 0.24 : 0.08,
-      0.08,
+      frameBlend(0.08, dt),
     );
   }
 
@@ -1820,8 +1823,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
       gl.viewport(0, 0, canvas.width, canvas.height);
     };
 
-    const step = (timestamp, dt) => {
-      const now = timestamp * 0.001;
+    const step = (timestamp, frame) => {
       const liveControls = controlsRef.current;
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
@@ -1843,6 +1845,8 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
       }
 
       shouldRenderFrame.invalidate();
+      frame.advance((dt, now) => {
+
       syncBoidCount(
         boids,
         liveControls.BOID_COUNT,
@@ -1854,7 +1858,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
       daylightState = lerp(
         daylightState,
         liveControls.IS_DAYTIME ? 1 : 0,
-        0.04,
+        frameBlend(0.04, dt),
       );
       const env = getDayNightPhase(daylightState);
       const rateScale = liveControls.EVENT_RATE_SCALE;
@@ -1973,10 +1977,10 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
         );
         boid.velocity = scale3D(boid.direction, exitSpeed);
         boid.position = add3D(boid.position, scale3D(boid.velocity, dt));
-        boid.position.z = lerp(boid.position.z, exitDepth, 0.18);
+        boid.position.z = lerp(boid.position.z, exitDepth, frameBlend(0.18, dt));
         boid.recentTurnAngle = 0;
         boid.previousDirection = boid.direction;
-        boid.poseScale = lerp(boid.poseScale, 0.42, 0.08);
+        boid.poseScale = lerp(boid.poseScale, 0.42, frameBlend(0.08, dt));
         updateSpriteFrame(boid, viewportWidth, viewportHeight);
       });
 
@@ -1990,14 +1994,14 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
             rateScale,
           );
         } else {
-          boid.flash = lerp(boid.flash, env.daylight * 0.16, 0.03);
+          boid.flash = lerp(boid.flash, env.daylight * 0.16, frameBlend(0.03, dt));
         }
 
-        if (Math.random() < 0.004 * dt * 60 * lerp(0.08, 1, env.night)) {
+        if (Math.random() < frameBlend(0.004 * lerp(0.08, 1, env.night), dt)) {
           boid.subgroup = boid.targetSubgroup;
         }
 
-        maybeTriggerLeaderTurn(boid, env, now, liveControls.IS_PREDATOR_ACTIVE);
+        maybeTriggerLeaderTurn(boid, env, now, liveControls.IS_PREDATOR_ACTIVE, dt);
 
         const steeringNeighborCount = Math.round(
           lerp(
@@ -2037,6 +2041,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
           predatorInfluence,
           now,
           env,
+          dt,
         );
         const hydrodynamicMultiplier = boidState.isAlert
           ? lerp(
@@ -2070,7 +2075,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
           boid.evasionRecovery = lerp(
             boid.evasionRecovery,
             predatorLocalEvasionState,
-            0.24,
+            frameBlend(0.24, dt),
           );
         } else {
           boid.evasionRecovery = Math.max(
@@ -2420,7 +2425,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
         if (
           predatorDayState > 0.08 &&
           boid.subgroup !== boid.targetSubgroup &&
-          Math.random() < 0.036 * dt * 60 * predatorDayState
+          Math.random() < frameBlend(0.036 * predatorDayState, dt)
         ) {
           boid.subgroup = boid.targetSubgroup;
         }
@@ -3016,17 +3021,17 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
         boid.velocity.x = lerp(
           boid.velocity.x,
           desiredVelocity.x,
-          lerp(0.14, 0.22, turnBlend) * boid.reactionOffset,
+          frameBlend(lerp(0.14, 0.22, turnBlend) * boid.reactionOffset, dt),
         );
         boid.velocity.y = lerp(
           boid.velocity.y,
           desiredVelocity.y,
-          lerp(0.12, 0.18, turnBlend) * boid.reactionOffset,
+          frameBlend(lerp(0.12, 0.18, turnBlend) * boid.reactionOffset, dt),
         );
         boid.velocity.z = lerp(
           boid.velocity.z,
           desiredVelocity.z,
-          lerp(0.14, 0.22, turnBlend) * boid.reactionOffset,
+          frameBlend(lerp(0.14, 0.22, turnBlend) * boid.reactionOffset, dt),
         );
         if (hardAvoidState > 0) {
           const towardPredatorSpeed = dot3D(
@@ -3039,7 +3044,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
               boid.velocity,
               scale3D(
                 predatorInfluence.escape,
-                towardPredatorSpeed * hardAvoidState,
+                towardPredatorSpeed * frameBlend(hardAvoidState, dt),
               ),
             );
           }
@@ -3062,14 +3067,14 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
           if (outwardSpeed > allowedOutwardSpeed) {
             const dampedOutwardSpeed =
               (outwardSpeed - allowedOutwardSpeed) *
-              lerp(0.42, 0.78, outwardContainmentState);
+              frameBlend(lerp(0.42, 0.78, outwardContainmentState), dt);
             boid.velocity = add3D(
               boid.velocity,
               scale3D(outwardDir, -dampedOutwardSpeed),
             );
           }
         }
-        boid.velocity = scale3D(boid.velocity, PARAMS.DRAG);
+        boid.velocity = scale3D(boid.velocity, Math.pow(PARAMS.DRAG, dt * 60));
 
         const nextSpeed = length3D(boid.velocity);
         if (nextSpeed < liveControls.BASE_SPEED * 0.6) {
@@ -3133,12 +3138,12 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
         boid.recentTurnAngle = angleBetween3D(
           previousDirection,
           boid.direction,
-        );
+        ) / (dt * 60);
         boid.previousDirection = boid.direction;
         boid.poseScale = lerp(
           boid.poseScale,
           0.35 + Math.abs(sway) * 0.65,
-          0.08,
+          frameBlend(0.08, dt),
         );
         updateSpriteFrame(boid, viewportWidth, viewportHeight);
       });
@@ -3154,6 +3159,9 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
         }
       }
 
+      });
+
+      frame.draw(boids, () => {
       drawBoids(
         gl,
         renderer,
@@ -3162,6 +3170,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
         window.devicePixelRatio || 1,
         boids,
       );
+      });
 
       animationFrame = simulationFrames.request(step);
     };

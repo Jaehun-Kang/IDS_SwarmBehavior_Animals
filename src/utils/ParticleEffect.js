@@ -1,3 +1,5 @@
+const PARTICLE_MAX_GAP_MS = 250;
+
 class Particle {
   constructor(effect, x, y, color, startX = null, startY = null) {
     this.effect = effect;
@@ -47,47 +49,66 @@ class Particle {
 
     this.effect.context.globalAlpha = this.opacity;
     this.effect.context.fillStyle = this.color;
-    this.effect.context.fillRect(this.x, this.y, this.size, this.size);
+    this.effect.context.fillRect(
+      this.x,
+      this.y,
+      this.size,
+      this.size,
+    );
     this.effect.context.globalAlpha = 1;
   }
 
-  update() {
-    if (!this.effect) {
+  update(dt = 1 / 60) {
+    if (!this.effect || !Number.isFinite(dt) || dt <= 0) {
       return;
     }
+    const frames = dt * 60;
+    const retention = 1 - this.ease;
+    const positionDecay = Math.pow(retention, frames);
+    const velocityDecay = Math.pow(this.friction, frames);
+    const ease = frames === 1 ? this.ease : 1 - positionDecay;
+    // Fractional power of the original 60Hz affine position/velocity update.
+    const velocityTravel = frames === 1 ? 1 :
+      (positionDecay - velocityDecay) / (retention - this.friction);
+    const forceTravel = frames === 1 ? 1 :
+      (ease / this.ease - this.friction * velocityTravel) / (1 - this.friction);
+    const forceVelocity = frames === 1 ? this.friction :
+      this.friction * (1 - velocityDecay) / (1 - this.friction);
 
     // 목표 복귀
-    this.x += (this.originX - this.x) * this.ease;
-    this.y += (this.originY - this.y) * this.ease;
+    this.x += (this.originX - this.x) * ease;
+    this.y += (this.originY - this.y) * ease;
+    let xForce = 0;
+    let yForce = 0;
 
     // 마우스 회피
     if (this.effect.mouseRepulsionEnabled) {
       const dx = this.x - this.effect.mouse.x;
       const dy = this.y - this.effect.mouse.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const forceDirectionX = dx / distance;
-      const forceDirectionY = dy / distance;
+      const forceDirectionX = distance > 0 ? dx / distance : 0;
+      const forceDirectionY = distance > 0 ? dy / distance : 0;
 
       const force =
         (this.effect.mouse.radius - distance) / this.effect.mouse.radius;
 
       if (distance < this.effect.mouse.radius) {
-        const xForce = forceDirectionX * force * this.effect.mouse.force;
-        const yForce = forceDirectionY * force * this.effect.mouse.force;
-
-        this.vx += xForce;
-        this.vy += yForce;
+        xForce = forceDirectionX * force * this.effect.mouse.force;
+        yForce = forceDirectionY * force * this.effect.mouse.force;
       }
     }
 
     // 속도 적용
-    this.x += this.vx;
-    this.y += this.vy;
+    this.x += velocityTravel * this.vx + forceTravel * xForce;
+    this.y += velocityTravel * this.vy + forceTravel * yForce;
 
     // 마찰력
-    this.vx *= this.friction;
-    this.vy *= this.friction;
-    this.opacity += (this.targetOpacity - this.opacity) * 0.12;
+    this.vx = frames === 1 ? (this.vx + xForce) * this.friction :
+      velocityDecay * this.vx + forceVelocity * xForce;
+    this.vy = frames === 1 ? (this.vy + yForce) * this.friction :
+      velocityDecay * this.vy + forceVelocity * yForce;
+    this.opacity += (this.targetOpacity - this.opacity) *
+      (frames === 1 ? 0.12 : 1 - Math.pow(0.88, frames));
 
     // 경계 처리
     if (this.x < 0 || this.x > this.effect.canvasWidth) this.vx *= -1;
@@ -115,6 +136,7 @@ export class Effect {
       y: 0,
     };
     this.mouseRepulsionEnabled = true;
+    this.lastFrameTime = null;
   }
 
   setSize(canvasWidth, canvasHeight) {
@@ -308,13 +330,40 @@ export class Effect {
     }
   }
 
+  resetTiming() {
+    this.lastFrameTime = null;
+  }
+
+  advance(timestamp) {
+    if (!Number.isFinite(timestamp) || this.particles.length === 0) {
+      this.resetTiming();
+      return 0;
+    }
+    const elapsed = this.lastFrameTime === null
+      ? 0
+      : timestamp - this.lastFrameTime;
+    if (elapsed < 0 || elapsed > PARTICLE_MAX_GAP_MS) {
+      this.resetTiming();
+    }
+    this.lastFrameTime = timestamp;
+    if (elapsed < 0 || elapsed > PARTICLE_MAX_GAP_MS) return 0;
+
+    const dt = elapsed * 0.001;
+    if (dt > 0) this.update(dt);
+    return dt;
+  }
+
+  update(dt = 1 / 60) {
+    if (!Number.isFinite(dt) || dt <= 0) return;
+    this.particles.forEach((particle) => particle.update(dt));
+  }
+
   render() {
     if (!this.context) {
       return;
     }
 
     this.particles.forEach((particle) => {
-      particle.update();
       particle.draw();
     });
   }

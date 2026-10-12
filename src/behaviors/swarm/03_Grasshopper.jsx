@@ -978,7 +978,7 @@ const updateGrasshopperAgents = (
 
         const forcedByRearThreat =
           rearThreatDetected &&
-          Math.random() < PARAMS.REAR_THREAT_MARCH_PROBABILITY;
+          Math.random() < 1 - Math.pow(1 - PARAMS.REAR_THREAT_MARCH_PROBABILITY, dt * 60);
         const resumeChance =
           1 -
           Math.pow(
@@ -1303,14 +1303,14 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     }
 
     const shouldRenderFrame = createPausedFrameGate();
-    const render = (timestamp, fixedDt) => {
+    const render = (timestamp, frame) => {
       if (!shouldRenderFrame(isPaused, window.innerWidth, window.innerHeight,
         window.devicePixelRatio || 1, resolvedControls, rasterCanvasRef.current, frameCanvasesRef.current)) {
         animationFrameRef.current = simulationFrames.request(render);
         return;
       }
       const now = timestamp * 0.001;
-      const dt = fixedDt;
+      const dt = frame.dt;
 
       const size = syncCanvasSize(canvas, ctx);
       const frameSize = frameSizeRef.current;
@@ -1321,6 +1321,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         size.height,
       );
 
+      frame.advance((dt, now) => {
       if (!isPaused) {
         updateGrasshopperAgents(
           agentsRef.current,
@@ -1333,11 +1334,13 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         );
       }
 
+      }, isPaused);
+
+      frame.draw(agentsRef.current, () => {
       clearTransparentCanvas2d(ctx, size.width, size.height);
 
       const image = rasterCanvasRef.current || imageRef.current;
       if (!image) {
-        animationFrameRef.current = simulationFrames.request(render);
         return;
       }
 
@@ -1393,6 +1396,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         });
         ctx.restore();
       });
+      });
 
       animationFrameRef.current = simulationFrames.request(render);
     };
@@ -1402,7 +1406,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     return () => {
       simulationFrames.cancel(animationFrameRef.current);
     };
-  }, [isPaused, resolvedControls]);
+  }, [isPaused, resolvedControls, simulationFrames]);
 
   return (
     <canvas

@@ -15,7 +15,14 @@ if errorlevel 1 (
   goto failed
 )
 
-if not exist "node_modules\vite\bin\vite.js" (
+node -e "const [a,b]=process.versions.node.split('.').map(Number);process.exit(a>22||(a===22&&b>=12)?0:1)"
+if errorlevel 1 (
+  echo Node.js 22.12 or newer is required. Install a current LTS version.
+  goto failed
+)
+
+node -e "const fs=require('fs');if(!fs.existsSync('node_modules/vite/bin/vite.js'))process.exit(1);try{if(!fs.existsSync(require('electron')))process.exit(1)}catch{process.exit(1)}" >nul 2>nul
+if errorlevel 1 (
   echo Installing dependencies. Internet is required for this step.
   call npm ci --no-audit --no-fund
   if errorlevel 1 goto failed
@@ -29,7 +36,7 @@ goto done
 :check
 call npm run build
 if errorlevel 1 goto failed
-node scripts/start-kiosk.mjs --check
+node scripts/start-exhibition.mjs --check
 if errorlevel 1 goto failed
 
 :done

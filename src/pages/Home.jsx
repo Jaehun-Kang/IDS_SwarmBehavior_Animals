@@ -80,6 +80,7 @@ function Home(props) {
   const subtitleRef = useRef(null);
   const hoverIdleTimeoutRef = useRef(null);
   const isHoverFocusLockedRef = useRef(false);
+  const particlePointerActiveUntilRef = useRef(0);
   const pointerPositionRef = useRef({ x: 0, y: 0, hasPosition: false });
   const isPointerInsideHomeRef = useRef(false);
   const [fontsLoaded, setFontsLoaded] = useState(false);
@@ -98,6 +99,15 @@ function Home(props) {
     textZIndex: computeTextZIndex(0),
     titleBottomY: 0,
   });
+
+  useEffect(() => {
+    const home = homeRef.current;
+    if (!home) return;
+
+    const preventTextSelection = (event) => event.preventDefault();
+    home.addEventListener("selectstart", preventTextSelection);
+    return () => home.removeEventListener("selectstart", preventTextSelection);
+  }, []);
 
   // 폰트 로드 대기
   useEffect(() => {
@@ -131,6 +141,7 @@ function Home(props) {
     setParticleTextState,
     particleObstacleBoxRef,
     subtitleRef,
+    particlePointerActiveUntilRef,
   );
 
   const clearHoverIdleTimeout = useCallback(() => {
@@ -245,6 +256,7 @@ function Home(props) {
 
   useEffect(() => {
     const handleActivity = () => {
+      particlePointerActiveUntilRef.current = performance.now() + HOME_HOVER_CLEAR_DELAY_MS;
       isHoverFocusLockedRef.current = false;
 
       if (!hoveredIdRef.current) {
@@ -343,6 +355,7 @@ function Home(props) {
     };
 
     const handlePointerLeaveWindow = () => {
+      particlePointerActiveUntilRef.current = 0;
       isPointerInsideHomeRef.current = false;
     };
 

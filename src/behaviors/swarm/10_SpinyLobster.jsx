@@ -309,6 +309,8 @@ const smoothstep = (edge0, edge1, value) => {
   return amount * amount * (3 - amount * 2);
 };
 const randomBetween = (min, max) => min + Math.random() * (max - min);
+const frameBlend = (amount, dt) =>
+  dt === 1 / 60 ? amount : 1 - Math.pow(1 - amount, dt * 60);
 const magnitude = (x, y) => Math.hypot(x, y);
 const normalizeCircadianPhase = (value, fallback = PARAMS.DEFAULT_CIRCADIAN_PHASE) =>
   Object.values(CIRCADIAN_PHASES).includes(value) ? value : fallback;
@@ -1450,7 +1452,7 @@ const getShelterSlotPosition = (agent, shelter) => {
   };
 };
 
-const rememberShelterVisit = (agent, shelter) => {
+const rememberShelterVisit = (agent, shelter, elapsedFrames = 1) => {
   if (!agent || !shelter) {
     return;
   }
@@ -1458,7 +1460,7 @@ const rememberShelterVisit = (agent, shelter) => {
   agent.homeShelterId = shelter.id;
   agent.homeShelterPos = { x: shelter.x, y: shelter.y };
   agent.memoryFidelity = clamp(
-    (agent.memoryFidelity ?? PARAMS.MEMORY_FIDELITY_DEFAULT) + 0.02,
+    (agent.memoryFidelity ?? PARAMS.MEMORY_FIDELITY_DEFAULT) + 0.02 * elapsedFrames,
     PARAMS.MEMORY_FIDELITY_MIN,
     PARAMS.MEMORY_FIDELITY_DEFAULT,
   );
@@ -2832,7 +2834,7 @@ const updateAgent = ({
         )
       ) {
         agent.currentShelterId = shelter.id;
-        rememberShelterVisit(agent, shelter);
+        rememberShelterVisit(agent, shelter, previousShelterId === shelter.id ? dt * 60 : 1);
         if (previousShelterId !== shelter.id) {
           reserveShelterSlot(shelter.id, shelterReservations);
         }
@@ -2852,7 +2854,7 @@ const updateAgent = ({
           ? 0
           : PARAMS.DISEASE_PREDATION_CULL_RATE_S;
     const predationCull =
-      predationPressure > 0 && Math.random() < predationPressure * dt;
+      predationPressure > 0 && Math.random() < frameBlend(predationPressure / 60, dt);
 
     if (agent.diseaseMortalityTimerS <= 0 || predationCull) {
       agent.isDiseaseRemoved = true;
@@ -2880,15 +2882,15 @@ const updateAgent = ({
     const blendedSpeed = lerp(
       currentSpeed,
       desired,
-      agent.currentShelterId ? 0.28 : 0.08,
+      frameBlend(agent.currentShelterId ? 0.28 : 0.08, dt),
     );
     const dir = normalize2D(agent.vx, agent.vy, angleToVector(agent.heading));
     agent.vx = dir.x * blendedSpeed;
     agent.vy = dir.y * blendedSpeed;
   }
 
-  agent.vx *= PARAMS.VELOCITY_DAMPING;
-  agent.vy *= PARAMS.VELOCITY_DAMPING;
+  agent.vx *= Math.pow(PARAMS.VELOCITY_DAMPING, dt * 60);
+  agent.vy *= Math.pow(PARAMS.VELOCITY_DAMPING, dt * 60);
 
   const nextX = agent.x + agent.vx * dt;
   const nextY = agent.y + agent.vy * dt;
@@ -2924,10 +2926,10 @@ const updateAgent = ({
     );
     agent.turnIntensity =
       Math.abs(wrapAngle(nextVisualHeading - previousHeading)) /
-      Math.max(dt, 0.016);
+      Math.max(dt, 1e-6);
     agent.heading = nextVisualHeading;
   } else {
-    agent.turnIntensity = (agent.turnIntensity || 0) * 0.82;
+    agent.turnIntensity = (agent.turnIntensity || 0) * Math.pow(0.82, dt * 60);
   }
 
   if (agent.isRetiring) {
@@ -3434,23 +3436,47 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       diseaseInflowTimerRef.current = 0;
     };
 
+    const previousScreenPositions = new WeakMap();
+    const shouldReconcile = createPausedFrameGate();
     const shouldRenderFrame = createPausedFrameGate();
-    const render = (timestamp, fixedDt) => {
-      if (!shouldRenderFrame(isPausedRef.current, window.innerWidth, window.innerHeight,
-        window.devicePixelRatio || 1, behaviorRef.current, rasterCanvasRef.current, frameCanvasesRef.current)) {
-        animationFrameRef.current = simulationFrames.request(render);
-        return;
-      }
+    const render = (timestamp, frame) => {
       const currentBehavior = behaviorRef.current;
       const currentIsPaused = isPausedRef.current;
       const now = timestamp * 0.001;
-      const dt = fixedDt;
+      const dt = frame.dt;
+      const { width, height } = syncCanvasSize(canvas, ctx);
+      const image = rasterCanvasRef.current || imageRef.current;
+      const frameSize = frameSizeRef.current;
+      if (shouldReconcile(true, width, height, currentBehavior.count)) {
+        if (worldRef.current.shelters.length === 0) {
+          ensureWorld(width, height, currentBehavior);
+        } else if (
+          agentsRef.current.filter((agent) => !agent.isRetiring).length !==
+          currentBehavior.count
+        ) {
+          agentsRef.current = reconcileAgents(
+            agentsRef.current,
+            currentBehavior.count,
+            width,
+            height,
+            currentBehavior,
+            worldRef.current.shelters,
+            worldRef.current.algaeCovers,
+          );
+        }
+        if (!chemicalFieldRef.current ||
+          chemicalFieldRef.current.width !== width ||
+          chemicalFieldRef.current.height !== height) {
+          chemicalFieldRef.current = createChemicalField(width, height);
+        }
+      }
+
+      frame.advance((dt) => {
 
       if (!currentIsPaused) {
         elapsedTimeRef.current += dt;
       }
 
-      const { width, height } = syncCanvasSize(canvas, ctx);
       if (worldRef.current.shelters.length === 0) {
         ensureWorld(width, height, currentBehavior);
       } else if (
@@ -3468,8 +3494,6 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         );
       }
 
-      const image = rasterCanvasRef.current || imageRef.current;
-      const frameSize = frameSizeRef.current;
       const globalTimeHour = resolveGlobalTimeHours(
         currentBehavior.startHour,
         elapsedTimeRef.current,
@@ -3550,7 +3574,6 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         occupancy,
         residualDiseaseSourcesRef.current,
       );
-      const nightProgress = resolveLightTransition(globalTimeHour);
       if (
         !chemicalFieldRef.current ||
         chemicalFieldRef.current.width !== width ||
@@ -3568,15 +3591,6 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       } else if (!currentBehavior.odorTrails) {
         chemicalFieldRef.current = createChemicalField(width, height);
       }
-
-      clearTransparentCanvas2d(ctx, width, height);
-      drawEnvironment(
-        ctx,
-        worldRef.current.algaeCovers,
-        currentBehavior,
-        chemicalFieldRef.current,
-        nightProgress,
-      );
 
       const pointerState = pointerRef.current;
       agentsRef.current.forEach((agent) => {
@@ -3641,6 +3655,36 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           return;
         }
 
+      });
+      agentsRef.current = agentsRef.current.filter(
+        (agent) =>
+          !agent.isDiseaseRemoved &&
+          !(agent.isRetiring && isAgentOffscreen(agent, width, height)),
+      );
+      }, currentIsPaused);
+
+      if (!shouldRenderFrame(currentIsPaused, width, height,
+        window.devicePixelRatio || 1, currentBehavior, imageRef.current,
+        rasterCanvasRef.current, frameCanvasesRef.current, frameSize)) {
+        animationFrameRef.current = simulationFrames.request(render);
+        return;
+      }
+      frame.draw(agentsRef.current, () => {
+      const globalTimeHour = resolveGlobalTimeHours(
+        currentBehavior.startHour,
+        elapsedTimeRef.current,
+        currentBehavior,
+      );
+      const nightProgress = resolveLightTransition(globalTimeHour);
+      clearTransparentCanvas2d(ctx, width, height);
+      drawEnvironment(
+        ctx,
+        worldRef.current.algaeCovers,
+        currentBehavior,
+        chemicalFieldRef.current,
+        nightProgress,
+      );
+      agentsRef.current.forEach((agent) => {
         if (!image) {
           return;
         }
@@ -3649,7 +3693,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           space: agent.spriteSpace || "2d",
           position: { x: agent.x, y: agent.y },
           velocity: { x: agent.vx, y: agent.vy },
-          previousScreenPosition: agent.previousScreenPosition,
+          previousScreenPosition: previousScreenPositions.get(agent),
           maxDt: dt,
           width,
           height,
@@ -3668,7 +3712,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         const renderFrame = agent.spriteState?.forceTop
           ? ATLAS.stages.lobster_top?.frames?.[0] || sprite.frame
           : sprite.frame;
-        agent.previousScreenPosition = sprite.pose.screenPosition;
+        previousScreenPositions.set(agent, sprite.pose.screenPosition);
         const renderAlpha = clamp(agent.renderAlpha ?? 1, 0, 1);
         if (renderAlpha <= 0.01) {
           return;
@@ -3693,12 +3737,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       });
       drawShelters(ctx, worldRef.current.shelters);
 
-      agentsRef.current = agentsRef.current.filter(
-        (agent) =>
-          !agent.isDiseaseRemoved &&
-          !(agent.isRetiring && isAgentOffscreen(agent, width, height)),
-      );
-
+      });
       animationFrameRef.current = simulationFrames.request(render);
     };
 
@@ -3712,7 +3751,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       window.removeEventListener("pointercancel", handlePointerCancel);
       window.removeEventListener("blur", handlePointerCancel);
     };
-  }, []);
+  }, [simulationFrames]);
 
   return (
     <canvas

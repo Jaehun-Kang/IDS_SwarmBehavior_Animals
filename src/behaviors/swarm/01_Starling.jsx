@@ -210,6 +210,9 @@ const clampControlValue = (key, value) => {
 };
 const lerp = (start, end, amount) => start + (end - start) * amount;
 const length3D = (vector) => Math.hypot(vector.x, vector.y, vector.z);
+// Preserve the original response at 60 Hz while scaling it to elapsed time.
+const frameBlend = (amount, dt) =>
+  dt === 1 / 60 ? amount : 1 - Math.pow(1 - amount, dt * 60);
 
 const normalize3D = (vector, fallback = { x: 1, y: 0, z: 0 }) => {
   const magnitude = length3D(vector);
@@ -1572,12 +1575,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
       };
     };
 
-    const step = (timestamp, dt) => {
-      const now = timestamp * 0.001;
-
-      if (!nextTurnTime) {
-        nextTurnTime = now + randomBetween(3.4, 5.6);
-      }
+    const step = (timestamp, frame) => {
 
       const width = window.innerWidth;
       const height = window.innerHeight;
@@ -1598,6 +1596,12 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
         return;
       }
       shouldRenderFrame.invalidate();
+      frame.advance((dt, now) => {
+
+      if (!nextTurnTime) {
+        nextTurnTime = now + randomBetween(3.4, 5.6);
+      }
+
 
       if (now >= nextTurnTime) {
         spawnTurnSignal(boids, flockCenter, now);
@@ -1658,7 +1662,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
             boid.exitDirection || boid.direction,
             (boid.speed / PARAMS.TURN_RADIUS) * dt * 1.45,
           );
-          boid.bank = lerp(boid.bank, clamp(boid.direction.x * 0.45, -0.65, 0.65), 0.06);
+          boid.bank = lerp(boid.bank, clamp(boid.direction.x * 0.45, -0.65, 0.65), frameBlend(0.06, dt));
           boid.position = add3D(
             boid.position,
             scale3D(
@@ -1673,7 +1677,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
           boid.position.z = lerp(
             boid.position.z,
             boid.exitDepth ?? boid.position.z,
-            0.18,
+            frameBlend(0.18, dt),
           );
           updateSpriteBranch(boid, width, height);
           updateSpriteFrame(boid, now);
@@ -1911,7 +1915,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
           desiredDirection,
           maxTurnAngle,
         );
-        boid.bank = lerp(boid.bank, clamp(turnInfluence * 0.9, -1.1, 1.1), 0.1);
+        boid.bank = lerp(boid.bank, clamp(turnInfluence * 0.9, -1.1, 1.1), frameBlend(0.1, dt));
         boid.position = add3D(
           boid.position,
           scale3D(
@@ -1967,6 +1971,9 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
         }
       }
 
+      });
+
+      frame.draw(boids, () => {
       drawBoidsWithWebGL(
         gl,
         renderer,
@@ -1975,6 +1982,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
         window.devicePixelRatio || 1,
         boids,
       );
+      });
 
       animationFrame = simulationFrames.request(step);
     };

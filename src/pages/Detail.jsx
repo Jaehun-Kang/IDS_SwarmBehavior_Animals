@@ -596,7 +596,7 @@ const drawBookTurnFrame = (
 
 const BookIntroSpread = React.memo(function BookIntroSpread({
   animalId, animal, animalAccentColor, isOpen, isBookOpen,
-  idSuffix, surfaceRef, bookSpreadStyle,
+  idSuffix, surfaceRef, bookSpreadStyle, canTurnForward,
 }) {
   const activePageKey = "intro";
   const page = { key: "intro" };
@@ -1124,7 +1124,8 @@ const BookIntroSpread = React.memo(function BookIntroSpread({
             </div>
           ) : null}
           <div className="detail-book-page detail-book-page--inside-cover" />
-          <div className="detail-book-page detail-book-page--intro">
+          <div className="detail-book-page detail-book-page--intro"
+            style={{ cursor: canTurnForward ? undefined : "default" }}>
             <div className="detail-page-inner detail-page-inner--intro">
               <div className="detail-intro-artwork" aria-hidden="true">
                 {introSprite ? <span
@@ -2079,6 +2080,8 @@ function Detail({
       controlKey,
     } = getPageRenderData(page);
     const idSuffix = isCapture ? "-capture" : "";
+    const canTurnForward = bookSpreads.indexOf(page) < bookSpreads.length - 1;
+    const forwardPageStyle = { cursor: canTurnForward ? undefined : "default" };
     const handleParameterChange = (name, value) => {
       if (isCapture) return;
       setPreviewControls((current) => ({
@@ -2104,7 +2107,7 @@ function Detail({
           style={bookSpreadStyle}
         >
           <div className="detail-book-page detail-book-page--empty" />
-          <div className="detail-book-page detail-book-page--cover">
+          <div className="detail-book-page detail-book-page--cover" style={forwardPageStyle}>
             <div className="detail-page-inner detail-page-inner--cover">
               <div className="detail-intro-copy">
                 <p className="detail-page-kicker">군집사전</p>
@@ -2125,7 +2128,8 @@ function Detail({
       return <BookIntroSpread key={`${animalId}:${page.key}${idSuffix}`}
         animalId={animalId} animal={animal} animalAccentColor={animalAccentColor}
         isOpen={isOpen && !isCapture} isBookOpen={isBookOpen}
-        idSuffix={idSuffix} surfaceRef={surfaceRef} bookSpreadStyle={bookSpreadStyle} />;
+        idSuffix={idSuffix} surfaceRef={surfaceRef} bookSpreadStyle={bookSpreadStyle}
+        canTurnForward={canTurnForward} />;
     }
 
     if (page?.type === "rule") {
@@ -2148,7 +2152,7 @@ function Detail({
               previewControls={pagePreviewControls}
             />
           </div>
-          <div className="detail-book-page detail-book-page--notes">
+          <div className="detail-book-page detail-book-page--notes" style={forwardPageStyle}>
             <div className="detail-page-inner">
               <div className="rule-header">
                 <h2
@@ -2196,7 +2200,7 @@ function Detail({
             <p className="no-rules">아직 규칙이 등록되지 않았습니다.</p>
           </div>
         </div>
-        <div className="detail-book-page detail-book-page--notes">
+        <div className="detail-book-page detail-book-page--notes" style={forwardPageStyle}>
           <div className="detail-page-inner">
             <header className="detail-page-header">
               <div className="detail-title">

@@ -232,7 +232,6 @@ const PHEROMONE_DIFFUSION_CM2_S = 0.01;
 const HARD_COLLISION_TURN_DEG_S = 1000;
 const INITIAL_FIELD_GUIDANCE_RAMP_S = 2.0;
 const SIMULATION_STEP_S = 0.02;
-const MAX_SIMULATION_STEPS_PER_FRAME = 3;
 const FIELD_UPDATE_INTERVAL_S = 0.1;
 const SPATIAL_HASH_CELL_BODY_LENGTHS = 4;
 const PHEROMONE_NOISE_CUTOFF_RATIO = 0.012;
@@ -445,6 +444,9 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const getControlField = (key) =>
   CONTROL_FIELDS.find((field) => field.key === key);
 const lerp = (start, end, amount) => start + (end - start) * amount;
+const frameBlend = (amount, dt) => dt === SIMULATION_STEP_S
+  ? amount
+  : 1 - Math.pow(1 - clamp(amount, 0, 1), Math.max(0, dt) / SIMULATION_STEP_S);
 
 const add = (...vectors) =>
   vectors.reduce(
@@ -1883,7 +1885,7 @@ const updateColonyState = (world, dt) => {
   world.raidDrive = lerp(
     world.raidDrive,
     targetRaidDrive,
-    clamp(RAID_DRIVE_RESPONSE_PER_S * dt, 0, 1),
+    frameBlend(clamp(RAID_DRIVE_RESPONSE_PER_S * SIMULATION_STEP_S, 0, 1), dt),
   );
 };
 
@@ -2522,7 +2524,7 @@ const startRecruitmentLoop = (ant, options = {}) => {
   );
 };
 
-const performInformedRecruiterTurnaround = (ant, world, controls, detail) => {
+const performInformedRecruiterTurnaround = (ant, world, controls) => {
   world.foodBuffer = clamp(world.foodBuffer + RETURNED_FOOD_REWARD, 0, 0.9);
   world.colonyDemand = clamp(
     world.colonyDemand - RETURNED_DEMAND_RELIEF,
@@ -3110,7 +3112,7 @@ const updateReserveAnt = (ant, world, controls, dt) => {
   ant.speedPxS = lerp(
     ant.speedPxS,
     MIN_CRUISE_SPEED_CM_S * world.metrics.pxPerCm * 0.18,
-    0.2,
+    frameBlend(0.2, dt),
   );
   ant.position = add(
     ant.position,
@@ -3229,7 +3231,7 @@ const updateMillAnt = (ant, ants, world, controls, dt) => {
     ant.speedPxS,
     Math.max(controls.V_SEARCH_CM_S, controls.V_MAX_CM_S * 0.82) *
       world.metrics.pxPerCm,
-    0.18,
+    frameBlend(0.18, dt),
   );
   ant.position = add(
     ant.position,
@@ -3642,7 +3644,7 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
       controls.V_SEARCH_CM_S *
         world.metrics.pxPerCm *
         FOOD_DISCOVERY_SPEED_BOOST,
-      0.2,
+      frameBlend(0.2, dt),
     );
     ant.position = add(
       ant.position,
@@ -3834,22 +3836,22 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
       const lowPheromoneLoopback =
         localConcentrationRatio <= LOOPBACK_LOW_PHEROMONE_RATIO &&
         Math.random() <
-          LOOPBACK_CHANCE_PER_S *
+          frameBlend(LOOPBACK_CHANCE_PER_S *
             (1 - exploratoryEdgeRatio * (1 - EXPLORATORY_EDGE_LOOPBACK_DAMP)) *
             (1 - hungerSearchPressure * (1 - HUNGER_SEARCH_LOOPBACK_DAMP)) *
-            dt;
+            SIMULATION_STEP_S, dt);
       const pressureLoopback =
         sectorPressure.overrepresented &&
         Math.random() <
-          clamp(
+          frameBlend(clamp(
             (sectorPressure.sectorPressure -
               SECTOR_LOOP_PRESSURE_THRESHOLD +
               1) *
               SECTOR_LOOPBACK_PRESSURE_CHANCE_PER_S *
-              dt,
+              SIMULATION_STEP_S,
             0,
             0.35,
-          );
+          ), dt);
       return lowPheromoneLoopback || pressureLoopback;
     })();
   if (shouldLoopBack) {
@@ -4163,7 +4165,7 @@ const updateTrailAnt = (ant, ants, world, controls, dt) => {
     0.58,
     1,
   );
-  ant.speedPxS = lerp(ant.speedPxS, desiredSpeedPxS * trafficSlowdown, 0.18);
+  ant.speedPxS = lerp(ant.speedPxS, desiredSpeedPxS * trafficSlowdown, frameBlend(0.18, dt));
   const trailStepStartPosition = { ...ant.position };
   ant.position = add(
     ant.position,
@@ -4327,7 +4329,7 @@ const updateAnt = (ant, ants, world, controls, dt) => {
       controls.V_SEARCH_CM_S * world.metrics.pxPerCm * 1.8,
     );
     ant.heading = vectorToAngle(direction);
-    ant.speedPxS = lerp(ant.speedPxS, targetSpeedPxS, 0.34);
+    ant.speedPxS = lerp(ant.speedPxS, targetSpeedPxS, frameBlend(0.34, dt));
     ant.position = add(
       ant.position,
       scale(direction, Math.min(remainingDistancePx, ant.speedPxS * dt)),
@@ -4379,12 +4381,12 @@ const updateAnt = (ant, ants, world, controls, dt) => {
   updateRoleSwap(ant, world, controls);
 };
 
-const resolveAntPositionSpacing = (world) => {
+const resolveAntPositionSpacing = (world, dt = SIMULATION_STEP_S) => {
   const minSpacingPx = world.metrics.bodyLengthsToPx(
     POSITION_SPACING_BODY_LENGTHS,
   );
   const minSpacingSq = minSpacingPx * minSpacingPx;
-  const maxCorrectionPx = world.metrics.bodyLengthPx * 0.55;
+  const maxCorrectionPx = world.metrics.bodyLengthPx * 0.55 * dt / SIMULATION_STEP_S;
   const hash = world.spatialHash;
 
   const resolvePair = (left, right) => {
@@ -4400,7 +4402,7 @@ const resolveAntPositionSpacing = (world) => {
 
     const dist = Math.sqrt(distSq);
     const correction = Math.min(
-      (minSpacingPx - dist) * POSITION_SPACING_RELAXATION * 0.5,
+      (minSpacingPx - dist) * frameBlend(POSITION_SPACING_RELAXATION * 0.5, dt),
       maxCorrectionPx,
     );
     const direction = scale(offset, 1 / dist);
@@ -4478,6 +4480,7 @@ const resolveAntPositionSpacing = (world) => {
 };
 
 const stepWorld = (world, controls, dt) => {
+  if (!Number.isFinite(dt) || dt <= 0) return;
   syncAntPopulation(world, controls);
   world.time += dt;
   updateMillBias(world, controls, dt);
@@ -4495,7 +4498,7 @@ const stepWorld = (world, controls, dt) => {
         world.metrics.bodyLengthsToPx(0.8),
   );
   buildSpatialHash(world);
-  resolveAntPositionSpacing(world);
+  resolveAntPositionSpacing(world, dt);
   updateFrontCongestion(world);
 
   world.fieldUpdateAccumulator += dt;
@@ -4748,7 +4751,6 @@ export function App({ controls, onGpuErrorChange, isPaused = false } = {}) {
   const [simulationFrames] = React.useState(createSimulationFrameScheduler);
   const animationFrameRef = React.useRef(null);
   const worldRef = React.useRef(null);
-  const simulationAccumulatorRef = React.useRef(0);
   const controlsRef = React.useRef(sanitizeControlState(controls));
   const isPausedRef = React.useRef(isPaused);
   const imageRef = React.useRef(null);
@@ -4833,14 +4835,12 @@ export function App({ controls, onGpuErrorChange, isPaused = false } = {}) {
     canvas.addEventListener("pointerdown", handlePointerDown);
 
     const shouldRenderFrame = createPausedFrameGate();
-    const render = (timestamp, fixedDt) => {
+    const render = (timestamp, frame) => {
       if (!shouldRenderFrame(isPausedRef.current, window.innerWidth, window.innerHeight,
         window.devicePixelRatio || 1, controlsRef.current, imageRef.current, frameCanvasesRef.current)) {
         animationFrameRef.current = simulationFrames.request(render);
         return;
       }
-      const now = timestamp * 0.001;
-      const dt = fixedDt;
 
       const liveControls = controlsRef.current;
       const size = syncCanvasSize(canvas, ctx);
@@ -4849,36 +4849,23 @@ export function App({ controls, onGpuErrorChange, isPaused = false } = {}) {
       if (!world) {
         world = createWorld(size.width, size.height, liveControls);
         worldRef.current = world;
-        simulationAccumulatorRef.current = 0;
       } else if (world.width !== size.width || world.height !== size.height) {
         world = resizeWorld(world, size.width, size.height, liveControls);
         worldRef.current = world;
-        simulationAccumulatorRef.current = 0;
       }
 
-      if (!isPausedRef.current) {
-        simulationAccumulatorRef.current = Math.min(
-          simulationAccumulatorRef.current + dt,
-          SIMULATION_STEP_S * MAX_SIMULATION_STEPS_PER_FRAME,
-        );
+      frame.advance((dt) => {
+        if (!Number.isFinite(dt) || dt <= 0) return;
 
-        let steps = 0;
-        while (
-          simulationAccumulatorRef.current >= SIMULATION_STEP_S &&
-          steps < MAX_SIMULATION_STEPS_PER_FRAME
-        ) {
-          stepWorld(world, liveControls, SIMULATION_STEP_S);
-          simulationAccumulatorRef.current -= SIMULATION_STEP_S;
-          steps += 1;
-        }
-      }
+        stepWorld(world, liveControls, dt);
+      }, isPausedRef.current);
 
       drawWorld(
-        ctx,
-        world,
-        imageRef.current,
-        frameCanvasesRef.current,
-        frameSizeRef.current,
+      ctx,
+      world,
+      imageRef.current,
+      frameCanvasesRef.current,
+      frameSizeRef.current,
       );
 
       animationFrameRef.current = simulationFrames.request(render);
@@ -4893,9 +4880,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false } = {}) {
       }
       animationFrameRef.current = null;
       worldRef.current = null;
-      simulationAccumulatorRef.current = 0;
     };
-  }, []);
+  }, [simulationFrames]);
 
   return (
     <canvas

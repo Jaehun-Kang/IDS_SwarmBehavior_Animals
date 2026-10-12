@@ -204,6 +204,7 @@ export function useParticleCanvas(
   onTextStateChange,
   obstacleBoxRef,
   subtitleRef,
+  pointerActiveUntilRef,
 ) {
   const canvasRef = useRef(null);
   const effectRef = useRef(null);
@@ -331,12 +332,20 @@ export function useParticleCanvas(
     buildInitialTitle();
 
     let animationId;
-    const animate = () => {
-      if (!ctx || canvas.width === 0 || canvas.height === 0) return;
+    const resetTiming = () => effect.resetTiming();
+    document.addEventListener("visibilitychange", resetTiming);
+    const animate = (timestamp) => {
+      animationId = requestAnimationFrame(animate);
+      if (document.hidden || canvas.width === 0 || canvas.height === 0) {
+        effect.resetTiming();
+        return;
+      }
       const hoveredSpeciesId = hoveredIdRef?.current
         ? hoveredIdRef.current.replace(/-\d+$/, "")
         : null;
-      effect.setMouseRepulsionEnabled(!hoveredSpeciesId);
+      const isPointerActive = !pointerActiveUntilRef ||
+        performance.now() < pointerActiveUntilRef.current;
+      effect.setMouseRepulsionEnabled(!hoveredSpeciesId && isPointerActive);
       if (currentTextKeyRef.current !== hoveredSpeciesId) {
         currentTextKeyRef.current = hoveredSpeciesId;
         applyText(hoveredSpeciesId);
@@ -372,14 +381,15 @@ export function useParticleCanvas(
             canShowSubtitle && effect.isTextReadyForSubtitle(7.5, 0.015),
         }));
       }
+      effect.advance(timestamp);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       effect.render();
-      animationId = requestAnimationFrame(animate);
     };
-    animate();
+    animationId = requestAnimationFrame(animate);
 
     return () => {
       cancelAnimationFrame(animationId);
+      document.removeEventListener("visibilitychange", resetTiming);
       effect.cleanup();
       effectRef.current = null;
       currentObstacleBoxRef.current = null;
@@ -396,5 +406,6 @@ export function useParticleCanvas(
     onTextStateChange,
     obstacleBoxRef,
     subtitleRef,
+    pointerActiveUntilRef,
   ]);
 }

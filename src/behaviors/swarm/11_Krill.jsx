@@ -1422,6 +1422,7 @@ const calculateSwarmCenter = (agents) => {
 };
 
 const advanceAgent = (agent, index, agents, context) => {
+  if (!Number.isFinite(context.dt) || context.dt <= 0) return;
   const {
     dt,
     width,
@@ -1529,7 +1530,8 @@ const advanceAgent = (agent, index, agents, context) => {
       wobble * PARAMS.SINKING_SPEED_PX_S * 0.08;
     agent.ax = driftVelocityX - agent.vx;
     agent.ay = targetVy - agent.vy;
-    agent.vx = lerp(agent.vx, driftVelocityX, sinkBlend * 0.7);
+    agent.vx = lerp(agent.vx, driftVelocityX,
+      1 - Math.pow(1 - exponentialBlend(PARAMS.SWIM_RESPONSE_PER_S * 0.85, 1 / 60) * 0.7, dt * 60));
     agent.vy = lerp(agent.vy, targetVy, sinkBlend);
     const sideHeading =
       Math.abs(agent.vx) > 0.05 ? (agent.vx >= 0 ? 0 : Math.PI) : agent.heading;
@@ -1668,7 +1670,12 @@ const advanceAgent = (agent, index, agents, context) => {
 
     const jitterBlend = exponentialBlend(PARAMS.JITTER_BLEND_PER_S, dt);
     const jitterTarget = randomBetween(-1, 1) * food * modeParameters.noiseScale;
-    agent.turnNoise = lerp(agent.turnNoise, jitterTarget, jitterBlend);
+    const referenceJitterBlend = exponentialBlend(PARAMS.JITTER_BLEND_PER_S, 1 / 60);
+    const noiseScale = dt === 1 / 60 ? 1 :
+      Math.sqrt((1 - Math.pow(1 - jitterBlend, 2)) /
+        (1 - Math.pow(1 - referenceJitterBlend, 2)));
+    agent.turnNoise = agent.turnNoise * (1 - jitterBlend) +
+      jitterTarget * referenceJitterBlend * noiseScale;
     const forceFilter = agent.isReturning
       ? PARAMS.SCREEN_REENTRY_FORCE_FILTER
       : 1;
@@ -2237,15 +2244,15 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     canvas.addEventListener("pointerleave", handlePointerLeave);
     canvas.addEventListener("pointercancel", handlePointerLeave);
 
+    const screenPositions = new WeakMap();
     const shouldRenderFrame = createPausedFrameGate();
-    const render = (timestamp, fixedDt) => {
+    const render = (timestamp, frame) => {
+      animationFrameRef.current = simulationFrames.request(render);
       if (!shouldRenderFrame(isPaused, window.innerWidth, window.innerHeight,
         window.devicePixelRatio || 1, behaviorConfig, rasterCanvasRef.current, frameCanvasesRef.current)) {
-        animationFrameRef.current = simulationFrames.request(render);
         return;
       }
       const now = timestamp * 0.001;
-      const dt = fixedDt;
 
       const size = syncCanvasSize(canvas, ctx);
 
@@ -2255,29 +2262,20 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 
       ensureAgents(agentsRef, behaviorConfig, size.width, size.height);
 
-      clearTransparentCanvas2d(ctx, size.width, size.height);
-      const renderTimeFlags = resolvePhaseFlags(
-        behaviorConfig.lightPhase,
-        phaseTransitionRef.current,
-        now,
-      );
-      drawMarineSnow(
-        ctx,
-        size.width,
-        size.height,
-        elapsedTimeRef.current,
-        renderTimeFlags,
-      );
-      drawFoodField(ctx, foodFieldRef.current, elapsedTimeRef.current);
+      frame.advance((dt, stepNow) => {
+        if (!Number.isFinite(dt) || dt <= 0) return;
 
-      if (!isPaused) {
         elapsedTimeRef.current += dt;
         const context = {
           dt,
           width: size.width,
           height: size.height,
           elapsedS: elapsedTimeRef.current,
-          timeFlags: renderTimeFlags,
+          timeFlags: resolvePhaseFlags(
+            behaviorConfig.lightPhase,
+            phaseTransitionRef.current,
+            stepNow,
+          ),
           foodField: foodFieldRef.current,
           config: behaviorConfig,
           swarmCenter: calculateSwarmCenter(agentsRef.current),
@@ -2293,7 +2291,22 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           // Later agents must see earlier agents at their updated positions.
           updateNeighborGrid(context.neighborGrid, agent, index);
         });
-      }
+      }, isPaused);
+
+      const renderTimeFlags = resolvePhaseFlags(
+        behaviorConfig.lightPhase,
+        phaseTransitionRef.current,
+        now,
+      );
+      clearTransparentCanvas2d(ctx, size.width, size.height);
+      drawMarineSnow(
+        ctx,
+        size.width,
+        size.height,
+        elapsedTimeRef.current,
+        renderTimeFlags,
+      );
+      drawFoodField(ctx, foodFieldRef.current, elapsedTimeRef.current);
 
       const image = rasterCanvasRef.current || imageRef.current;
       const frameSize = frameSizeRef.current;
@@ -2309,9 +2322,9 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           const sprite = resolveCanvasAtlasSprite(ATLAS, {
             space: agent.spriteSpace || "2d",
             position: agent.spritePosition || { x: agent.x, y: agent.y },
-            velocity: agent.spriteVelocity || { x: agent.vx, y: agent.vy },
-            previousScreenPosition: agent.previousScreenPosition,
-            maxDt: dt,
+            velocity: { x: agent.vx, y: agent.vy },
+            previousScreenPosition: screenPositions.get(agent),
+            maxDt: frame.dt,
             width: size.width,
             height: size.height,
             state: agent.spriteState,
@@ -2327,7 +2340,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           const drawWidth = agent.renderWidth;
           const drawHeight = agent.renderHeight;
           const drawY = agent.y + bobOffset;
-          agent.previousScreenPosition = sprite.pose.screenPosition;
+          screenPositions.set(agent, sprite.pose.screenPosition);
 
           ctx.save();
           ctx.translate(agent.x, drawY);
@@ -2376,7 +2389,6 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         glowSpritesRef.current,
       );
 
-      animationFrameRef.current = simulationFrames.request(render);
     };
 
     animationFrameRef.current = simulationFrames.request(render);
@@ -2388,7 +2400,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       canvas.removeEventListener("pointerleave", handlePointerLeave);
       canvas.removeEventListener("pointercancel", handlePointerLeave);
     };
-  }, [behaviorConfig, isPaused]);
+  }, [behaviorConfig, isPaused, simulationFrames]);
 
   return (
     <canvas

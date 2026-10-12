@@ -193,6 +193,9 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const getControlField = (key) =>
   CONTROL_FIELDS.find((field) => field.key === key);
 const lerp = (start, end, amount) => start + (end - start) * amount;
+const frameBlend = (amount, dt) => dt === 1 / 60
+  ? amount
+  : 1 - Math.pow(1 - clamp(amount, 0, 1), Math.max(0, dt) * 60);
 const randomBetween = (min, max) => min + Math.random() * (max - min);
 
 const addVector = (left, right) => ({
@@ -824,7 +827,7 @@ const updateHeading = (agent, dt) => {
   agent.heading = wrapAngle(
     agent.heading +
       wanderSignal * dynamicTurnRate * dt * 0.35 +
-      threatTurnJitter * dt,
+      threatTurnJitter * Math.sqrt(dt / 60),
   );
 };
 
@@ -958,6 +961,7 @@ const applyPerchReturn = (agent) => {
 };
 
 const applyAltitudeRule = (agent, dt) => {
+  if (!Number.isFinite(dt) || dt <= 0) return agent.vz;
   if (agent.isPerched && agent.perchAnchor && agent.threatTimer <= 0) {
     return (
       (agent.perchAnchor.z - agent.z) * PARAMS.PERCH_RETURN_BLEND_PER_S * dt
@@ -983,15 +987,16 @@ const applyAltitudeRule = (agent, dt) => {
   verticalVelocity -= PARAMS.DESCENT_DRIFT_MPS * dt;
 
   if (verticalVelocity < 0) {
-    verticalVelocity *= PARAMS.DESCENT_GLIDE_MULTIPLIER;
+    verticalVelocity *= Math.pow(PARAMS.DESCENT_GLIDE_MULTIPLIER, dt * 60);
   } else {
-    verticalVelocity *= PARAMS.ASCENT_LIFT_DAMPING;
+    verticalVelocity *= Math.pow(PARAMS.ASCENT_LIFT_DAMPING, dt * 60);
   }
 
   return verticalVelocity;
 };
 
 const updatePerchedAgent = (agent, dt) => {
+  if (!Number.isFinite(dt) || dt <= 0) return;
   if (!agent.perchAnchor) {
     return;
   }
@@ -1007,11 +1012,11 @@ const updatePerchedAgent = (agent, dt) => {
     PARAMS.PERCH_SURFACE_DRIFT_PX *
     0.6 *
     driftScale;
-  const blend = clamp(dt * PARAMS.PERCH_RETURN_BLEND_PER_S, 0, 1);
+  const blend = frameBlend(clamp(PARAMS.PERCH_RETURN_BLEND_PER_S / 60, 0, 1), dt);
   agent.x = lerp(agent.x, agent.perchAnchor.x + swayX, blend);
   agent.y = lerp(agent.y, agent.perchAnchor.y + swayY, blend);
   agent.z = lerp(agent.z, agent.perchAnchor.z, blend);
-  agent.depth = lerp(agent.depth, agent.perchAnchor.depth, blend * 0.5);
+  agent.depth = lerp(agent.depth, agent.perchAnchor.depth, frameBlend(clamp(PARAMS.PERCH_RETURN_BLEND_PER_S / 60, 0, 1) * 0.5, dt));
   agent.vx = lerp(agent.vx, 0, blend);
   agent.vy = lerp(agent.vy, 0, blend);
   agent.vz = lerp(agent.vz, 0, blend);
@@ -1697,186 +1702,188 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         );
       }
 
-      agentsRef.current.forEach((agent) => {
-        agent.z = clamp(agent.z, 0.02, PARAMS.MAX_RELATIVE_ALTITUDE_M + 0.3);
-      });
     };
 
+    const screenPositions = new WeakMap();
     const shouldRenderFrame = createPausedFrameGate();
-    const render = (timestamp, fixedDt) => {
+    const render = (timestamp, frame) => {
+      animationFrameRef.current = simulationFrames.request(render);
       if (!shouldRenderFrame(isPaused, window.innerWidth, window.innerHeight,
         window.devicePixelRatio || 1, sanitizedControls, rasterCanvasRef.current, frameCanvasesRef.current)) {
-        animationFrameRef.current = simulationFrames.request(render);
         return;
       }
       const now = timestamp * 0.001;
-      const baseDt = fixedDt;
-      const dt = baseDt * PARAMS.DEFAULT_TIME_SCALE;
 
       const size = syncCanvasSize(canvas, ctx);
       ensureScene(size.width, size.height);
-      clearTransparentCanvas2d(ctx, size.width, size.height);
-      drawObstacles(ctx, obstaclesRef.current);
-
-      if (perturbationPulseRef.current.ttl > 0) {
-        perturbationPulseRef.current.ttl = Math.max(
-          0,
-          perturbationPulseRef.current.ttl - dt,
-        );
-        perturbationPulseRef.current.active =
-          perturbationPulseRef.current.ttl > 0;
-      } else {
-        perturbationPulseRef.current.active = false;
-      }
-
-      if (!isPaused) {
-        const agents = agentsRef.current;
-        const grid = createSpatialGrid(agents);
-        const radiusPx = metersToPixels(sanitizedControls.VISION_RADIUS_M);
-
-        agents.forEach((agent) => {
-          const neighborIndices = gatherNeighborIndices(
-            agent,
-            grid,
-            agents,
-            radiusPx,
-          );
-
-          updateThreatState(
-            agent,
-            pointerThreatRef.current,
-            sanitizedControls.INTERACTION_MODE,
-            dt,
-          );
-
-          applyArtificialPerturbation(agent, perturbationPulseRef.current);
-
-          updateIntegrateAndFire(
-            agent,
-            agents,
-            neighborIndices,
-            obstaclesRef.current,
-            sanitizedControls.COUPLING_BETA,
-            dt,
-            sanitizedControls.INTERACTIONS_ENABLED,
-          );
-
-          const targetSpeedMps = resolveTargetSpeedMps(agent);
-          updateHeading(agent, dt);
-
-          if (agent.perchReturnTimer > 0 && agent.threatTimer <= 0) {
-            agent.perchReturnTimer = Math.max(0, agent.perchReturnTimer - dt);
-          }
-
-          if (agent.isPerched && agent.threatTimer <= 0) {
-            updatePerchedAgent(agent, dt);
-            applyPerchedScreenReturn(agent, size.width, size.height, dt);
-            agent.spriteState = { glow: agent.isGlowActive, idle: true };
-            return;
-          }
-
-          const forward = rotate2D({ x: 1, y: 0 }, agent.heading);
-          const targetSpeedPx = metersToPixels(targetSpeedMps);
-          const desiredVelocity = {
-            x: forward.x * targetSpeedPx,
-            y: forward.y * targetSpeedPx,
-            z: 0,
-          };
-          const separation = applySeparation(
-            agent,
-            agents,
-            neighborIndices,
-            dt,
-          );
-          const threatEvasion = applyThreatEvasion(agent);
-          const perchReturn = applyPerchReturn(agent);
-          const screenReturn = applyScreenReturn(
-            agent,
-            size.width,
-            size.height,
-          );
-          const desiredWithForces = addVector(
-            addVector(
-              addVector(addVector(desiredVelocity, separation), threatEvasion),
-              perchReturn,
-            ),
-            screenReturn,
-          );
-          const velocityBlend = clamp(
-            dt * PARAMS.STEERING_RESPONSE_PER_S,
-            0,
-            1,
-          );
-          const nextVelocity = {
-            x: lerp(agent.vx, desiredWithForces.x, velocityBlend),
-            y: lerp(agent.vy, desiredWithForces.y, velocityBlend),
-            z: applyAltitudeRule(agent, dt),
-          };
-          const limitedVelocity = scaleVector(
-            normalize3D(nextVelocity, {
-              x: Math.cos(agent.heading),
-              y: Math.sin(agent.heading),
-              z: 0,
-            }),
-            Math.min(
-              length3D(nextVelocity),
-              metersToPixels(
-                agent.threatTimer > 0
-                  ? PARAMS.THREAT_MAX_SPEED_MPS
-                  : PARAMS.MAX_SPEED_MPS,
-              ),
-            ),
-          );
-
-          agent.vx = limitedVelocity.x;
-          agent.vy = limitedVelocity.y;
-          agent.vz = clamp(limitedVelocity.z, -0.65, 0.65);
-          agent.x += agent.vx * dt;
-          agent.y += agent.vy * dt;
-          agent.z = clamp(
-            agent.z + agent.vz * dt,
-            0.02,
-            PARAMS.MAX_RELATIVE_ALTITUDE_M + 0.24,
-          );
-          agent.depth = clamp(
-            agent.depth +
-              Math.sin(agent.wanderClock * 0.7 + agent.wanderOffset) * 8 * dt,
-            PARAMS.DEPTH_MIN - 4,
-            PARAMS.DEPTH_MAX + 4,
-          );
-          agent.spriteState = { glow: agent.isGlowActive, idle: false };
-        });
-      }
-
-      const image = rasterCanvasRef.current || imageRef.current;
-      const atlasVariants = atlasVariantsRef.current;
-      const glowHalo = glowHaloRef.current;
-      const frameSize = frameSizeRef.current;
       const isLightThreatActive =
         sanitizedControls.INTERACTION_MODE === "light_threat" &&
         pointerThreatRef.current.active;
 
-      if (isLightThreatActive) {
-        flashlightPulseClockRef.current += dt;
-        if (
-          sanitizedControls.INTERACTIONS_ENABLED &&
-          flashlightPulseClockRef.current >= PARAMS.FLASHLIGHT_PULSE_INTERVAL_S
-        ) {
-          flashlightPulseClockRef.current -= PARAMS.FLASHLIGHT_PULSE_INTERVAL_S;
-          perturbationPulseRef.current = {
-            ...perturbationPulseRef.current,
-            x: pointerThreatRef.current.x,
-            y: pointerThreatRef.current.y,
-            ttl: PARAMS.PERTURBATION_TTL_S,
-            active: true,
-            id: perturbationPulseRef.current.id + 1,
-            strength: PARAMS.FLASHLIGHT_PULSE_STRENGTH,
-            radiusPx: PARAMS.FLASHLIGHT_PULSE_RADIUS_PX,
-          };
+      frame.advance((elapsedDt) => {
+        if (!Number.isFinite(elapsedDt) || elapsedDt <= 0) return;
+
+        const dt = elapsedDt * PARAMS.DEFAULT_TIME_SCALE;
+        agentsRef.current.forEach((agent) => {
+          agent.z = clamp(agent.z, 0.02, PARAMS.MAX_RELATIVE_ALTITUDE_M + 0.3);
+        });
+        if (perturbationPulseRef.current.ttl > 0) {
+          perturbationPulseRef.current.ttl = Math.max(
+            0,
+            perturbationPulseRef.current.ttl - dt,
+          );
+          perturbationPulseRef.current.active =
+            perturbationPulseRef.current.ttl > 0;
+        } else {
+          perturbationPulseRef.current.active = false;
         }
-      } else {
-        flashlightPulseClockRef.current = PARAMS.FLASHLIGHT_PULSE_INTERVAL_S;
-      }
+
+        {
+          const agents = agentsRef.current;
+          const grid = createSpatialGrid(agents);
+          const radiusPx = metersToPixels(sanitizedControls.VISION_RADIUS_M);
+
+          agents.forEach((agent) => {
+            const neighborIndices = gatherNeighborIndices(
+              agent,
+              grid,
+              agents,
+              radiusPx,
+            );
+
+            updateThreatState(
+              agent,
+              pointerThreatRef.current,
+              sanitizedControls.INTERACTION_MODE,
+              dt,
+            );
+
+            applyArtificialPerturbation(agent, perturbationPulseRef.current);
+
+            updateIntegrateAndFire(
+              agent,
+              agents,
+              neighborIndices,
+              obstaclesRef.current,
+              sanitizedControls.COUPLING_BETA,
+              dt,
+              sanitizedControls.INTERACTIONS_ENABLED,
+            );
+
+            const targetSpeedMps = resolveTargetSpeedMps(agent);
+            updateHeading(agent, dt);
+
+            if (agent.perchReturnTimer > 0 && agent.threatTimer <= 0) {
+              agent.perchReturnTimer = Math.max(0, agent.perchReturnTimer - dt);
+            }
+
+            if (agent.isPerched && agent.threatTimer <= 0) {
+              updatePerchedAgent(agent, dt);
+              applyPerchedScreenReturn(agent, size.width, size.height, dt);
+              agent.spriteState = { glow: agent.isGlowActive, idle: true };
+              return;
+            }
+
+            const forward = rotate2D({ x: 1, y: 0 }, agent.heading);
+            const targetSpeedPx = metersToPixels(targetSpeedMps);
+            const desiredVelocity = {
+              x: forward.x * targetSpeedPx,
+              y: forward.y * targetSpeedPx,
+              z: 0,
+            };
+            const separation = applySeparation(
+              agent,
+              agents,
+              neighborIndices,
+              dt,
+            );
+            const threatEvasion = applyThreatEvasion(agent);
+            const perchReturn = applyPerchReturn(agent);
+            const screenReturn = applyScreenReturn(
+              agent,
+              size.width,
+              size.height,
+            );
+            const desiredWithForces = addVector(
+              addVector(
+                addVector(addVector(desiredVelocity, separation), threatEvasion),
+                perchReturn,
+              ),
+              screenReturn,
+            );
+            const velocityBlend = frameBlend(
+              clamp(PARAMS.STEERING_RESPONSE_PER_S / 60, 0, 1), dt,
+            );
+            const nextVelocity = {
+              x: lerp(agent.vx, desiredWithForces.x, velocityBlend),
+              y: lerp(agent.vy, desiredWithForces.y, velocityBlend),
+              z: applyAltitudeRule(agent, dt),
+            };
+            const limitedVelocity = scaleVector(
+              normalize3D(nextVelocity, {
+                x: Math.cos(agent.heading),
+                y: Math.sin(agent.heading),
+                z: 0,
+              }),
+              Math.min(
+                length3D(nextVelocity),
+                metersToPixels(
+                  agent.threatTimer > 0
+                    ? PARAMS.THREAT_MAX_SPEED_MPS
+                    : PARAMS.MAX_SPEED_MPS,
+                ),
+              ),
+            );
+
+            agent.vx = limitedVelocity.x;
+            agent.vy = limitedVelocity.y;
+            agent.vz = clamp(limitedVelocity.z, -0.65, 0.65);
+            agent.x += agent.vx * dt;
+            agent.y += agent.vy * dt;
+            agent.z = clamp(
+              agent.z + agent.vz * dt,
+              0.02,
+              PARAMS.MAX_RELATIVE_ALTITUDE_M + 0.24,
+            );
+            agent.depth = clamp(
+              agent.depth +
+                Math.sin(agent.wanderClock * 0.7 + agent.wanderOffset) * 8 * dt,
+              PARAMS.DEPTH_MIN - 4,
+              PARAMS.DEPTH_MAX + 4,
+            );
+            agent.spriteState = { glow: agent.isGlowActive, idle: false };
+          });
+        }
+
+        if (isLightThreatActive) {
+          flashlightPulseClockRef.current += dt;
+          if (
+            sanitizedControls.INTERACTIONS_ENABLED &&
+            flashlightPulseClockRef.current >= PARAMS.FLASHLIGHT_PULSE_INTERVAL_S
+          ) {
+            flashlightPulseClockRef.current -= PARAMS.FLASHLIGHT_PULSE_INTERVAL_S;
+            perturbationPulseRef.current = {
+              ...perturbationPulseRef.current,
+              x: pointerThreatRef.current.x,
+              y: pointerThreatRef.current.y,
+              ttl: PARAMS.PERTURBATION_TTL_S,
+              active: true,
+              id: perturbationPulseRef.current.id + 1,
+              strength: PARAMS.FLASHLIGHT_PULSE_STRENGTH,
+              radiusPx: PARAMS.FLASHLIGHT_PULSE_RADIUS_PX,
+            };
+          }
+        } else {
+          flashlightPulseClockRef.current = PARAMS.FLASHLIGHT_PULSE_INTERVAL_S;
+        }
+      }, isPaused);
+
+      clearTransparentCanvas2d(ctx, size.width, size.height);
+      drawObstacles(ctx, obstaclesRef.current);
+      const image = rasterCanvasRef.current || imageRef.current;
+      const atlasVariants = atlasVariantsRef.current;
+      const glowHalo = glowHaloRef.current;
+      const frameSize = frameSizeRef.current;
 
       if (isLightThreatActive) {
         drawFlashlightOverlay(
@@ -1903,8 +1910,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             space: agent.spriteSpace || "3d",
             position: worldPosition,
             velocity: { x: agent.vx, y: agent.vy, z: agent.vz },
-            previousScreenPosition: agent.previousScreenPosition,
-            maxDt: dt,
+            previousScreenPosition: screenPositions.get(agent),
+            maxDt: frame.dt * PARAMS.DEFAULT_TIME_SCALE,
             width: size.width,
             height: size.height,
             projectPoint,
@@ -1945,7 +1952,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
                   ? atlasVariants?.glowFrames
                   : atlasVariants?.baseFrames || frameCanvasesRef.current;
 
-          agent.previousScreenPosition = sprite.pose.screenPosition;
+          screenPositions.set(agent, sprite.pose.screenPosition);
 
           if (agent.isGlowActive && glowHalo) {
             const haloFrame = glowHalo.get(`${sprite.frame.x}:${sprite.frame.y}`);
@@ -2008,7 +2015,6 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         });
       }
 
-      animationFrameRef.current = simulationFrames.request(render);
     };
 
     animationFrameRef.current = simulationFrames.request(render);
@@ -2016,7 +2022,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     return () => {
       simulationFrames.cancel(animationFrameRef.current);
     };
-  }, [isPaused, sanitizedControls]);
+  }, [isPaused, sanitizedControls, simulationFrames]);
 
   return (
     <canvas

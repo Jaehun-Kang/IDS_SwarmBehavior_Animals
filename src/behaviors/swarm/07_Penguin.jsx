@@ -1,6 +1,6 @@
 import React from "react";
-import { isPenguinEntryAnchor } from "../../utils/penguinEntry.js";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
+import { isPenguinEntryAnchor } from "../../utils/penguinEntry.js";
 import { createSimulationFrameScheduler } from "../../utils/simulationFrameScheduler.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
@@ -391,6 +391,8 @@ const SLOT_LAYOUT_VERSION = 2;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const randomBetween = (min, max) => min + Math.random() * (max - min);
 const lerp = (start, end, amount) => start + (end - start) * amount;
+const frameBlend = (amount, dt) =>
+  dt === 1 / 60 ? amount : 1 - Math.pow(1 - amount, dt * 60);
 const logistic = (value) => 1 / (1 + Math.exp(-value));
 
 const normalize2D = (x, y, fallback = { x: 1, y: 0 }) => {
@@ -1399,6 +1401,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false, displayState
   const [simulationFrames] = React.useState(createSimulationFrameScheduler);
   const animationFrameRef = React.useRef(0);
   const agentsRef = React.useRef([]);
+  const renderSpritesRef = React.useRef(new WeakMap());
   const simulationTimeRef = React.useRef(0);
   const frameSizeRef = React.useRef(
     resolveAtlasFrameSize(ATLAS, { width: 64, height: 64 }),
@@ -1571,23 +1574,13 @@ export function App({ controls, onGpuErrorChange, isPaused = false, displayState
       });
     };
 
+    const renderSprites = renderSpritesRef.current;
+    const shouldReconcile = createPausedFrameGate();
     const shouldRenderFrame = createPausedFrameGate();
-    const render = (timestamp, fixedDt) => {
-      if (!shouldRenderFrame(isPaused, window.innerWidth, window.innerHeight,
-        window.devicePixelRatio || 1, controls, rasterCanvasRef.current, frameCanvasesRef.current)) {
-        animationFrameRef.current = simulationFrames.request(render);
-        return;
-      }
-      const now = timestamp * 0.001;
-      const dt = fixedDt;
+    const render = (timestamp, frame) => {
       const behavior = resolveBehaviorConfig(controls);
-      simulationTimeRef.current += dt * PARAMS.SIMULATION_TIME_SCALE;
-      const simTime = simulationTimeRef.current;
       const size = syncCanvasSize(canvas, ctx);
-      ensureAgents(size.width, size.height, behavior);
       const metrics = resolvePenguinMetrics(size.width, size.height, behavior);
-
-      clearTransparentCanvas2d(ctx, size.width, size.height);
 
       const image = rasterCanvasRef.current || imageRef.current;
       const frameSize = frameSizeRef.current;
@@ -1600,7 +1593,18 @@ export function App({ controls, onGpuErrorChange, isPaused = false, displayState
         frameSize.width,
         frameSize.height,
       );
+      if (shouldReconcile(true, size.width, size.height, controls, frameAspect)) {
+        ensureAgents(size.width, size.height, behavior);
+        agentsRef.current.forEach((agent) => {
+          agent.renderHeight = metrics.spriteHeight * agent.sizeJitter;
+          agent.renderWidth = agent.renderHeight * frameAspect;
+        });
+      }
 
+      frame.advance((dt, now) => {
+        simulationTimeRef.current += dt * PARAMS.SIMULATION_TIME_SCALE;
+        const simTime = simulationTimeRef.current;
+        ensureAgents(size.width, size.height, behavior);
       if (!isPaused) {
         const reactionThresholdPx =
           metrics.spriteHeight * behavior.reactionThresholdRatio;
@@ -2350,11 +2354,11 @@ export function App({ controls, onGpuErrorChange, isPaused = false, displayState
             agent.heatHistory = lerp(
               agent.heatHistory ?? 0,
               heatHistoryTarget,
-              clamp(
-                dt * PARAMS.THERMAL_HISTORY_BLEND * (agent.thermalInertia ?? 1),
+              frameBlend(clamp(
+                (1 / 60) * PARAMS.THERMAL_HISTORY_BLEND * (agent.thermalInertia ?? 1),
                 0,
                 1,
-              ),
+              ), dt),
             );
             const retainedHeat = Math.max(agent.heatHistory, 0);
             const latentCooling = Math.max(-agent.heatHistory, 0);
@@ -4059,12 +4063,12 @@ export function App({ controls, onGpuErrorChange, isPaused = false, displayState
             agent.vx = 0;
             agent.vy = 0;
           } else {
-            agent.vx = lerp(agent.vx, measuredVx, 1 - effectiveVelocityDamping);
-            agent.vy = lerp(agent.vy, measuredVy, 1 - effectiveVelocityDamping);
+            agent.vx = lerp(agent.vx, measuredVx, frameBlend(1 - effectiveVelocityDamping, dt));
+            agent.vy = lerp(agent.vy, measuredVy, frameBlend(1 - effectiveVelocityDamping, dt));
           }
           if (agent.mode === AGENT_MODES.REST_HUDDLE) {
-            agent.vx *= 1 - PARAMS.REST_VELOCITY_DAMPING;
-            agent.vy *= 1 - PARAMS.REST_VELOCITY_DAMPING;
+            agent.vx *= Math.pow(1 - PARAMS.REST_VELOCITY_DAMPING, dt * 60);
+            agent.vy *= Math.pow(1 - PARAMS.REST_VELOCITY_DAMPING, dt * 60);
           }
           agent.x = nextX;
           agent.y = nextY;
@@ -4496,6 +4500,44 @@ export function App({ controls, onGpuErrorChange, isPaused = false, displayState
           agent.previousScreenPosition = null;
         }
 
+        renderSprites.set(agent, { sprite, stableSpriteVelocity });
+      });
+      }, isPaused);
+
+      if (!shouldRenderFrame(isPaused, size.width, size.height,
+        window.devicePixelRatio || 1, controls, imageRef.current,
+        rasterCanvasRef.current, frameCanvasesRef.current, frameSize)) {
+        animationFrameRef.current = simulationFrames.request(render);
+        return;
+      }
+      frame.draw(agentsRef.current, () => {
+      clearTransparentCanvas2d(ctx, size.width, size.height);
+      const renderAgents = [...agentsRef.current].sort(
+        (left, right) => left.y - right.y,
+      );
+      renderAgents.forEach((agent) => {
+        if (!image) {
+          return;
+        }
+        const prepared = renderSprites.get(agent);
+        let sprite = prepared?.sprite || agent.lockedSpriteRender;
+        if (!sprite || (!agent.lockedSpriteRender && !agent.countTransition)) {
+          sprite = resolveCanvasAtlasSprite(ATLAS, {
+            space: agent.spriteSpace || "2d",
+            position: agent.spritePosition || { x: agent.x, y: agent.y },
+            velocity: prepared?.stableSpriteVelocity || agent.spriteVelocity ||
+              { x: agent.vx, y: agent.vy },
+            previousScreenPosition: null,
+            maxDt: frame.dt,
+            width: size.width,
+            height: size.height,
+            projectPoint: agent.projectPoint,
+            state: agent.spriteState,
+            profile: agent.spriteProfile || "simulation",
+            timestampMs: timestamp,
+            animationOffsetMs: agent.stageOffset,
+          });
+        }
         const waveBobProgress =
           agent.mode === AGENT_MODES.WAVE_STEP
             ? clamp(
@@ -4650,6 +4692,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false, displayState
         ctx.restore();
       });
 
+      });
       animationFrameRef.current = simulationFrames.request(render);
     };
 
@@ -4658,7 +4701,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false, displayState
     return () => {
       simulationFrames.cancel(animationFrameRef.current);
     };
-  }, [controls, isPaused, displayStateRef]);
+  }, [controls, isPaused, displayStateRef, simulationFrames]);
 
   void controls;
 

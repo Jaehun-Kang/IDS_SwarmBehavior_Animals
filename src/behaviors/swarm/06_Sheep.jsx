@@ -1,6 +1,6 @@
 import React from "react";
-
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
+
 import { createSimulationFrameScheduler } from "../../utils/simulationFrameScheduler.js";
 import { drawDogMarker } from "../../utils/sheepDogMarker.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
@@ -191,6 +191,8 @@ const getControlField = (key) =>
   CONTROL_FIELDS.find((field) => field.key === key);
 const randomBetween = (min, max) => min + Math.random() * (max - min);
 const lerp = (start, end, amount) => start + (end - start) * amount;
+const frameBlend = (amount, dt) =>
+  dt === 1 / 60 ? amount : 1 - Math.pow(1 - amount, dt * 60);
 
 const normalize2D = (x, y, fallback = { x: 1, y: 0 }) => {
   const length = Math.hypot(x, y);
@@ -486,17 +488,12 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       });
     };
 
+    const previousScreenPositions = new WeakMap();
+    const shouldReconcile = createPausedFrameGate();
     const shouldRenderFrame = createPausedFrameGate();
-    const render = (timestamp, fixedDt) => {
-      if (!shouldRenderFrame(isPaused, window.innerWidth, window.innerHeight,
-        window.devicePixelRatio || 1, rasterCanvasRef.current, frameCanvasesRef.current)) {
-        animationFrameRef.current = simulationFrames.request(render);
-        return;
-      }
+    const render = (timestamp, frame) => {
       const now = timestamp * 0.001;
-      const dt = fixedDt;
-      simulationTimeRef.current += dt * PARAMS.SIMULATION_TIME_SCALE;
-      const simTime = simulationTimeRef.current;
+      const dt = frame.dt;
 
       const count = clamp(
         Math.round(controls?.COUNT ?? DEFAULT_CONTROL_STATE.COUNT),
@@ -519,10 +516,10 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         0,
         1,
       );
-      const stepDt = dt * PARAMS.SIMULATION_TIME_SCALE;
-
       const size = syncCanvasSize(canvas, ctx);
-      ensureAgents(size.width, size.height, count);
+      if (shouldReconcile(true, size.width, size.height, count)) {
+        ensureAgents(size.width, size.height, count);
+      }
 
       const spriteHeight = resolveSpriteHeight(size.width, size.height);
       const reentryMarginPx = PARAMS.REENTRY_MARGIN_M * PARAMS.PIXELS_PER_METER;
@@ -530,8 +527,6 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       const interactionRadiusPx = PARAMS.INTERACTION_RADIUS_M * PARAMS.PIXELS_PER_METER;
       const regroupDistancePx = PARAMS.REGROUP_DISTANCE_M * PARAMS.PIXELS_PER_METER;
       const dogRangePx = PARAMS.DOG_REPULSION_RANGE_M * PARAMS.PIXELS_PER_METER;
-
-      clearTransparentCanvas2d(ctx, size.width, size.height);
 
       const image = rasterCanvasRef.current || imageRef.current;
       const frameSize = frameSizeRef.current;
@@ -548,6 +543,12 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         repulsionRadiusPxBase,
         hardCollisionRadiusPx * 1.08,
       );
+
+      frame.advance((dt) => {
+      simulationTimeRef.current += dt * PARAMS.SIMULATION_TIME_SCALE;
+      const simTime = simulationTimeRef.current;
+      const stepDt = dt * PARAMS.SIMULATION_TIME_SCALE;
+      ensureAgents(size.width, size.height, count);
 
       const centroid = agentsRef.current.reduce(
         (accumulator, agent) => {
@@ -630,8 +631,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             dogRef.current.x = pointerDog.x;
             dogRef.current.y = pointerDog.y;
           } else {
-            dogRef.current.vx *= 0.84;
-            dogRef.current.vy *= 0.84;
+            dogRef.current.vx *= Math.pow(0.84, dt * 60);
+            dogRef.current.vy *= Math.pow(0.84, dt * 60);
             dogRef.current.x += dogRef.current.vx * dt;
             dogRef.current.y += dogRef.current.vy * dt;
             applyAgentReentry(dogRef.current, size.width, size.height, reentryMarginPx);
@@ -709,8 +710,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
               dogCloseSpeed,
               dogSpeed * PARAMS.DOG_STANDBY_SPEED_SCALE,
             );
-            dogRef.current.vx = lerp(dogRef.current.vx, dogDirection.x * standbySpeed, 0.18);
-            dogRef.current.vy = lerp(dogRef.current.vy, dogDirection.y * standbySpeed, 0.18);
+            dogRef.current.vx = lerp(dogRef.current.vx, dogDirection.x * standbySpeed, frameBlend(0.18, dt));
+            dogRef.current.vy = lerp(dogRef.current.vy, dogDirection.y * standbySpeed, frameBlend(0.18, dt));
           } else {
             const desiredBehindDistancePx =
               lerp(
@@ -1514,8 +1515,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           PARAMS.SIMULATION_TIME_SCALE *
           reentryBlend;
         if (agent.state === SHEEP_STATES.STATIONARY) {
-          agent.vx *= PARAMS.VELOCITY_DAMPING_STATIONARY;
-          agent.vy *= PARAMS.VELOCITY_DAMPING_STATIONARY;
+          agent.vx *= Math.pow(PARAMS.VELOCITY_DAMPING_STATIONARY, dt * 60);
+          agent.vy *= Math.pow(PARAMS.VELOCITY_DAMPING_STATIONARY, dt * 60);
           if (Math.hypot(agent.vx, agent.vy) < 0.02) {
             agent.vx = 0;
             agent.vy = 0;
@@ -1530,13 +1531,16 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             agent.state === SHEEP_STATES.RUNNING
               ? PARAMS.VELOCITY_BLEND_RUN
               : PARAMS.VELOCITY_BLEND_WALK;
-          agent.vx = lerp(agent.vx, desiredVelocity.x, blend);
-          agent.vy = lerp(agent.vy, desiredVelocity.y, blend);
+          agent.vx = lerp(agent.vx, desiredVelocity.x, frameBlend(blend, dt));
+          agent.vy = lerp(agent.vy, desiredVelocity.y, frameBlend(blend, dt));
         }
 
         agent.x += agent.vx * dt;
         agent.y += agent.vy * dt;
         applyAgentReentry(agent, size.width, size.height, reentryMarginPx);
+        if (agent.reentryAssistTimer === PARAMS.REENTRY_SETTLE_SEC) {
+          previousScreenPositions.delete(agent);
+        }
         agent.reentryAssistTimer = Math.max(0, (agent.reentryAssistTimer ?? 0) - stepDt);
       });
 
@@ -1580,6 +1584,17 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         }
       }
 
+      }, isPaused);
+
+      if (!shouldRenderFrame(isPaused, size.width, size.height,
+        window.devicePixelRatio || 1, controls, imageRef.current,
+        rasterCanvasRef.current, frameCanvasesRef.current, frameSize)) {
+        animationFrameRef.current = simulationFrames.request(render);
+        return;
+      }
+      const simTime = simulationTimeRef.current;
+      frame.draw([...agentsRef.current, dogRef.current], () => {
+      clearTransparentCanvas2d(ctx, size.width, size.height);
       if (dogEnabled) {
         ctx.save();
         ctx.translate(dogRef.current.x, dogRef.current.y);
@@ -1620,7 +1635,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           space: agent.spriteSpace || "2d",
           position: agent.spritePosition || { x: agent.x, y: agent.y },
           velocity: renderVelocity,
-          previousScreenPosition: agent.previousScreenPosition,
+          previousScreenPosition: previousScreenPositions.get(agent),
           maxDt: dt,
           width: size.width,
           height: size.height,
@@ -1646,7 +1661,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         const bobOffset =
           Math.sin(simTime * PARAMS.BOB_RATE + agent.bobOffset + index * 0.21) *
           speedScaledBobAmplitude;
-        agent.previousScreenPosition = sprite.pose.screenPosition;
+        previousScreenPositions.set(agent, sprite.pose.screenPosition);
 
         ctx.save();
         ctx.translate(agent.x, agent.y + bobOffset);
@@ -1665,6 +1680,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         ctx.restore();
       });
 
+      });
       animationFrameRef.current = simulationFrames.request(render);
     };
 
@@ -1674,12 +1690,14 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       simulationFrames.cancel(animationFrameRef.current);
     };
   }, [
+    controls,
     controls?.COUNT,
     controls?.DOG_ENABLED,
     controls?.DOG_AUTO_MODE,
     controls?.DOG_PRESSURE,
     controls?.NOISE,
     isPaused,
+    simulationFrames,
   ]);
 
   return (

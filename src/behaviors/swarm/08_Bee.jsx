@@ -317,6 +317,9 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const getControlField = (key) =>
   CONTROL_FIELDS.find((field) => field.key === key);
 const lerp = (start, end, amount) => start + (end - start) * amount;
+const frameBlend = (amount, dt) => dt === 1 / 60
+  ? amount
+  : 1 - Math.pow(1 - clamp(amount, 0, 1), Math.max(0, dt) * 60);
 const randomBetween = (min, max) => min + Math.random() * (max - min);
 const cmToPx = (cm) => cm * PARAMS.PIXELS_PER_CM;
 const speedCmToPx = (cmPerSecond) => cmToPx(cmPerSecond);
@@ -1868,10 +1871,10 @@ const applyFreeFlight = (
     x: desiredDirection.x * desiredSpeed,
     y: desiredDirection.y * desiredSpeed,
   };
-  const trackBlend = clamp(velocityTrackPerS * dt, 0, 1);
+  const trackBlend = frameBlend(clamp(velocityTrackPerS / 60, 0, 1), dt);
   agent.vx = lerp(agent.vx, desiredVelocity.x, trackBlend);
   agent.vy = lerp(agent.vy, desiredVelocity.y, trackBlend);
-  const damping = Math.max(0, 1 - dampingPerS * dt);
+  const damping = Math.pow(Math.max(0, 1 - dampingPerS / 60), dt * 60);
   agent.vx *= damping;
   agent.vy *= damping;
   let speedLimit = speedCmToPx(
@@ -1887,8 +1890,8 @@ const applyFreeFlight = (
       distanceToTarget / Math.max(cmToPx(arrivalRadiusCm), 1e-4),
     );
     speedLimit *= brakeFactor;
-    agent.vx *= 0.85;
-    agent.vy *= 0.85;
+    agent.vx *= Math.pow(0.85, dt * 60);
+    agent.vy *= Math.pow(0.85, dt * 60);
     agent.ax *= 1.5;
     agent.ay *= 1.5;
   }
@@ -1899,7 +1902,7 @@ const applyFreeFlight = (
   agent.y += agent.vy * dt;
 };
 
-const attachToHornet = (agent, env) => {
+const attachToHornet = (agent, env, dt) => {
   const anchorX =
     env.predator.x +
     Math.cos(agent.hornetAnchorAngle) * agent.hornetAnchorRadius;
@@ -1914,10 +1917,10 @@ const attachToHornet = (agent, env) => {
     Math.hypot(agent.x - anchorX, agent.y - anchorY) <= cmToPx(0.24)
       ? 0.62
       : 0.28;
-  agent.x = lerp(agent.x, anchorX, snapBlend);
-  agent.y = lerp(agent.y, anchorY, snapBlend);
-  agent.vx *= 0.18;
-  agent.vy *= 0.18;
+  agent.x = lerp(agent.x, anchorX, frameBlend(snapBlend, dt));
+  agent.y = lerp(agent.y, anchorY, frameBlend(snapBlend, dt));
+  agent.vx *= Math.pow(0.18, dt * 60);
+  agent.vy *= Math.pow(0.18, dt * 60);
 };
 
 const throwOffHornetBee = (agent, env) => {
@@ -2480,7 +2483,7 @@ const updateAnchoredIdle = (
 
   if (agent.groomingTimer > 0) {
     agent.groomingTimer -= dt;
-  } else if (Math.random() < PARAMS.GROOMING_TRIGGER_PER_S * dt) {
+  } else if (Math.random() < frameBlend(PARAMS.GROOMING_TRIGGER_PER_S / 60, dt)) {
     agent.groomingTimer = randomBetween(
       PARAMS.GROOMING_MIN_S,
       PARAMS.GROOMING_MAX_S,
@@ -2502,7 +2505,7 @@ const updateAnchoredIdle = (
       startDance(agent);
       return;
     }
-    if (Math.random() < PARAMS.SURFACE_SIGNALING_MOVE_TRIGGER_PER_S * dt) {
+    if (Math.random() < frameBlend(PARAMS.SURFACE_SIGNALING_MOVE_TRIGGER_PER_S / 60, dt)) {
       const signalTarget = chooseSurfaceTarget(
         agent,
         env,
@@ -2535,7 +2538,7 @@ const updateAnchoredIdle = (
         threatActive ||
         temperatureC <= PARAMS.FANNING_TEMPERATURE_OFF_C ||
         !fanningCandidate ||
-        Math.random() < PARAMS.FANNING_RELEASE_PER_S * dt * 0.12
+        Math.random() < frameBlend(PARAMS.FANNING_RELEASE_PER_S / 60 * 0.12, dt)
       ) {
         agent.activityState = ACTIVITY_STATES.IDLE;
       } else {
@@ -2549,9 +2552,8 @@ const updateAnchoredIdle = (
       temperatureC >= PARAMS.FANNING_TEMPERATURE_ON_C &&
       fanningCandidate &&
       Math.random() <
-        PARAMS.FANNING_TRIGGER_PER_S *
-          (0.35 + getFanningHeatFactor(temperatureC) * 0.65) *
-          dt
+        frameBlend(PARAMS.FANNING_TRIGGER_PER_S *
+          (0.35 + getFanningHeatFactor(temperatureC) * 0.65) / 60, dt)
     ) {
       agent.activityState = ACTIVITY_STATES.FANNING;
       agent.activityLevel = Math.max(agent.activityLevel, 0.68);
@@ -2629,8 +2631,8 @@ const updateAnchoredIdle = (
     !threatActive &&
     env.sharedForage?.active &&
     (env.sharedForage.recruitsRemaining || 0) > 0 &&
-    Math.random() < PARAMS.WORKER_FORAGE_COMMIT_PER_S * dt *
-      getForagingTemperatureFactor(env.controls)
+    Math.random() < frameBlend(PARAMS.WORKER_FORAGE_COMMIT_PER_S / 60 *
+      getForagingTemperatureFactor(env.controls), dt)
   ) {
     env.sharedForage.recruitsRemaining = Math.max(
       0,
@@ -2656,7 +2658,7 @@ const updateAnchoredIdle = (
   if (
     agent.role === ROLES.WORKER &&
     !dancer &&
-    Math.random() < PARAMS.WORKER_SLOT_SWAP_TRIGGER_PER_S * dt &&
+    Math.random() < frameBlend(PARAMS.WORKER_SLOT_SWAP_TRIGGER_PER_S / 60, dt) &&
     trySwapWorkerTowardCluster(agent, env, occupiedSlotIds, slotAgentMap)
   ) {
     return;
@@ -2666,7 +2668,7 @@ const updateAnchoredIdle = (
     agent.role === ROLES.WORKER &&
     agent.anchorY > env.curtain.y + env.curtain.radius * 0.12 &&
     !dancer &&
-    Math.random() < PARAMS.WORKER_REBALANCE_TRIGGER_PER_S * dt
+    Math.random() < frameBlend(PARAMS.WORKER_REBALANCE_TRIGGER_PER_S / 60, dt)
   ) {
     const rebalanceSlot = findNearbyVacantSlot(
       agent,
@@ -2702,7 +2704,7 @@ const updateAnchoredIdle = (
       cmToPx(0.35) &&
     (!occupiedSlotIds.has(agent.desiredHomeSlotId) ||
       getAgentReservedSlotId(agent) === agent.desiredHomeSlotId) &&
-    Math.random() < PARAMS.LAYOUT_DRIFT_TRIGGER_PER_S * dt
+    Math.random() < frameBlend(PARAMS.LAYOUT_DRIFT_TRIGGER_PER_S / 60, dt)
   ) {
     occupiedSlotIds.delete(agent.currentSlotId);
     occupiedSlotIds.add(agent.desiredHomeSlotId);
@@ -2720,7 +2722,7 @@ const updateAnchoredIdle = (
 
   if (
     agent.role === ROLES.WORKER &&
-    Math.random() < PARAMS.SURFACE_WANDER_TRIGGER_PER_S * dt
+    Math.random() < frameBlend(PARAMS.SURFACE_WANDER_TRIGGER_PER_S / 60, dt)
   ) {
     const surfaceTarget = chooseSurfaceTarget(
       agent,
@@ -2859,12 +2861,12 @@ const updateScoutState = (agent, neighbors, env, controls, dt) => {
       agent.targetX = lerp(
         agent.targetX,
         blossom.x,
-        clamp(PARAMS.SCOUT_FLOWER_TARGET_BLEND_PER_S * dt, 0, 1),
+        frameBlend(clamp(PARAMS.SCOUT_FLOWER_TARGET_BLEND_PER_S / 60, 0, 1), dt),
       );
       agent.targetY = lerp(
         agent.targetY,
         blossom.y,
-        clamp(PARAMS.SCOUT_FLOWER_TARGET_BLEND_PER_S * dt, 0, 1),
+        frameBlend(clamp(PARAMS.SCOUT_FLOWER_TARGET_BLEND_PER_S / 60, 0, 1), dt),
       );
     }
     const reachedFlower =
@@ -2942,8 +2944,8 @@ const updateScoutState = (agent, neighbors, env, controls, dt) => {
           env.timeS,
         );
       }
-      agent.vx *= PARAMS.FLOWER_COLLECTION_DAMPING;
-      agent.vy *= PARAMS.FLOWER_COLLECTION_DAMPING;
+      agent.vx *= Math.pow(PARAMS.FLOWER_COLLECTION_DAMPING, dt * 60);
+      agent.vy *= Math.pow(PARAMS.FLOWER_COLLECTION_DAMPING, dt * 60);
       if (
         reachedFlower &&
         landingDistance <= cmToPx(PARAMS.FLOWER_COLLECTION_SETTLE_RADIUS_CM)
@@ -3204,7 +3206,7 @@ const updateShakingSignal = (
   }
 };
 
-const updateDefenseTask = (agent, env, controls, neighbors) => {
+const updateDefenseTask = (agent, env, controls, neighbors, dt) => {
   if (getThreatType(controls) === THREAT_TYPES.NONE) {
     if (
       agent.activityState === ACTIVITY_STATES.DEFENDING ||
@@ -3274,9 +3276,9 @@ const updateDefenseTask = (agent, env, controls, neighbors) => {
   if (
     agent.activityState !== ACTIVITY_STATES.DEFENDING &&
     Math.random() >
-      clamp(localThreatPressure, 0.18, 1) *
+      frameBlend(clamp(localThreatPressure, 0.18, 1) *
         PARAMS.LOCAL_DEFENSE_COMMIT_PER_S *
-        0.016
+        0.016, dt)
   ) {
     return;
   }
@@ -3297,7 +3299,7 @@ const updateDefenseTask = (agent, env, controls, neighbors) => {
       other.shimmerState === SHIMMER_STATES.IDLE &&
       agent.recentShimmerTimer > 0 &&
       otherDistanceToPredator <= localWaveRadius &&
-      Math.random() > PARAMS.SHIMMER_RELAY_IGNORE_PROBABILITY
+      Math.random() > Math.pow(PARAMS.SHIMMER_RELAY_IGNORE_PROBABILITY, dt * 60)
     ) {
       triggerShimmer(other, 1);
     }
@@ -3483,7 +3485,7 @@ const beginCulling = (agent) => {
 
 const updateCulling = (agent, env, dt) => {
   agent.vy += speedCmToPx(PARAMS.CULLING_FALL_GRAVITY_CM_S2) * dt;
-  agent.vx *= 0.992;
+  agent.vx *= Math.pow(0.992, dt * 60);
   agent.x += agent.vx * dt;
   agent.y += agent.vy * dt;
   agent.displayRotation = advanceAngle(
@@ -3517,8 +3519,8 @@ const updateHeatBalling = (agent, neighbors, env, controls, dt) => {
   }
 
   if (agent.isAnchoredOnHornet) {
-    agent.hornetAnchorAngle += randomBetween(-0.05, 0.05);
-    attachToHornet(agent, env);
+    agent.hornetAnchorAngle += randomBetween(-0.05, 0.05) * Math.sqrt(dt * 60);
+    attachToHornet(agent, env, dt);
     return;
   }
 
@@ -3577,7 +3579,7 @@ const updateHeatBalling = (agent, neighbors, env, controls, dt) => {
       env.predator.radius + cmToPx(PARAMS.HEAT_BALL_ATTACH_RADIUS_CM) &&
     agent.reengageAttachDelayTimer <= 0
   ) {
-    attachToHornet(agent, env);
+    attachToHornet(agent, env, dt);
   }
 };
 
@@ -3669,6 +3671,7 @@ const updateThrownOff = (agent, neighbors, env, controls, dt) => {
 };
 
 const updateAgents = (agents, env, controls, dt) => {
+  if (!Number.isFinite(dt) || dt <= 0) return;
   const liveAgents = agents.filter(
     (agent) => agent.activityState !== ACTIVITY_STATES.CULLING,
   );
@@ -3876,12 +3879,12 @@ const updateAgents = (agents, env, controls, dt) => {
         agent.targetX = lerp(
           agent.targetX,
           blossom.x,
-          clamp(PARAMS.WORKER_FLOWER_TARGET_BLEND_PER_S * dt, 0, 1),
+          frameBlend(clamp(PARAMS.WORKER_FLOWER_TARGET_BLEND_PER_S / 60, 0, 1), dt),
         );
         agent.targetY = lerp(
           agent.targetY,
           blossom.y,
-          clamp(PARAMS.WORKER_FLOWER_TARGET_BLEND_PER_S * dt, 0, 1),
+          frameBlend(clamp(PARAMS.WORKER_FLOWER_TARGET_BLEND_PER_S / 60, 0, 1), dt),
         );
       }
       const reachedFlower =
@@ -3955,8 +3958,8 @@ const updateAgents = (agents, env, controls, dt) => {
             env.timeS,
           );
         }
-        agent.vx *= PARAMS.FLOWER_COLLECTION_DAMPING;
-        agent.vy *= PARAMS.FLOWER_COLLECTION_DAMPING;
+        agent.vx *= Math.pow(PARAMS.FLOWER_COLLECTION_DAMPING, dt * 60);
+        agent.vy *= Math.pow(PARAMS.FLOWER_COLLECTION_DAMPING, dt * 60);
         if (
           reachedFlower &&
           landingDistance <= cmToPx(PARAMS.FLOWER_COLLECTION_SETTLE_RADIUS_CM)
@@ -4009,7 +4012,7 @@ const updateAgents = (agents, env, controls, dt) => {
         occupiedSlotIds,
         occupiedSlotAgentsById,
       );
-      updateDefenseTask(agent, env, controls, neighbors);
+      updateDefenseTask(agent, env, controls, neighbors, dt);
       return;
     }
 
@@ -4037,61 +4040,19 @@ const renderEnvironment = (
   void attachedHornetCount;
 };
 
-const renderAgent = (
-  ctx,
-  image,
-  frameCanvases,
-  frameSize,
-  agent,
-  index,
-  size,
-  now,
-  dt,
-) => {
+const updateAgentDisplayRotation = (agent, dt) => {
+  if (!Number.isFinite(dt) || dt <= 0) return;
   const speed = Math.hypot(agent.vx, agent.vy);
-  const isFanning = agent.activityState === ACTIVITY_STATES.FANNING;
   const isCollectingOnFlower =
     agent.activityState === ACTIVITY_STATES.FORAGING &&
     agent.collectingFlowerId != null &&
     agent.collectingFlowerX != null &&
     agent.collectingFlowerY != null;
-  const isFlowerApproachLocked =
-    !isCollectingOnFlower &&
-    agent.activityState === ACTIVITY_STATES.FORAGING &&
-    agent.targetFlowerId != null &&
-    Math.hypot(agent.x - agent.targetX, agent.y - agent.targetY) <=
-      cmToPx(PARAMS.FLOWER_APPROACH_LOCK_RADIUS_CM);
-  const topStage = ATLAS.stages.bee_top_fly;
-  const topFrames = topStage.frames || [{ x: 1, y: 0 }];
-  const topIdleFrame = ATLAS.stages.bee_top_idle?.frame || topFrames[0];
   const isSurfaceMovingBee =
     agent.activityState === ACTIVITY_STATES.WANDERING ||
     agent.activityState === ACTIVITY_STATES.SETTLING;
   const isAirborneBee =
     !agent.isAnchored && !agent.isAnchoredOnHornet && !isSurfaceMovingBee;
-  const isRestingSurfaceBee =
-    (agent.isAnchored &&
-      agent.activityState !== ACTIVITY_STATES.TAKEOFF &&
-      agent.activityState !== ACTIVITY_STATES.DANCING &&
-      agent.activityState !== ACTIVITY_STATES.FANNING &&
-      agent.shimmerState !== SHIMMER_STATES.ACTIVE) ||
-    isSurfaceMovingBee;
-  const exhaustedWingbeatMultiplier = agent.returningFromThrowOff
-    ? PARAMS.THROWN_OFF_RETURN_WINGBEAT_MULTIPLIER
-    : 1;
-  const flightFrameIndex =
-    Math.floor(
-      (now * 1000 * exhaustedWingbeatMultiplier + agent.stageOffset) /
-        topStage.durationMs,
-    ) % topFrames.length;
-  const frame =
-    isCollectingOnFlower || isFlowerApproachLocked
-      ? topIdleFrame
-      : isFanning
-        ? topFrames[flightFrameIndex]
-        : isRestingSurfaceBee
-          ? topIdleFrame
-          : topFrames[flightFrameIndex];
   const targetRotation = isCollectingOnFlower
     ? agent.collectingFacingAngle ||
       agent.displayRotation ||
@@ -4116,12 +4077,71 @@ const renderAgent = (
   const blendedRotation =
     (agent.displayRotation || 0) +
     shortestAngleDelta(agent.displayRotation || 0, targetRotation) *
-      (isCollectingOnFlower ? 0.42 : rotationBlend);
+      frameBlend(isCollectingOnFlower ? 0.42 : rotationBlend, dt);
   agent.displayRotation = advanceAngle(
     agent.displayRotation || 0,
     blendedRotation,
     maxTurnRate * dt * (isCollectingOnFlower ? 1.28 : 1),
   );
+  agent.heatJitterX = agent.isAnchoredOnHornet
+    ? (Math.random() - 0.5) * PARAMS.HORNET_HEAT_JITTER_PX
+    : 0;
+  agent.heatJitterY = agent.isAnchoredOnHornet
+    ? (Math.random() - 0.5) * PARAMS.HORNET_HEAT_JITTER_PX
+    : 0;
+};
+
+const renderAgent = (
+  ctx,
+  image,
+  frameCanvases,
+  frameSize,
+  agent,
+  index,
+  size,
+  now,
+) => {
+  const isFanning = agent.activityState === ACTIVITY_STATES.FANNING;
+  const isCollectingOnFlower =
+    agent.activityState === ACTIVITY_STATES.FORAGING &&
+    agent.collectingFlowerId != null &&
+    agent.collectingFlowerX != null &&
+    agent.collectingFlowerY != null;
+  const isFlowerApproachLocked =
+    !isCollectingOnFlower &&
+    agent.activityState === ACTIVITY_STATES.FORAGING &&
+    agent.targetFlowerId != null &&
+    Math.hypot(agent.x - agent.targetX, agent.y - agent.targetY) <=
+      cmToPx(PARAMS.FLOWER_APPROACH_LOCK_RADIUS_CM);
+  const topStage = ATLAS.stages.bee_top_fly;
+  const topFrames = topStage.frames || [{ x: 1, y: 0 }];
+  const topIdleFrame = ATLAS.stages.bee_top_idle?.frame || topFrames[0];
+  const isSurfaceMovingBee =
+    agent.activityState === ACTIVITY_STATES.WANDERING ||
+    agent.activityState === ACTIVITY_STATES.SETTLING;
+  const isRestingSurfaceBee =
+    (agent.isAnchored &&
+      agent.activityState !== ACTIVITY_STATES.TAKEOFF &&
+      agent.activityState !== ACTIVITY_STATES.DANCING &&
+      agent.activityState !== ACTIVITY_STATES.FANNING &&
+      agent.shimmerState !== SHIMMER_STATES.ACTIVE) ||
+    isSurfaceMovingBee;
+  const exhaustedWingbeatMultiplier = agent.returningFromThrowOff
+    ? PARAMS.THROWN_OFF_RETURN_WINGBEAT_MULTIPLIER
+    : 1;
+  const flightFrameIndex =
+    Math.floor(
+      (now * 1000 * exhaustedWingbeatMultiplier + agent.stageOffset) /
+        topStage.durationMs,
+    ) % topFrames.length;
+  const frame =
+    isCollectingOnFlower || isFlowerApproachLocked
+      ? topIdleFrame
+      : isFanning
+        ? topFrames[flightFrameIndex]
+        : isRestingSurfaceBee
+          ? topIdleFrame
+          : topFrames[flightFrameIndex];
 
   const shimmerTimeActive =
     PARAMS.SHIMMER_ACTIVE_S - Math.max(0, agent.shimmerTimer || 0);
@@ -4166,12 +4186,8 @@ const renderAgent = (
   const scale =
     PARAMS.SPRITE_SCALE *
     (agent.shimmerState === SHIMMER_STATES.ACTIVE ? 1.08 : 1);
-  const heatJitterX = agent.isAnchoredOnHornet
-    ? (Math.random() - 0.5) * PARAMS.HORNET_HEAT_JITTER_PX
-    : 0;
-  const heatJitterY = agent.isAnchoredOnHornet
-    ? (Math.random() - 0.5) * PARAMS.HORNET_HEAT_JITTER_PX
-    : 0;
+  const heatJitterX = agent.heatJitterX || 0;
+  const heatJitterY = agent.heatJitterY || 0;
   const pivotY =
     agent.shimmerState === SHIMMER_STATES.ACTIVE
       ? -(frameSize.height * scale) * 0.25
@@ -4437,7 +4453,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     };
 
     const shouldRenderFrame = createPausedFrameGate();
-    const render = (timestamp, fixedDt) => {
+    const render = (timestamp, frame) => {
+      animationFrameRef.current = simulationFrames.request(render);
       if (
         !shouldRenderFrame(
           isPaused,
@@ -4449,21 +4466,19 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           frameCanvasesRef.current,
         )
       ) {
-        animationFrameRef.current = simulationFrames.request(render);
         return;
       }
       const now = timestamp * 0.001;
-      const dt = fixedDt * PARAMS.BEHAVIOR_TIME_SCALE;
 
       const size = syncCanvasSize(canvas, ctx);
       const nextControls = App.sanitizeControlState(controls);
       ensureAgents(size.width, size.height, nextControls);
 
-      const env = {
+      const createEnvironment = (timeS) => ({
         ...getEnvironment(
           size.width,
           size.height,
-          now,
+          timeS,
           pointerRef.current,
           nextControls,
           flowersRef.current,
@@ -4471,14 +4486,21 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         agents: agentsRef.current,
         width: size.width,
         height: size.height,
-        timeS: now,
+        timeS,
         layout: layoutRef.current,
         sharedForage: sharedForageRef.current,
-      };
+      });
 
-      if (!isPaused) {
+      frame.advance((elapsedDt, stepNow) => {
+        if (!Number.isFinite(elapsedDt) || elapsedDt <= 0) return;
+
+        const dt = elapsedDt * PARAMS.BEHAVIOR_TIME_SCALE;
+        const env = createEnvironment(stepNow);
         updateAgents(agentsRef.current, env, nextControls, dt);
-      }
+        [...agentsRef.current].sort((left, right) => left.y - right.y)
+          .forEach((agent) => updateAgentDisplayRotation(agent, dt));
+      }, isPaused);
+      const renderEnv = createEnvironment(now);
 
       const attachedHornetCount = agentsRef.current.filter(
         (agent) => agent.isAnchoredOnHornet,
@@ -4496,7 +4518,10 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           ...pointerRef.current,
         },
         predator: {
-          ...env.predator,
+          ...renderEnv.predator,
+          pointerState: renderEnv.predator.pointerState
+            ? { ...renderEnv.predator.pointerState }
+            : null,
         },
         attachedHornetCount,
         thrownOffCount,
@@ -4504,7 +4529,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         suspiciousAgents: agentsRef.current
           .filter((agent) => agent.activityState === ACTIVITY_STATES.FORAGING)
           .map((agent) => {
-            const targetFlower = env.flowers.find(
+            const targetFlower = renderEnv.flowers.find(
               (flower) => flower.id === agent.targetFlowerId,
             );
             const targetBlossom = targetFlower
@@ -4547,12 +4572,12 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       };
 
       clearTransparentCanvas2d(ctx, size.width, size.height);
-      renderEnvironment(ctx, env, nextControls, now, attachedHornetCount);
+      renderEnvironment(ctx, renderEnv, nextControls, now, attachedHornetCount);
 
       const image = rasterCanvasRef.current || imageRef.current;
       const frameSize = frameSizeRef.current;
       if (image) {
-        const sortedFlowers = [...(env.flowers || [])].sort(
+        const sortedFlowers = [...(renderEnv.flowers || [])].sort(
           (left, right) => left.y - right.y,
         );
         sortedFlowers.forEach((flower, index) => {
@@ -4573,12 +4598,10 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             agentIndex,
             size,
             now,
-            dt,
           );
         });
       }
 
-      animationFrameRef.current = simulationFrames.request(render);
     };
 
     animationFrameRef.current = simulationFrames.request(render);
@@ -4586,7 +4609,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     return () => {
       simulationFrames.cancel(animationFrameRef.current);
     };
-  }, [controls, isPaused]);
+  }, [controls, isPaused, simulationFrames]);
 
   const handlePointerMove = React.useCallback(
     (event) => {

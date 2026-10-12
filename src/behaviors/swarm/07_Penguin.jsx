@@ -1,6 +1,7 @@
 import React from "react";
 import { isPenguinEntryAnchor } from "../../utils/penguinEntry.js";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
+import { createSimulationFrameScheduler } from "../../utils/simulationFrameScheduler.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
   drawAtlasFrame,
@@ -1395,13 +1396,13 @@ export function App({ controls, onGpuErrorChange, isPaused = false, displayState
   const rasterCanvasRef = React.useRef(null);
   const frameCanvasesRef = React.useRef(null);
   const thermalOverlayFramesRef = React.useRef(new Map());
+  const [simulationFrames] = React.useState(createSimulationFrameScheduler);
   const animationFrameRef = React.useRef(0);
   const agentsRef = React.useRef([]);
   const simulationTimeRef = React.useRef(0);
   const frameSizeRef = React.useRef(
     resolveAtlasFrameSize(ATLAS, { width: 64, height: 64 }),
   );
-  const lastTimeRef = React.useRef(0);
   const lastDebugLogTimeRef = React.useRef(0);
   const lastClusterUpdateTimeRef = React.useRef(-Infinity);
   const waveEventRef = React.useRef(null);
@@ -1571,18 +1572,14 @@ export function App({ controls, onGpuErrorChange, isPaused = false, displayState
     };
 
     const shouldRenderFrame = createPausedFrameGate();
-    const render = (timestamp) => {
+    const render = (timestamp, fixedDt) => {
       if (!shouldRenderFrame(isPaused, window.innerWidth, window.innerHeight,
         window.devicePixelRatio || 1, controls, rasterCanvasRef.current, frameCanvasesRef.current)) {
-        lastTimeRef.current = timestamp * 0.001;
-        animationFrameRef.current = window.requestAnimationFrame(render);
+        animationFrameRef.current = simulationFrames.request(render);
         return;
       }
       const now = timestamp * 0.001;
-      const dt = lastTimeRef.current
-        ? Math.min(now - lastTimeRef.current, 0.05)
-        : 0.016;
-      lastTimeRef.current = now;
+      const dt = fixedDt;
       const behavior = resolveBehaviorConfig(controls);
       simulationTimeRef.current += dt * PARAMS.SIMULATION_TIME_SCALE;
       const simTime = simulationTimeRef.current;
@@ -4653,13 +4650,13 @@ export function App({ controls, onGpuErrorChange, isPaused = false, displayState
         ctx.restore();
       });
 
-      animationFrameRef.current = window.requestAnimationFrame(render);
+      animationFrameRef.current = simulationFrames.request(render);
     };
 
-    animationFrameRef.current = window.requestAnimationFrame(render);
+    animationFrameRef.current = simulationFrames.request(render);
 
     return () => {
-      window.cancelAnimationFrame(animationFrameRef.current);
+      simulationFrames.cancel(animationFrameRef.current);
     };
   }, [controls, isPaused, displayStateRef]);
 

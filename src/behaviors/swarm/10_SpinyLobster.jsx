@@ -1,5 +1,6 @@
 import React from "react";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
+import { createSimulationFrameScheduler } from "../../utils/simulationFrameScheduler.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
   drawAtlasFrame,
@@ -3319,12 +3320,12 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const imageRef = React.useRef(null);
   const rasterCanvasRef = React.useRef(null);
   const frameCanvasesRef = React.useRef(null);
+  const [simulationFrames] = React.useState(createSimulationFrameScheduler);
   const animationFrameRef = React.useRef(0);
   const agentsRef = React.useRef([]);
   const frameSizeRef = React.useRef(
     resolveAtlasFrameSize(ATLAS, { width: 64, height: 64 }),
   );
-  const lastTimeRef = React.useRef(0);
   const elapsedTimeRef = React.useRef(0);
   const worldRef = React.useRef({ shelters: [], algaeCovers: [] });
   const residualDiseaseSourcesRef = React.useRef([]);
@@ -3413,7 +3414,6 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     window.addEventListener("pointercancel", handlePointerCancel);
     window.addEventListener("blur", handlePointerCancel);
 
-    lastTimeRef.current = 0;
     elapsedTimeRef.current = 0;
 
     const ensureWorld = (width, height, currentBehavior) => {
@@ -3435,20 +3435,16 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     };
 
     const shouldRenderFrame = createPausedFrameGate();
-    const render = (timestamp) => {
+    const render = (timestamp, fixedDt) => {
       if (!shouldRenderFrame(isPausedRef.current, window.innerWidth, window.innerHeight,
         window.devicePixelRatio || 1, behaviorRef.current, rasterCanvasRef.current, frameCanvasesRef.current)) {
-        lastTimeRef.current = timestamp * 0.001;
-        animationFrameRef.current = window.requestAnimationFrame(render);
+        animationFrameRef.current = simulationFrames.request(render);
         return;
       }
       const currentBehavior = behaviorRef.current;
       const currentIsPaused = isPausedRef.current;
       const now = timestamp * 0.001;
-      const dt = lastTimeRef.current
-        ? Math.min(now - lastTimeRef.current, 0.05)
-        : 0.016;
-      lastTimeRef.current = now;
+      const dt = fixedDt;
 
       if (!currentIsPaused) {
         elapsedTimeRef.current += dt;
@@ -3703,13 +3699,13 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           !(agent.isRetiring && isAgentOffscreen(agent, width, height)),
       );
 
-      animationFrameRef.current = window.requestAnimationFrame(render);
+      animationFrameRef.current = simulationFrames.request(render);
     };
 
-    animationFrameRef.current = window.requestAnimationFrame(render);
+    animationFrameRef.current = simulationFrames.request(render);
 
     return () => {
-      window.cancelAnimationFrame(animationFrameRef.current);
+      simulationFrames.cancel(animationFrameRef.current);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerdown", handlePointerDown);
       window.removeEventListener("pointerup", handlePointerUp);

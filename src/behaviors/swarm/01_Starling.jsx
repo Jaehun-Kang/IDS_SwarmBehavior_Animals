@@ -1,5 +1,6 @@
 import React from "react";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
+import { createSimulationFrameScheduler } from "../../utils/simulationFrameScheduler.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
   getAtlasFrameIndex,
@@ -1482,7 +1483,6 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
     }
 
     let animationFrame = 0;
-    let lastTimestamp = 0;
     let nextTurnTime = 0;
     let isDisposed = false;
     const flockCenter = { x: 0, y: 0, z: 0 };
@@ -1542,6 +1542,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
       }
     };
 
+    const simulationFrames = createSimulationFrameScheduler();
     const shouldRenderFrame = createPausedFrameGate();
     const resizeCanvas = () => {
       shouldRenderFrame.invalidate();
@@ -1571,14 +1572,8 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
       };
     };
 
-    const step = (timestamp) => {
+    const step = (timestamp, dt) => {
       const now = timestamp * 0.001;
-      const dt = clamp(
-        lastTimestamp ? now - lastTimestamp : 0.016,
-        0.008,
-        PARAMS.MAX_DT,
-      );
-      lastTimestamp = now;
 
       if (!nextTurnTime) {
         nextTurnTime = now + randomBetween(3.4, 5.6);
@@ -1599,7 +1594,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
             boids,
           );
         }
-        animationFrame = window.requestAnimationFrame(step);
+        animationFrame = simulationFrames.request(step);
         return;
       }
       shouldRenderFrame.invalidate();
@@ -1981,7 +1976,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
         boids,
       );
 
-      animationFrame = window.requestAnimationFrame(step);
+      animationFrame = simulationFrames.request(step);
     };
 
     loadTexture(gl, STARLING_SPRITE_ATLAS)
@@ -2000,7 +1995,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
         window.addEventListener("resize", resizeCanvas);
         window.addEventListener("pointermove", handlePointerMove);
         window.addEventListener("pointerleave", handlePointerLeave);
-        animationFrame = window.requestAnimationFrame(step);
+        animationFrame = simulationFrames.request(step);
       })
       .catch(() => {
         if (!isDisposed) {
@@ -2010,7 +2005,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
 
     return () => {
       isDisposed = true;
-      window.cancelAnimationFrame(animationFrame);
+      simulationFrames.cancel(animationFrame);
       window.removeEventListener("resize", resizeCanvas);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerleave", handlePointerLeave);

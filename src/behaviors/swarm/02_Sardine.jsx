@@ -1,5 +1,6 @@
 import React from "react";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
+import { createSimulationFrameScheduler } from "../../utils/simulationFrameScheduler.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
   getAtlasFrameIndex,
@@ -1775,7 +1776,6 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
     }
 
     let animationFrame = 0;
-    let lastTimestamp = 0;
     let disposed = false;
     let daylightState = controlsRef.current.IS_DAYTIME ? 1 : 0;
     let schoolShapeMode = 0;
@@ -1806,6 +1806,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
       };
     };
 
+    const simulationFrames = createSimulationFrameScheduler();
     const shouldRenderFrame = createPausedFrameGate();
     const resizeCanvas = () => {
       shouldRenderFrame.invalidate();
@@ -1819,14 +1820,8 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
       gl.viewport(0, 0, canvas.width, canvas.height);
     };
 
-    const step = (timestamp) => {
+    const step = (timestamp, dt) => {
       const now = timestamp * 0.001;
-      const dt = clamp(
-        lastTimestamp ? now - lastTimestamp : 0.016,
-        0.008,
-        PARAMS.MAX_DT,
-      );
-      lastTimestamp = now;
       const liveControls = controlsRef.current;
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
@@ -1843,7 +1838,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
             boids,
           );
         }
-        animationFrame = window.requestAnimationFrame(step);
+        animationFrame = simulationFrames.request(step);
         return;
       }
 
@@ -3168,7 +3163,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
         boids,
       );
 
-      animationFrame = window.requestAnimationFrame(step);
+      animationFrame = simulationFrames.request(step);
     };
 
     loadTexture(gl, SARDINE_SPRITE_ATLAS)
@@ -3194,7 +3189,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
         window.addEventListener("pointermove", handlePointerMove);
         window.addEventListener("pointerleave", clearPointer);
         window.addEventListener("blur", clearPointer);
-        animationFrame = window.requestAnimationFrame(step);
+        animationFrame = simulationFrames.request(step);
       })
       .catch(() => {
         if (!disposed) {
@@ -3204,7 +3199,7 @@ export function App({ controls, onGpuErrorChange, isPaused } = {}) {
 
     return () => {
       disposed = true;
-      window.cancelAnimationFrame(animationFrame);
+      simulationFrames.cancel(animationFrame);
       window.removeEventListener("resize", resizeCanvas);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerleave", clearPointer);

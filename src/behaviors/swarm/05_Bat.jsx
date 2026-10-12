@@ -1,5 +1,6 @@
 import React from "react";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
+import { createSimulationFrameScheduler } from "../../utils/simulationFrameScheduler.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
   createAtlasFrameCanvases,
@@ -1919,6 +1920,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const rasterCanvasRef = React.useRef(null);
   const atlasVariantsRef = React.useRef(null);
   const frameCanvasesRef = React.useRef(null);
+  const [simulationFrames] = React.useState(createSimulationFrameScheduler);
   const animationFrameRef = React.useRef(0);
   const agentsRef = React.useRef([]);
   const flashlightToggleRef = React.useRef(false);
@@ -1933,7 +1935,6 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const frameSizeRef = React.useRef(
     resolveAtlasFrameSize(ATLAS, { width: 64, height: 64 }),
   );
-  const lastTimeRef = React.useRef(0);
 
   const resolvedControls = React.useMemo(
     () => sanitizeControlState(controls),
@@ -2088,18 +2089,14 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     }
 
     const shouldRenderFrame = createPausedFrameGate();
-    const render = (timestamp) => {
+    const render = (timestamp, fixedDt) => {
       if (!shouldRenderFrame(isPaused, window.innerWidth, window.innerHeight,
         window.devicePixelRatio || 1, resolvedControls, rasterCanvasRef.current, frameCanvasesRef.current)) {
-        lastTimeRef.current = timestamp * 0.001;
-        animationFrameRef.current = window.requestAnimationFrame(render);
+        animationFrameRef.current = simulationFrames.request(render);
         return;
       }
       const now = timestamp * 0.001;
-      const dt = lastTimeRef.current
-        ? Math.min(now - lastTimeRef.current, 0.05)
-        : 0.016;
-      lastTimeRef.current = now;
+      const dt = fixedDt;
 
       const size = syncCanvasSize(canvas, ctx);
       const frameSize = frameSizeRef.current;
@@ -2141,7 +2138,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 
       const image = rasterCanvasRef.current || imageRef.current;
       if (!image) {
-        animationFrameRef.current = window.requestAnimationFrame(render);
+        animationFrameRef.current = simulationFrames.request(render);
         return;
       }
 
@@ -2285,13 +2282,13 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         ctx.restore();
       });
 
-      animationFrameRef.current = window.requestAnimationFrame(render);
+      animationFrameRef.current = simulationFrames.request(render);
     };
 
-    animationFrameRef.current = window.requestAnimationFrame(render);
+    animationFrameRef.current = simulationFrames.request(render);
 
     return () => {
-      window.cancelAnimationFrame(animationFrameRef.current);
+      simulationFrames.cancel(animationFrameRef.current);
     };
   }, [isPaused, resolvedControls]);
 

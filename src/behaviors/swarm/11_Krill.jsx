@@ -1,5 +1,6 @@
 import React from "react";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
+import { createSimulationFrameScheduler } from "../../utils/simulationFrameScheduler.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
   drawAtlasFrame,
@@ -2095,6 +2096,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const frameVariantsRef = React.useRef(null);
   const emissiveFrameCanvasesRef = React.useRef(null);
   const glowSpritesRef = React.useRef(null);
+  const [simulationFrames] = React.useState(createSimulationFrameScheduler);
   const animationFrameRef = React.useRef(0);
   const agentsRef = React.useRef([]);
   const foodFieldRef = React.useRef([]);
@@ -2102,7 +2104,6 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const frameSizeRef = React.useRef(
     resolveAtlasFrameSize(ATLAS, { width: 64, height: 64 }),
   );
-  const lastTimeRef = React.useRef(0);
   const elapsedTimeRef = React.useRef(0);
   const phaseTransitionRef = React.useRef({
     from: PARAMS.DEFAULT_LIGHT_PHASE,
@@ -2186,7 +2187,6 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       agentsRef.current = createAgents(behaviorConfig.count, width, height);
       foodFieldRef.current = createFoodField(width, height);
       elapsedTimeRef.current = 0;
-      lastTimeRef.current = 0;
     };
 
     const updatePointer = (event, active = true) => {
@@ -2238,18 +2238,14 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     canvas.addEventListener("pointercancel", handlePointerLeave);
 
     const shouldRenderFrame = createPausedFrameGate();
-    const render = (timestamp) => {
+    const render = (timestamp, fixedDt) => {
       if (!shouldRenderFrame(isPaused, window.innerWidth, window.innerHeight,
         window.devicePixelRatio || 1, behaviorConfig, rasterCanvasRef.current, frameCanvasesRef.current)) {
-        lastTimeRef.current = timestamp * 0.001;
-        animationFrameRef.current = window.requestAnimationFrame(render);
+        animationFrameRef.current = simulationFrames.request(render);
         return;
       }
       const now = timestamp * 0.001;
-      const dt = lastTimeRef.current
-        ? Math.min(now - lastTimeRef.current, PARAMS.TIME_STEP_MAX)
-        : 0.016;
-      lastTimeRef.current = now;
+      const dt = fixedDt;
 
       const size = syncCanvasSize(canvas, ctx);
 
@@ -2380,13 +2376,13 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         glowSpritesRef.current,
       );
 
-      animationFrameRef.current = window.requestAnimationFrame(render);
+      animationFrameRef.current = simulationFrames.request(render);
     };
 
-    animationFrameRef.current = window.requestAnimationFrame(render);
+    animationFrameRef.current = simulationFrames.request(render);
 
     return () => {
-      window.cancelAnimationFrame(animationFrameRef.current);
+      simulationFrames.cancel(animationFrameRef.current);
       canvas.removeEventListener("pointermove", handlePointerMove);
       canvas.removeEventListener("pointerdown", handlePointerDown);
       canvas.removeEventListener("pointerleave", handlePointerLeave);

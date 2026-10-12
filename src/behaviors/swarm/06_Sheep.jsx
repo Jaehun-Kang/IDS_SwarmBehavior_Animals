@@ -1,6 +1,7 @@
 import React from "react";
 
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
+import { createSimulationFrameScheduler } from "../../utils/simulationFrameScheduler.js";
 import { drawDogMarker } from "../../utils/sheepDogMarker.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
@@ -347,6 +348,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const imageRef = React.useRef(null);
   const rasterCanvasRef = React.useRef(null);
   const frameCanvasesRef = React.useRef(null);
+  const [simulationFrames] = React.useState(createSimulationFrameScheduler);
   const animationFrameRef = React.useRef(0);
   const agentsRef = React.useRef([]);
   const dogRef = React.useRef({
@@ -380,7 +382,6 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const frameSizeRef = React.useRef(
     resolveAtlasFrameSize(ATLAS, { width: 64, height: 64 }),
   );
-  const lastTimeRef = React.useRef(0);
 
   React.useEffect(() => {
     onGpuErrorChange?.("");
@@ -486,18 +487,14 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     };
 
     const shouldRenderFrame = createPausedFrameGate();
-    const render = (timestamp) => {
+    const render = (timestamp, fixedDt) => {
       if (!shouldRenderFrame(isPaused, window.innerWidth, window.innerHeight,
         window.devicePixelRatio || 1, rasterCanvasRef.current, frameCanvasesRef.current)) {
-        lastTimeRef.current = timestamp * 0.001;
-        animationFrameRef.current = window.requestAnimationFrame(render);
+        animationFrameRef.current = simulationFrames.request(render);
         return;
       }
       const now = timestamp * 0.001;
-      const dt = lastTimeRef.current
-        ? Math.min(now - lastTimeRef.current, 0.05)
-        : 0.016;
-      lastTimeRef.current = now;
+      const dt = fixedDt;
       simulationTimeRef.current += dt * PARAMS.SIMULATION_TIME_SCALE;
       const simTime = simulationTimeRef.current;
 
@@ -1668,13 +1665,13 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         ctx.restore();
       });
 
-      animationFrameRef.current = window.requestAnimationFrame(render);
+      animationFrameRef.current = simulationFrames.request(render);
     };
 
-    animationFrameRef.current = window.requestAnimationFrame(render);
+    animationFrameRef.current = simulationFrames.request(render);
 
     return () => {
-      window.cancelAnimationFrame(animationFrameRef.current);
+      simulationFrames.cancel(animationFrameRef.current);
     };
   }, [
     controls?.COUNT,

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { behaviorMap, computeCreatureZIndex } from "../behaviors/animalData";
+import { createHomeAnimationClock } from "../utils/homeAnimationClock";
 
 // 종 식별
 const getSpeciesId = (el) => el.dataset.speciesId || el.id;
@@ -200,18 +201,30 @@ export function useAnimals(
     const creatures = homeRef.current?.querySelectorAll(".creature");
     if (!creatures) return;
 
-    const animate = () => {
+    const clock = createHomeAnimationClock();
+    const speciesGroups = buildSpeciesGroups(creatures);
+    const previousPositions = new Map();
+    const resetClock = () => {
+      clock.reset();
+      previousPositions.clear();
+    };
+    document.addEventListener("visibilitychange", resetClock);
+
+    const animate = (now) => {
+      if (document.hidden) {
+        resetClock();
+        animationRef.current = requestAnimationFrame(animate);
+        return;
+      }
       const rect = {
         width: homeRef.current.clientWidth || window.innerWidth,
         height: homeRef.current.clientHeight || window.innerHeight,
       };
       const obstacleBox = obstacleBoxRef?.current || null;
-      const speciesGroups = buildSpeciesGroups(creatures);
 
       creatures.forEach((el) => {
         const animal = animalsRef.current[el.id];
         if (!animal) return;
-        const speciesId = getSpeciesId(el);
         const wasHovered = !!animal.isHovered;
         const isHovered = el.id === hoveredIdRef.current;
         animal.isHovered = isHovered;
@@ -227,43 +240,57 @@ export function useAnimals(
         } else {
           el.style.pointerEvents = "auto";
         }
-
-        if (el.id === hoveredIdRef.current) return;
-
-        animal.time += 1;
-
-        const behavior = behaviorMap[speciesId];
-        if (behavior) {
-          behavior.update(animal, rect);
-        }
-
-        applyTextObstacleAvoidance(animal, obstacleBox, rect);
       });
 
-      Object.values(speciesGroups).forEach((groupIds) => {
-        const firstAnimal = animalsRef.current[groupIds[0]];
-        const behavior = firstAnimal
-          ? behaviorMap[firstAnimal.speciesId]
-          : null;
+      const alpha = clock.advance(now, () => {
+        creatures.forEach((el) => {
+          const animal = animalsRef.current[el.id];
+          if (!animal) return;
+          previousPositions.set(el.id, { x: animal.x, y: animal.y });
+          if (el.id === hoveredIdRef.current) return;
 
-        // 종별 그룹 이동
-        behavior.homeGroup(groupIds, animalsRef, rect);
+          animal.time += 1;
+
+          const behavior = behaviorMap[getSpeciesId(el)];
+          if (behavior) {
+            behavior.update(animal, rect);
+          }
+
+          applyTextObstacleAvoidance(animal, obstacleBox, rect);
+        });
+
+        Object.values(speciesGroups).forEach((groupIds) => {
+          const firstAnimal = animalsRef.current[groupIds[0]];
+          const behavior = firstAnimal
+            ? behaviorMap[firstAnimal.speciesId]
+            : null;
+
+          // 종별 그룹 이동
+          behavior.homeGroup(groupIds, animalsRef, rect);
+        });
+
+        creatures.forEach((el) => {
+          const animal = animalsRef.current[el.id];
+          if (!animal) return;
+          applyTextObstacleAvoidance(animal, obstacleBox, rect);
+        });
       });
 
       creatures.forEach((el) => {
         const animal = animalsRef.current[el.id];
         if (!animal) return;
-        applyTextObstacleAvoidance(animal, obstacleBox, rect);
-      });
 
-      creatures.forEach((el) => {
-        const animal = animalsRef.current[el.id];
-        if (!animal) return;
-
-        el.style.left = animal.x + "px";
-        el.style.top = animal.y + "px";
+        const previous = previousPositions.get(el.id) || animal;
+        const x = animal.isHovered
+          ? animal.x
+          : previous.x + (animal.x - previous.x) * alpha;
+        const y = animal.isHovered
+          ? animal.y
+          : previous.y + (animal.y - previous.y) * alpha;
+        el.style.left = x + "px";
+        el.style.top = y + "px";
         el.style.zIndex = String(
-          computeCreatureZIndex(getSpeciesId(el), animal.y),
+          computeCreatureZIndex(getSpeciesId(el), y),
         );
 
         const behavior = behaviorMap[getSpeciesId(el)];
@@ -278,6 +305,7 @@ export function useAnimals(
     animationRef.current = requestAnimationFrame(animate);
 
     return () => {
+      document.removeEventListener("visibilitychange", resetClock);
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
   }, [animalsLoaded, homeRef, obstacleBoxRef]);

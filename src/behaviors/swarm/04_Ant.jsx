@@ -1,6 +1,7 @@
 import * as React from "react";
 import { ANT_SIGNAL_COLORS } from "../../data/antSignalColors.js";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
+import { createSimulationFrameScheduler } from "../../utils/simulationFrameScheduler.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
 import {
   drawAtlasFrame,
@@ -4744,9 +4745,9 @@ const sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => {
 
 export function App({ controls, onGpuErrorChange, isPaused = false } = {}) {
   const canvasRef = React.useRef(null);
+  const [simulationFrames] = React.useState(createSimulationFrameScheduler);
   const animationFrameRef = React.useRef(null);
   const worldRef = React.useRef(null);
-  const lastTimeRef = React.useRef(0);
   const simulationAccumulatorRef = React.useRef(0);
   const controlsRef = React.useRef(sanitizeControlState(controls));
   const isPausedRef = React.useRef(isPaused);
@@ -4832,18 +4833,14 @@ export function App({ controls, onGpuErrorChange, isPaused = false } = {}) {
     canvas.addEventListener("pointerdown", handlePointerDown);
 
     const shouldRenderFrame = createPausedFrameGate();
-    const render = (timestamp) => {
+    const render = (timestamp, fixedDt) => {
       if (!shouldRenderFrame(isPausedRef.current, window.innerWidth, window.innerHeight,
         window.devicePixelRatio || 1, controlsRef.current, imageRef.current, frameCanvasesRef.current)) {
-        lastTimeRef.current = timestamp * 0.001;
-        animationFrameRef.current = window.requestAnimationFrame(render);
+        animationFrameRef.current = simulationFrames.request(render);
         return;
       }
       const now = timestamp * 0.001;
-      const dt = lastTimeRef.current
-        ? Math.min(now - lastTimeRef.current, 0.05)
-        : 0.016;
-      lastTimeRef.current = now;
+      const dt = fixedDt;
 
       const liveControls = controlsRef.current;
       const size = syncCanvasSize(canvas, ctx);
@@ -4884,19 +4881,18 @@ export function App({ controls, onGpuErrorChange, isPaused = false } = {}) {
         frameSizeRef.current,
       );
 
-      animationFrameRef.current = window.requestAnimationFrame(render);
+      animationFrameRef.current = simulationFrames.request(render);
     };
 
-    animationFrameRef.current = window.requestAnimationFrame(render);
+    animationFrameRef.current = simulationFrames.request(render);
 
     return () => {
       canvas.removeEventListener("pointerdown", handlePointerDown);
       if (animationFrameRef.current) {
-        window.cancelAnimationFrame(animationFrameRef.current);
+        simulationFrames.cancel(animationFrameRef.current);
       }
       animationFrameRef.current = null;
       worldRef.current = null;
-      lastTimeRef.current = 0;
       simulationAccumulatorRef.current = 0;
     };
   }, []);

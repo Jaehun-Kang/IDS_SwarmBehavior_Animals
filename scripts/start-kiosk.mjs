@@ -1,6 +1,7 @@
 import { access, mkdir } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { join } from "node:path";
+import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { preview } from "vite";
 
@@ -10,6 +11,10 @@ const checkOnly = process.argv.includes("--check");
 async function findChrome() {
   const candidates = [
     process.env.CHROME_PATH,
+    ...(process.platform === "darwin" ? [
+      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+      join(homedir(), "Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+    ] : []),
     ...[process.env.PROGRAMFILES, process.env["PROGRAMFILES(X86)"], process.env.LOCALAPPDATA]
       .filter(Boolean)
       .map(base => join(base, "Google", "Chrome", "Application", "chrome.exe")),
@@ -20,7 +25,7 @@ async function findChrome() {
       return path;
     } catch { /* Try the next Chrome installation. */ }
   }
-  throw new Error("Chrome was not found. Install Chrome or set CHROME_PATH to chrome.exe.");
+  throw new Error("Chrome was not found. Install Google Chrome or set CHROME_PATH to its executable.");
 }
 
 let server;
@@ -36,8 +41,11 @@ async function stop(code = 0) {
 
 try {
   const chrome = await findChrome();
-  if (!process.env.LOCALAPPDATA) throw new Error("LOCALAPPDATA is required for the exhibition profile.");
-  const profile = join(process.env.LOCALAPPDATA, "SwarmBehavior-Animals", "Chrome-Kiosk");
+  const profileRoot = process.platform === "darwin"
+    ? join(homedir(), "Library", "Application Support")
+    : process.env.LOCALAPPDATA;
+  if (!profileRoot) throw new Error("LOCALAPPDATA is required for the exhibition profile.");
+  const profile = join(profileRoot, "SwarmBehavior-Animals", "Chrome-Kiosk");
   server = await preview({
     root,
     preview: { host: "127.0.0.1", open: false, strictPort: false },
@@ -68,7 +76,7 @@ try {
     browser.once("exit", () => { void stop(); });
     process.once("SIGINT", () => { void stop(); });
     process.once("SIGTERM", () => { void stop(); });
-    console.log("Chrome kiosk launched. Alt+F4 closes the exhibition; Ctrl+C stops this launcher.");
+    console.log(`Chrome kiosk launched. ${process.platform === "darwin" ? "Cmd+Q" : "Alt+F4"} closes the exhibition; Ctrl+C stops this launcher.`);
   }
 } catch (error) {
   console.error(error.message);

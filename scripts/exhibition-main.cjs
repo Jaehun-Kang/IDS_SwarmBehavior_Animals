@@ -44,9 +44,9 @@ if (!app.requestSingleInstanceLock()) {
         const { response } = await dialog.showMessageBox(window, {
           type: "question", title: "군집행동 종료",
           message: "작품을 종료할까요?", detail: "계속 관람하려면 취소를 선택하세요.",
-          buttons: ["취소", "종료"], defaultId: 0, cancelId: 0, noLink: true,
+          buttons: ["종료", "취소"], defaultId: 1, cancelId: 1, noLink: true,
         });
-        if (response === 1) app.quit();
+        if (response === 0) app.quit();
       } catch (error) {
         console.error("Exit confirmation failed:", error.message);
       } finally {

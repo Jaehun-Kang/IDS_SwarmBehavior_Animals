@@ -1,0 +1,1 @@
+function e(e,t,n,r=`x`,i=!1){let a=r===`x`?e*.25:Math.min(e*.25,t*.4),o=Math.max(1,Math.min(320,a));return o===320?n:Math.min(n,Math.max(1,a))-(320-o)*(i?1:.5)}export{e as t};

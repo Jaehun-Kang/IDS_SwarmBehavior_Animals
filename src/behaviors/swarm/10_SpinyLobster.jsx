@@ -1,3 +1,4 @@
+import { responsiveBoundaryInset } from "../../utils/responsiveBoundary.js";
 import React from "react";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
 import { createSimulationFrameScheduler } from "../../utils/simulationFrameScheduler.js";
@@ -1783,19 +1784,21 @@ const advanceSmoothWander = (agent, dt, scale = 1) => {
 
 const resolveBoundaryAvoidance = (agent, width, height) => {
   const margin = PARAMS.BOUNDARY_SOFT_MARGIN_PX;
+  const insetX = responsiveBoundaryInset(width, height, margin, "x");
+  const insetY = responsiveBoundaryInset(width, height, margin, "y");
   let inwardX = 0;
   let inwardY = 0;
 
-  if (agent.x < margin) {
-    inwardX += 1 - agent.x / margin;
-  } else if (agent.x > width - margin) {
-    inwardX -= 1 - (width - agent.x) / margin;
+  if (agent.x < insetX) {
+    inwardX += (insetX - agent.x) / margin;
+  } else if (agent.x > width - insetX) {
+    inwardX -= (agent.x - width + insetX) / margin;
   }
 
-  if (agent.y < margin) {
-    inwardY += 1 - agent.y / margin;
-  } else if (agent.y > height - margin) {
-    inwardY -= 1 - (height - agent.y) / margin;
+  if (agent.y < insetY) {
+    inwardY += (insetY - agent.y) / margin;
+  } else if (agent.y > height - insetY) {
+    inwardY -= (agent.y - height + insetY) / margin;
   }
 
   const strength = magnitude(inwardX, inwardY);
@@ -1852,10 +1855,10 @@ const applySoftBoundaryMargin = (agent, width, height, dt) => {
 
 const containSoftBoundaryMotion = (agent, nextX, nextY, width, height) => {
   const margin = PARAMS.BOUNDARY_CONTAIN_MARGIN_PX;
-  const minX = margin;
-  const maxX = width - margin;
-  const minY = margin;
-  const maxY = height - margin;
+  const minX = responsiveBoundaryInset(width, height, margin, "x", true);
+  const maxX = width - minX;
+  const minY = responsiveBoundaryInset(width, height, margin, "y", true);
+  const maxY = height - minY;
   let x = nextX;
   let y = nextY;
   let inwardX = 0;
@@ -3401,7 +3404,12 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     };
     const handlePointerMove = (event) => updatePointer(event);
     const handlePointerDown = (event) => updatePointer(event, true);
-    const handlePointerUp = (event) => updatePointer(event, false);
+    const handlePointerUp = (event) => {
+      updatePointer(event, false);
+      if (event.pointerType === "touch" || event.pointerType === "pen") {
+        pointerRef.current.active = false;
+      }
+    };
     const handlePointerCancel = () => {
       pointerRef.current = {
         ...pointerRef.current,

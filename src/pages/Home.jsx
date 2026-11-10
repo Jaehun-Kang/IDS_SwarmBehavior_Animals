@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPointerTapGesture } from "../utils/pointerTapGesture.js";
 import { computeTextZIndex } from "../behaviors/animalData";
 import { animals } from "../behaviors/animalData";
 import { getAnimalDetails } from "../behaviors/animalDetails";
@@ -76,6 +77,8 @@ function renderSprite(speciesId) {
 
 function Home(props) {
   const homeRef = useRef(null);
+  const touchGestureRef = useRef(createPointerTapGesture());
+  const suppressTouchClickRef = useRef(false);
   const particleObstacleBoxRef = useRef(null);
   const subtitleRef = useRef(null);
   const hoverIdleTimeoutRef = useRef(null);
@@ -359,6 +362,15 @@ function Home(props) {
       isPointerInsideHomeRef.current = false;
     };
 
+    const handleContactEnd = (event) => {
+      if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
+      particlePointerActiveUntilRef.current = 0;
+      pointerPositionRef.current.hasPosition = false;
+      isPointerInsideHomeRef.current = false;
+      clearHoveredAnimal();
+      isHoverFocusLockedRef.current = true;
+    };
+
     window.addEventListener("pointermove", handlePointerMove, {
       passive: true,
     });
@@ -369,12 +381,16 @@ function Home(props) {
       passive: true,
     });
     window.addEventListener("blur", handlePointerLeaveWindow);
+    window.addEventListener("pointerup", handleContactEnd);
+    window.addEventListener("pointercancel", handleContactEnd);
 
     return () => {
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerdown", handlePointerDown);
       window.removeEventListener("touchstart", handleTouchStart);
       window.removeEventListener("blur", handlePointerLeaveWindow);
+      window.removeEventListener("pointerup", handleContactEnd);
+      window.removeEventListener("pointercancel", handleContactEnd);
     };
   }, []);
 
@@ -412,7 +428,28 @@ function Home(props) {
     particleTextState.isSettled && subtitleKey === currentSubtitleKey;
 
   return (
-    <div className="home" ref={homeRef}>
+    <div className="home" ref={homeRef}
+      onPointerDownCapture={event => {
+        suppressTouchClickRef.current = false;
+        touchGestureRef.current.defer(event);
+      }}
+      onPointerMoveCapture={event => touchGestureRef.current.move(event)}
+      onPointerUpCapture={event => {
+        if (event.pointerType === "touch" || event.pointerType === "pen") {
+          suppressTouchClickRef.current = !touchGestureRef.current.finish(event);
+        }
+      }}
+      onPointerCancelCapture={() => {
+        touchGestureRef.current.cancel();
+        suppressTouchClickRef.current = true;
+      }}
+      onClickCapture={event => {
+        if (suppressTouchClickRef.current && event.detail !== 0) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        suppressTouchClickRef.current = false;
+      }}>
       {!fontsLoaded && (
         <div
           style={{
@@ -470,14 +507,14 @@ function Home(props) {
         <div
           key={animal.instanceId}
           onClick={props.onAnimalClick}
-          onMouseEnter={() => {
-            if (isHoverFocusLockedRef.current) {
+          onPointerEnter={(event) => {
+            if (event.pointerType !== "mouse" || isHoverFocusLockedRef.current) {
               return;
             }
 
             focusHoveredAnimal(animal.instanceId);
           }}
-          onMouseLeave={() => {
+          onPointerLeave={() => {
             if (hoveredIdRef.current === animal.instanceId) {
               clearHoveredAnimal();
             }

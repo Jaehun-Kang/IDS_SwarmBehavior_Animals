@@ -1,4 +1,6 @@
+import { responsiveBoundaryInset } from "../../utils/responsiveBoundary.js";
 import React from "react";
+import { resolvePopulationExitTarget } from "../../utils/populationExit.js";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
 import { createSimulationFrameScheduler } from "../../utils/simulationFrameScheduler.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
@@ -674,26 +676,7 @@ const getOutsideScreenPoint = (width, height, margin) => {
 const getExitScreenTarget = (boid, width, height) => {
   const margin = PARAMS.COUNT_TRANSITION_SCREEN_MARGIN;
   const projected = getProjectedPoint(boid.position, width, height);
-  const fromCenterX = projected.x - width * 0.5;
-  const fromCenterY = projected.y - height * 0.5;
-  const absX = Math.abs(fromCenterX);
-  const absY = Math.abs(fromCenterY);
-
-  if (absX < 1 && absY < 1) {
-    return getOutsideScreenPoint(width, height, margin);
-  }
-
-  if (absX > absY) {
-    return {
-      x: fromCenterX < 0 ? -margin : width + margin,
-      y: clamp(projected.y + fromCenterY * 0.28, -margin, height + margin),
-    };
-  }
-
-  return {
-    x: clamp(projected.x + fromCenterX * 0.28, -margin, width + margin),
-    y: fromCenterY < 0 ? -margin : height + margin,
-  };
+  return resolvePopulationExitTarget(projected, width, height, margin);
 };
 
 const isBoidOutsideScreen = (boid, width, height) => {
@@ -732,6 +715,8 @@ const getVisibleDepthMax = () =>
   PARAMS.WORLD_DEPTH * 0.5 - PARAMS.EDGE_HARD_MARGIN;
 
 const getVisibleAvoidance = (boid, width, height) => {
+  const insetX = responsiveBoundaryInset(width, height, PARAMS.EDGE_AVOID_ZONE, "x");
+  const insetY = responsiveBoundaryInset(width, height, PARAMS.EDGE_AVOID_ZONE, "y");
   const lookaheadSeconds =
     PARAMS.EDGE_PREAVOID_LOOKAHEAD +
     PARAMS.EDGE_PREAVOID_DISTANCE / Math.max(length3D(boid.velocity), 1);
@@ -741,13 +726,13 @@ const getVisibleAvoidance = (boid, width, height) => {
 
   const leftPush = Math.max(
     clamp(
-      (PARAMS.SCREEN_MARGIN + PARAMS.EDGE_AVOID_ZONE - projected.x) /
+      (PARAMS.SCREEN_MARGIN + insetX - projected.x) /
         PARAMS.EDGE_AVOID_ZONE,
       0,
       1,
     ),
     clamp(
-      (PARAMS.SCREEN_MARGIN + PARAMS.EDGE_AVOID_ZONE - predicted.x) /
+      (PARAMS.SCREEN_MARGIN + insetX - predicted.x) /
         PARAMS.EDGE_AVOID_ZONE,
       0,
       1,
@@ -755,13 +740,13 @@ const getVisibleAvoidance = (boid, width, height) => {
   );
   const rightPush = Math.max(
     clamp(
-      (projected.x - (width - PARAMS.SCREEN_MARGIN - PARAMS.EDGE_AVOID_ZONE)) /
+      (projected.x - (width - PARAMS.SCREEN_MARGIN - insetX)) /
         PARAMS.EDGE_AVOID_ZONE,
       0,
       1,
     ),
     clamp(
-      (predicted.x - (width - PARAMS.SCREEN_MARGIN - PARAMS.EDGE_AVOID_ZONE)) /
+      (predicted.x - (width - PARAMS.SCREEN_MARGIN - insetX)) /
         PARAMS.EDGE_AVOID_ZONE,
       0,
       1,
@@ -769,13 +754,13 @@ const getVisibleAvoidance = (boid, width, height) => {
   );
   const topPush = Math.max(
     clamp(
-      (PARAMS.SCREEN_MARGIN + PARAMS.EDGE_AVOID_ZONE - projected.y) /
+      (PARAMS.SCREEN_MARGIN + insetY - projected.y) /
         PARAMS.EDGE_AVOID_ZONE,
       0,
       1,
     ),
     clamp(
-      (PARAMS.SCREEN_MARGIN + PARAMS.EDGE_AVOID_ZONE - predicted.y) /
+      (PARAMS.SCREEN_MARGIN + insetY - predicted.y) /
         PARAMS.EDGE_AVOID_ZONE,
       0,
       1,
@@ -783,13 +768,13 @@ const getVisibleAvoidance = (boid, width, height) => {
   );
   const bottomPush = Math.max(
     clamp(
-      (projected.y - (height - PARAMS.SCREEN_MARGIN - PARAMS.EDGE_AVOID_ZONE)) /
+      (projected.y - (height - PARAMS.SCREEN_MARGIN - insetY)) /
         PARAMS.EDGE_AVOID_ZONE,
       0,
       1,
     ),
     clamp(
-      (predicted.y - (height - PARAMS.SCREEN_MARGIN - PARAMS.EDGE_AVOID_ZONE)) /
+      (predicted.y - (height - PARAMS.SCREEN_MARGIN - insetY)) /
         PARAMS.EDGE_AVOID_ZONE,
       0,
       1,
@@ -851,10 +836,12 @@ const keepBoidVisible = (
     PARAMS.PROJECT_PERSPECTIVE_BASE +
     (boid.position.z + PARAMS.PROJECT_PERSPECTIVE_OFFSET) /
       PARAMS.PROJECT_PERSPECTIVE_DIVISOR;
-  const minCameraX = (margin - width * 0.5) / perspective;
-  const maxCameraX = (width - margin - width * 0.5) / perspective;
-  const minCameraY = (margin - height * 0.5) / perspective;
-  const maxCameraY = (height - margin - height * 0.5) / perspective;
+  const insetX = responsiveBoundaryInset(width, height, margin, "x", true);
+  const insetY = responsiveBoundaryInset(width, height, margin, "y", true);
+  const minCameraX = (insetX - width * 0.5) / perspective;
+  const maxCameraX = (width - insetX - width * 0.5) / perspective;
+  const minCameraY = (insetY - height * 0.5) / perspective;
+  const maxCameraY = (height - insetY - height * 0.5) / perspective;
 
   const clampedCameraX = clamp(
     boid.position.x * PARAMS.PROJECT_X_FROM_X +

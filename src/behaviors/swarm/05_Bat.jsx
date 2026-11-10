@@ -1,4 +1,6 @@
+import { responsiveBoundaryInset } from "../../utils/responsiveBoundary.js";
 import React from "react";
+import { createPointerTapGesture } from "../../utils/pointerTapGesture.js";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
 import { createSimulationFrameScheduler } from "../../utils/simulationFrameScheduler.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
@@ -542,10 +544,10 @@ const getPlumeContainmentSteer = (
 
 const getOffscreenReturnSteer = (agent, width, height) => {
   const marginPx = metersToPx(PARAMS.BOUNDARY_MARGIN_M);
-  const leftBound = marginPx;
-  const rightBound = width - marginPx;
-  const topBound = marginPx;
-  const bottomBound = height - marginPx;
+  const leftBound = responsiveBoundaryInset(width, height, marginPx, "x");
+  const rightBound = width - leftBound;
+  const topBound = responsiveBoundaryInset(width, height, marginPx, "y");
+  const bottomBound = height - topBound;
   let steerX = 0;
   let steerY = 0;
 
@@ -2035,12 +2037,19 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       };
     };
 
+    const tapGesture = createPointerTapGesture();
     const handlePointerEnter = (event) => updatePointer(event, false);
-    const handlePointerMove = (event) =>
+    const handlePointerMove = (event) => {
+      tapGesture.move(event);
       updatePointer(event, pointerRef.current.down);
-    const handlePointerDown = (event) => {
+    };
+    const handlePointerDown = (event, fromTap = false) => {
       const mode = getInteractionMode();
       if (mode === "flashlight") {
+        if (!fromTap && tapGesture.defer(event)) {
+          updatePointer(event, false);
+          return;
+        }
         flashlightToggleRef.current = !flashlightToggleRef.current;
         updatePointer(event, false);
         return;
@@ -2049,9 +2058,11 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       updatePointer(event, true);
     };
     const handlePointerUp = (event) => {
+      if (tapGesture.finish(event)) handlePointerDown(event, true);
       updatePointer(event, false);
     };
     const handlePointerLeave = () => {
+      tapGesture.cancel();
       pointerRef.current = {
         ...pointerRef.current,
         active: false,

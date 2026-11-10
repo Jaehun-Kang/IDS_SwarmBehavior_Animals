@@ -457,9 +457,12 @@ function AnimalDockItem({ animal, atlas, isActive, onAnimalSelect }) {
       )}
       data-animal-id={animal.id}
       onClick={() => onAnimalSelect?.(animal.id)}
-      onMouseEnter={() => setIsAnimated(true)}
-      onMouseLeave={() => setIsAnimated(false)}
-      onFocus={() => setIsAnimated(true)}
+      onPointerEnter={event => { if (event.pointerType === "mouse") setIsAnimated(true); }}
+      onPointerLeave={() => setIsAnimated(false)}
+      onPointerDown={event => { if (event.pointerType !== "mouse") setIsAnimated(false); }}
+      onPointerUp={event => { if (event.pointerType !== "mouse") setIsAnimated(false); }}
+      onPointerCancel={() => setIsAnimated(false)}
+      onFocus={event => setIsAnimated(event.currentTarget.matches(":focus-visible"))}
       onBlur={() => setIsAnimated(false)}
       aria-label={`${animal.label} 시뮬레이션으로 이동`}
       aria-pressed={isActive}
@@ -484,13 +487,111 @@ function AnimalDockItem({ animal, atlas, isActive, onAnimalSelect }) {
   );
 }
 
+function AnimalDock({ animalId, onAnimalSelect }) {
+  const navRef = React.useRef(null);
+  const trackRef = React.useRef(null);
+  const contentRef = React.useRef(null);
+  const [edges, setEdges] = React.useState({ left: false, right: false });
+
+  React.useLayoutEffect(() => {
+    const nav = navRef.current;
+    const track = trackRef.current;
+    const content = contentRef.current;
+    let frame = 0;
+    let cover = null;
+    let previousTrackWidth = -1;
+    const revealActive = () => {
+      const active = content.querySelector('.is-active');
+      if (!active) return;
+      const item = active.getBoundingClientRect();
+      const viewport = track.getBoundingClientRect();
+      if (item.left < viewport.left) track.scrollLeft += item.left - viewport.left - 12;
+      else if (item.right > viewport.right) track.scrollLeft += item.right - viewport.right + 12;
+    };
+    const updateEdges = () => {
+      const left = track.scrollLeft > 1;
+      const right = track.scrollWidth - track.clientWidth - track.scrollLeft > 1;
+      setEdges((previous) => previous.left === left && previous.right === right
+        ? previous : { left, right });
+    };
+    const measure = () => {
+      frame = 0;
+      const nextCover = document.querySelector('.detail-container--closed .detail-book-page--cover');
+      if (nextCover !== cover) {
+        if (cover) observer.unobserve(cover);
+        cover = nextCover;
+        if (cover) observer.observe(cover);
+      }
+      const bounds = cover?.getBoundingClientRect();
+      const screenWidth = document.documentElement.clientWidth;
+      let right = screenWidth - 24;
+      if (bounds && bounds.width > 0 && bounds.bottom > window.innerHeight - 120) {
+        right = Math.min(right, bounds.left - 16);
+      }
+      const available = Math.max(0, right - 24);
+      const natural = content.scrollWidth;
+      const width = Math.min(natural, available);
+      const left = Math.max(24, Math.min((screenWidth - width) / 2, right - width));
+      nav.style.width = `${width}px`;
+      nav.style.left = `${left}px`;
+      nav.dataset.overflow = String(natural > width + 1);
+      if (track.clientWidth !== previousTrackWidth) {
+        previousTrackWidth = track.clientWidth;
+        revealActive();
+      }
+      updateEdges();
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(measure);
+    };
+    const observer = new ResizeObserver(schedule);
+    observer.observe(content);
+    // The book can mount after the simulation and changes state when opened.
+    const mutations = new MutationObserver(schedule);
+    mutations.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener('resize', schedule);
+    document.addEventListener('transitionend', schedule);
+    track.addEventListener('scroll', updateEdges, { passive: true });
+    measure();
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      mutations.disconnect();
+      window.removeEventListener('resize', schedule);
+      document.removeEventListener('transitionend', schedule);
+      track.removeEventListener('scroll', updateEdges);
+    };
+  }, []);
+
+  const scroll = (direction) => {
+    const track = trackRef.current;
+    track.scrollBy({ left: direction * Math.max(86, Math.floor(track.clientWidth / 86) * 86), behavior: 'smooth' });
+  };
+
+  return (
+    <nav ref={navRef} className="sim-animal-dock" aria-label="동물 시뮬레이션 이동">
+      <button type="button" className="sim-animal-dock__arrow" aria-label="이전 동물 보기"
+        disabled={!edges.left} onClick={() => scroll(-1)}><span aria-hidden="true">‹</span></button>
+      <div ref={trackRef} className="sim-animal-dock__track">
+        <div ref={contentRef} className="sim-animal-dock__content">
+          {animalDockItems.map((animal) => (
+            <AnimalDockItem key={animal.id} animal={animal} atlas={HOME_SPRITE_ATLASES[animal.id]}
+              isActive={animal.id === animalId} onAnimalSelect={onAnimalSelect} />
+          ))}
+        </div>
+      </div>
+      <button type="button" className="sim-animal-dock__arrow" aria-label="다음 동물 보기"
+        disabled={!edges.right} onClick={() => scroll(1)}><span aria-hidden="true">›</span></button>
+    </nav>
+  );
+}
+
 // 캔버스 렌더링 컴포넌트
 function SwarmCanvas({
   animalId,
   animalLabel,
   onBackClick,
   onDetailClick,
-  onAnimalSelect,
   isPaused,
   inactivityRemainingSeconds,
   onControlSnapshot,
@@ -508,6 +609,87 @@ function SwarmCanvas({
   const [retryCount, setRetryCount] = React.useState(0);
   const containerRef = React.useRef(null);
   const controlPanelRef = React.useRef(null);
+  const backButtonRef = React.useRef(null);
+  const [compactBackButton, setCompactBackButton] = React.useState(false);
+  const [isMobileOptions, setIsMobileOptions] = React.useState(() => window.matchMedia("(width <= 600px)").matches);
+  const [mobileOptionsOpen, setMobileOptionsOpen] = React.useState(false);
+  const [isTouchInput, setIsTouchInput] = React.useState(() => window.matchMedia("(pointer: coarse)").matches);
+  React.useEffect(() => {
+    const media = window.matchMedia("(pointer: coarse)");
+    const update = () => setIsTouchInput(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  const [mobileOptionsClosing, setMobileOptionsClosing] = React.useState(false);
+  const optionsCloseTimerRef = React.useRef(null);
+  const optionsToggleRef = React.useRef(null);
+  const closeOptions = React.useCallback(() => {
+    if (optionsCloseTimerRef.current !== null) return;
+    optionsToggleRef.current?.focus({ preventScroll: true });
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setMobileOptionsOpen(false);
+      return;
+    }
+    setMobileOptionsClosing(true);
+    optionsCloseTimerRef.current = window.setTimeout(() => {
+      optionsCloseTimerRef.current = null;
+      setMobileOptionsOpen(false);
+      setMobileOptionsClosing(false);
+    }, 180);
+  }, []);
+
+  React.useEffect(() => {
+    const media = window.matchMedia("(width <= 600px)");
+    const update = () => {
+      window.clearTimeout(optionsCloseTimerRef.current);
+      optionsCloseTimerRef.current = null;
+      setMobileOptionsClosing(false);
+      setIsMobileOptions(media.matches);
+      setMobileOptionsOpen(false);
+    };
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  React.useEffect(() => {
+    window.clearTimeout(optionsCloseTimerRef.current);
+    optionsCloseTimerRef.current = null;
+    setMobileOptionsClosing(false);
+    setMobileOptionsOpen(false);
+    return () => window.clearTimeout(optionsCloseTimerRef.current);
+  }, [animalId]);
+
+  React.useEffect(() => {
+    if (!isMobileOptions || !mobileOptionsOpen) return;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        closeOptions();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isMobileOptions, mobileOptionsOpen, closeOptions]);
+  React.useEffect(() => {
+    if (!isMobileOptions || !mobileOptionsOpen) return;
+    const content = controlPanelRef.current?.querySelector(".sim-control-panel__content");
+    if (!content) return;
+    const updateFade = () => {
+      const fade = content.scrollHeight > content.clientHeight + 1
+        ? Math.min(16, Math.max(0, content.scrollTop))
+        : 0;
+      content.style.setProperty("--options-top-fade", fade + "px");
+    };
+    updateFade();
+    content.addEventListener("scroll", updateFade, { passive: true });
+    const observer = new ResizeObserver(updateFade);
+    observer.observe(content);
+    Array.from(content.children).forEach(child => observer.observe(child));
+    return () => {
+      content.removeEventListener("scroll", updateFade);
+      observer.disconnect();
+      content.style.removeProperty("--options-top-fade");
+    };
+  }, [isMobileOptions, mobileOptionsOpen, swarmUi]);
   const timeoutRef = React.useRef(null);
   const resetAnimationFrameRef = React.useRef(null);
   const lastControlSnapshotRef = React.useRef(null);
@@ -679,6 +861,126 @@ function SwarmCanvas({
       window.removeEventListener("resize", updatePaperOffset);
     };
   }, [swarmUi]);
+
+  React.useLayoutEffect(() => {
+    const panel = controlPanelRef.current;
+    const title = panel?.parentElement?.querySelector(".sim-animal-title");
+    const content = panel?.querySelector(".sim-control-panel__content");
+    const spacer = panel?.querySelector("[data-title-clearance]");
+    if (!title || !content || !spacer) return;
+    if (isMobileOptions) {
+      spacer.style.height = "0px";
+      delete panel.dataset.compactRem;
+      return;
+    }
+
+    let clearance = 0;
+    let frame;
+    const update = () => {
+      const titleRect = title.getBoundingClientRect();
+      const contentRect = content.getBoundingClientRect();
+      const baseTop = contentRect.top - clearance;
+      const overlapsHorizontally = contentRect.left < titleRect.right + 12 &&
+        contentRect.right > titleRect.left - 12;
+      const next = overlapsHorizontally
+        ? Math.max(0, Math.ceil(titleRect.bottom + 12 - baseTop))
+        : 0;
+      // Keep a small release margin so the rem change cannot toggle itself.
+      const wasCompact = panel.dataset.compactRem === "true";
+      const keepCompact = wasCompact &&
+        contentRect.left < titleRect.right + 48 &&
+        contentRect.right > titleRect.left - 48 &&
+        baseTop < titleRect.bottom + 12;
+      panel.dataset.compactRem = String(next > 0 || keepCompact);
+      if (next !== clearance) {
+        clearance = next;
+        spacer.style.height = next + "px";
+      }
+    };
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(update);
+    };
+    update();
+    const observer = new ResizeObserver(schedule);
+    observer.observe(title);
+    observer.observe(content);
+    window.addEventListener("resize", schedule);
+    document.fonts?.addEventListener("loadingdone", schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("resize", schedule);
+      document.fonts?.removeEventListener("loadingdone", schedule);
+      spacer.style.height = "0px";
+      delete panel.dataset.compactRem;
+    };
+  }, [swarmUi, Boolean(controls), animalLabel, isMobileOptions]);
+
+  React.useLayoutEffect(() => {
+    const button = backButtonRef.current;
+    const title = containerRef.current?.querySelector(".sim-animal-title");
+    const label = button?.querySelector("[data-back-label]");
+    if (!button || !title || !label) return;
+    let frame;
+    const update = () => {
+      const rect = button.getBoundingClientRect();
+      const optionsButton = optionsToggleRef.current;
+      if (optionsButton) {
+        optionsButton.style.width = button.offsetWidth + "px";
+        optionsButton.style.height = button.offsetHeight + "px";
+      }
+      const titleRect = title.getBoundingClientRect();
+      const style = getComputedStyle(button);
+      const containerTop = containerRef.current.getBoundingClientRect().top;
+      containerRef.current.style.setProperty("--sim-mobile-legend-top",
+        Math.ceil(Math.max(rect.bottom, titleRect.bottom) - containerTop + 12) + "px");
+      const matrix = new DOMMatrixReadOnly(style.transform === "none" ? undefined : style.transform);
+      const fullWidth = label.offsetWidth + parseFloat(style.paddingLeft) +
+        parseFloat(style.getPropertyValue("--sim-back-label-padding-right") || "29");
+      // Test the full label footprint even while the compact icon is displayed.
+      const fullRight = rect.right + (fullWidth - button.offsetWidth) * Math.abs(matrix.a);
+      setCompactBackButton(fullRight > titleRect.left && rect.left < titleRect.right &&
+        rect.bottom > titleRect.top && rect.top < titleRect.bottom);
+    };
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(update);
+    };
+    update();
+    const observer = new ResizeObserver(schedule);
+    [button, label, title].forEach(element => observer.observe(element));
+    window.addEventListener("resize", schedule);
+    document.fonts?.addEventListener("loadingdone", schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("resize", schedule);
+      document.fonts?.removeEventListener("loadingdone", schedule);
+    };
+  }, [animalLabel, isLoading]);
+
+  React.useEffect(() => {
+    const releaseTouch = event => {
+      if (!event.isTrusted || (event.pointerType !== "touch" && event.pointerType !== "pen")) return;
+      const canvas = containerRef.current?.querySelector("canvas");
+      // Finish tap actions first, then clear hover-style simulation input.
+      queueMicrotask(() => {
+        if (!canvas?.isConnected) return;
+        const init = { bubbles: true, pointerType: event.pointerType,
+          pointerId: event.pointerId, isPrimary: event.isPrimary,
+          clientX: event.clientX, clientY: event.clientY, relatedTarget: null };
+        canvas.dispatchEvent(new PointerEvent("pointerout", init));
+        canvas.dispatchEvent(new PointerEvent("pointerleave", init));
+      });
+    };
+    window.addEventListener("pointerup", releaseTouch);
+    window.addEventListener("pointercancel", releaseTouch);
+    return () => {
+      window.removeEventListener("pointerup", releaseTouch);
+      window.removeEventListener("pointercancel", releaseTouch);
+    };
+  }, []);
 
   const handleCanvasPointerProxy = React.useCallback((event) => {
     const targetElement = event.target instanceof Element ? event.target : null;
@@ -1097,6 +1399,26 @@ function SwarmCanvas({
     <div
       ref={containerRef}
       className="sim-canvas"
+      onPointerDownCapture={event => {
+        const isTouch = event.pointerType === "touch" || event.pointerType === "pen";
+        setIsTouchInput(isTouch);
+        // Touch has no hover: initialize move-driven interactions at contact,
+        // before the original down/up handlers perform any tap action.
+        if (!isTouch || !event.nativeEvent.isTrusted || event.isPrimary === false) return;
+        if (event.target instanceof Element && event.target.closest(CANVAS_POINTER_BLOCK_SELECTOR)) return;
+        const canvas = containerRef.current?.querySelector("canvas");
+        canvas?.dispatchEvent(new PointerEvent("pointermove", {
+          bubbles: true,
+          pointerId: event.pointerId,
+          pointerType: event.pointerType,
+          isPrimary: event.isPrimary,
+          clientX: event.clientX,
+          clientY: event.clientY,
+          buttons: event.buttons,
+          button: -1,
+          pressure: event.pressure,
+        }));
+      }}
       onPointerDown={handleCanvasPointerProxy}
       onPointerMove={handleCanvasPointerProxy}
       onPointerUp={handleCanvasPointerProxy}
@@ -1114,6 +1436,7 @@ function SwarmCanvas({
           <p>컴포넌트 준비 중...</p>
         </div>
       )}
+      <div className="sim-input-surface" aria-hidden="true" />
       <div className="sim-overlay-stack">
         <ThreatPointerOverlay containerRef={containerRef}
           marker={animalId === 'sheep' ? 'external' : animalId === 'bee' && !resolvedControls?.IS_THREAT_ACTIVE ? 'flower' : 'threat'}
@@ -1126,10 +1449,21 @@ function SwarmCanvas({
             (animalId === 'spiny_lobster' && resolvedControls.THREAT_ACTIVE)
           ))} />
         <button
-          className="sim-overlay-button sim-back-button"
+          className={`sim-overlay-button sim-back-button${compactBackButton ? " is-icon" : ""}`}
+          ref={backButtonRef}
+          aria-label="처음으로"
+          title="처음으로"
           onClick={onBackClick}
         >
-          <span>← 처음으로</span>
+          <span data-back-label aria-hidden="true" style={compactBackButton
+            ? { position: "absolute", visibility: "hidden", whiteSpace: "nowrap" }
+            : { whiteSpace: "nowrap" }}>← 처음으로</span>
+          {compactBackButton && (
+            <svg aria-hidden="true" width="1.25em" height="1.25em" viewBox="0 0 24 24"
+              fill="currentColor" style={{ display: "block" }}>
+              <path d="M12 2 1 11h3v12h6v-8h4v8h6V11h3L12 2Z" />
+            </svg>
+          )}
         </button>
       </div>
       <button
@@ -1163,9 +1497,40 @@ function SwarmCanvas({
         </div>
       ) : null}
       {swarmUi?.controlFields && resolvedControls ? (
+        <React.Fragment>
+        {isMobileOptions && mobileOptionsOpen && (
+          <button type="button" className="sim-options-backdrop" aria-label="옵션 바깥을 눌러 닫기"
+            onPointerDown={event => event.stopPropagation()}
+            onPointerMove={event => event.stopPropagation()}
+            onPointerUp={event => event.stopPropagation()}
+            onPointerCancel={event => event.stopPropagation()}
+            onClick={event => { event.stopPropagation(); closeOptions(); }} />
+        )}
+        <button type="button" className={"sim-back-button sim-options-toggle" + (compactBackButton ? " is-icon" : "")} ref={optionsToggleRef}
+          aria-label={mobileOptionsOpen ? "옵션 닫기" : "옵션 열기"}
+          aria-expanded={mobileOptionsOpen} aria-controls="sim-options-panel"
+          onClick={() => mobileOptionsOpen ? closeOptions() : setMobileOptionsOpen(true)}>
+          {compactBackButton ? (
+            <svg aria-hidden="true" width="1.25em" height="1.25em" viewBox="0 0 24 24" fill="currentColor" style={{ display: "block" }}>
+              <path d="M2 5h20v2H2zm0 12h20v2H2z" />
+              <rect x="6" y="2" width="4" height="8" rx="1" />
+              <rect x="14" y="14" width="4" height="8" rx="1" />
+            </svg>
+          ) : <span>옵션</span>}
+        </button>
+        {isMobileOptions && (
+          <div className="sim-mobile-legend">
+            <SimLegend animalId={animalId} controls={resolvedControls} ui={swarmUi} />
+          </div>
+        )}
         <div
           ref={controlPanelRef}
-          className="sim-control-panel sim-overlay-panel"
+          id="sim-options-panel"
+          role="region"
+          aria-label="시뮬레이션 옵션"
+          aria-hidden={isMobileOptions && !mobileOptionsOpen}
+          inert={isMobileOptions && !mobileOptionsOpen ? true : undefined}
+          className={"sim-control-panel sim-overlay-panel" + (mobileOptionsOpen ? " is-mobile-open" : "") + (mobileOptionsClosing ? " is-mobile-closing" : "")}
         >
           <div className="sim-control-paper">
             {inactivityRemainingSeconds !== null ? (
@@ -1174,12 +1539,18 @@ function SwarmCanvas({
               </p>
             ) : null}
           </div>
+          <div data-title-clearance aria-hidden="true" />
           <div className="sim-control-panel__content">
             <div className="sim-control-panel__header">
               <div className="theme-panel-title sim-control-panel__title">
                 시뮬레이션 옵션
                 {/* Simulation Params */}
               </div>
+              <button type="button" className="sim-options-close" onClick={closeOptions} aria-label="옵션 닫기">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path d="m6 6 12 12M18 6 6 18" />
+                </svg>
+              </button>
             </div>
             <div className="sim-control-panel__body">
               {swarmUi.controlFields.map((field) => (
@@ -1400,26 +1771,12 @@ function SwarmCanvas({
                 </div>
               ))}
             </div>
-            <p className="sim-control-panel__hint">마우스로 조작해보세요</p>
-            <SimLegend animalId={animalId} controls={resolvedControls} ui={swarmUi} />
+            <p className="sim-control-panel__hint">{isTouchInput ? "터치로 조작해보세요" : "마우스로 조작해보세요"}</p>
+            {!isMobileOptions && <SimLegend animalId={animalId} controls={resolvedControls} ui={swarmUi} />}
           </div>
         </div>
+        </React.Fragment>
       ) : null}
-      <nav className="sim-animal-dock" aria-label="동물 시뮬레이션 이동">
-        {animalDockItems.map((animal) => {
-          const atlas = HOME_SPRITE_ATLASES[animal.id];
-
-          return (
-            <AnimalDockItem
-              key={animal.id}
-              animal={animal}
-              atlas={atlas}
-              isActive={animal.id === animalId}
-              onAnimalSelect={onAnimalSelect}
-            />
-          );
-        })}
-      </nav>
     </div>
   );
 }
@@ -1807,7 +2164,6 @@ function Sim(props) {
           animalLabel={animalLabel}
           onBackClick={onBackClick}
           onDetailClick={onDetailClick}
-          onAnimalSelect={onAnimalSelect}
           isPaused={isPaused}
           inactivityRemainingSeconds={inactivityRemainingSeconds}
           onControlSnapshot={
@@ -1816,6 +2172,9 @@ function Sim(props) {
               : undefined
           }
         />
+      )}
+      {selectedAnimal && (
+        <AnimalDock animalId={selectedAnimal} onAnimalSelect={onAnimalSelect} />
       )}
     </div>
   );

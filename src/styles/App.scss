@@ -7,6 +7,30 @@
   font-display: swap;
 }
 
+// Desktop rem baseline; mobile uses the same proportions at a smaller base.
+html {
+  font-size: 16px;
+}
+
+// Include touch-capable laptops and tablets regardless of viewport width.
+@media (any-pointer: coarse) {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@media (width > 600px) {
+  html:has(.sim-control-panel[data-compact-rem="true"]) {
+    font-size: 15px;
+  }
+}
+
+@media (width <= 600px) {
+  html {
+    font-size: 14px;
+  }
+}
+
 :root {
   --theme-bg: oklch(0.9909 0.0123 91.51);
   --theme-bg-hex: #faf8f5;

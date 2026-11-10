@@ -1,3 +1,4 @@
+import { responsiveBoundaryInset } from "../../utils/responsiveBoundary.js";
 import * as React from "react";
 import { ANT_SIGNAL_COLORS } from "../../data/antSignalColors.js";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
@@ -3061,17 +3062,19 @@ const updateMillOutbreak = (world, controls, dt) => {
 
 const steerInsideBounds = (ant, world) => {
   const margin = world.metrics.bodyLengthPx * 1.8;
+  const insetX = responsiveBoundaryInset(world.width, world.height, margin, "x");
+  const insetY = responsiveBoundaryInset(world.width, world.height, margin, "y");
   let correction = { x: 0, y: 0 };
 
-  if (ant.position.x < margin) {
+  if (ant.position.x < insetX) {
     correction.x += 1;
-  } else if (ant.position.x > world.width - margin) {
+  } else if (ant.position.x > world.width - insetX) {
     correction.x -= 1;
   }
 
-  if (ant.position.y < margin) {
+  if (ant.position.y < insetY) {
     correction.y += 1;
-  } else if (ant.position.y > world.height - margin) {
+  } else if (ant.position.y > world.height - insetY) {
     correction.y -= 1;
   }
 
@@ -4334,15 +4337,15 @@ const updateAnt = (ant, ants, world, controls, dt) => {
       ant.position,
       scale(direction, Math.min(remainingDistancePx, ant.speedPxS * dt)),
     );
-    ant.position.x = clamp(ant.position.x, 0, world.width);
-    ant.position.y = clamp(ant.position.y, 0, world.height);
+    ant.position.x = clamp(ant.position.x, responsiveBoundaryInset(world.width, world.height, 0, "x", true), world.width - responsiveBoundaryInset(world.width, world.height, 0, "x", true));
+    ant.position.y = clamp(ant.position.y, responsiveBoundaryInset(world.width, world.height, 0, "y", true), world.height - responsiveBoundaryInset(world.width, world.height, 0, "y", true));
     return;
   }
 
   if (ant.state === "reserve") {
     updateReserveAnt(ant, world, controls, dt);
-    ant.position.x = clamp(ant.position.x, 0, world.width);
-    ant.position.y = clamp(ant.position.y, 0, world.height);
+    ant.position.x = clamp(ant.position.x, responsiveBoundaryInset(world.width, world.height, 0, "x", true), world.width - responsiveBoundaryInset(world.width, world.height, 0, "x", true));
+    ant.position.y = clamp(ant.position.y, responsiveBoundaryInset(world.width, world.height, 0, "y", true), world.height - responsiveBoundaryInset(world.width, world.height, 0, "y", true));
     return;
   }
 
@@ -4376,8 +4379,8 @@ const updateAnt = (ant, ants, world, controls, dt) => {
     updateTrailAnt(ant, ants, world, controls, dt);
   }
 
-  ant.position.x = clamp(ant.position.x, 0, world.width);
-  ant.position.y = clamp(ant.position.y, 0, world.height);
+  ant.position.x = clamp(ant.position.x, responsiveBoundaryInset(world.width, world.height, 0, "x", true), world.width - responsiveBoundaryInset(world.width, world.height, 0, "x", true));
+  ant.position.y = clamp(ant.position.y, responsiveBoundaryInset(world.width, world.height, 0, "y", true), world.height - responsiveBoundaryInset(world.width, world.height, 0, "y", true));
   updateRoleSwap(ant, world, controls);
 };
 
@@ -4474,8 +4477,8 @@ const resolveAntPositionSpacing = (world, dt = SIMULATION_STEP_S) => {
     if (ant.state === "reserve") {
       return;
     }
-    ant.position.x = clamp(ant.position.x, 0, world.width);
-    ant.position.y = clamp(ant.position.y, 0, world.height);
+    ant.position.x = clamp(ant.position.x, responsiveBoundaryInset(world.width, world.height, 0, "x", true), world.width - responsiveBoundaryInset(world.width, world.height, 0, "x", true));
+    ant.position.y = clamp(ant.position.y, responsiveBoundaryInset(world.width, world.height, 0, "y", true), world.height - responsiveBoundaryInset(world.width, world.height, 0, "y", true));
   });
 };
 

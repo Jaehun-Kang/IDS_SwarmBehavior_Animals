@@ -13,6 +13,7 @@
 }
 
 .home {
+  touch-action: none;
   --home-paper-texture: url("../assets/texture/paper/white-paper-texture-seamless.webp");
   position: relative;
   overflow: hidden;

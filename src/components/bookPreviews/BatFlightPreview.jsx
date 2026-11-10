@@ -80,6 +80,7 @@ export default function BatFlightPreview({ controls, ruleGroup }) {
   return <div className="canvas-placeholder rule-preview" aria-label={`${ruleGroup.category} 미니 시뮬레이션`}>
     {error ? <span role="alert">{error}</span> : null}
     <canvas ref={canvasRef} className="rule-preview__canvas"
+      data-touch-interactive={ruleGroup.previewId === "bat_return" || undefined}
       style={{ cursor: !error && ruleGroup.previewId === "bat_return" ? "none" : undefined }}
       onPointerMove={event => {
         if (ruleGroup.previewId !== "bat_return") return;

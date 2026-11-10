@@ -1,3 +1,4 @@
+import { responsiveBoundaryInset } from "../../utils/responsiveBoundary.js";
 import React from "react";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
 import { isPenguinEntryAnchor } from "../../utils/penguinEntry.js";
@@ -1567,8 +1568,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false, displayState
         const margin =
           metrics.spriteHeight * PARAMS.SCREEN_REENTRY_MARGIN_RATIO;
         if (agent.countTransition !== "exit") {
-          agent.x = clamp(agent.x, -margin, width + margin);
-          agent.y = clamp(agent.y, -margin, height + margin);
+          agent.x = clamp(agent.x, responsiveBoundaryInset(width, height, -margin, "x", true), width - responsiveBoundaryInset(width, height, -margin, "x", true));
+          agent.y = clamp(agent.y, responsiveBoundaryInset(width, height, -margin, "y", true), height - responsiveBoundaryInset(width, height, -margin, "y", true));
         }
         agent.renderHeight = metrics.spriteHeight * agent.sizeJitter;
       });
@@ -2146,14 +2147,16 @@ export function App({ controls, onGpuErrorChange, isPaused = false, displayState
             const screenMargin =
               metrics.spriteHeight * PARAMS.SCREEN_REENTRY_MARGIN_RATIO;
 
+            const insetX = responsiveBoundaryInset(size.width, size.height, 0, "x");
+            const insetY = responsiveBoundaryInset(size.width, size.height, 0, "y");
             if (
-              agent.x < 0 ||
-              agent.x > size.width ||
-              agent.y < 0 ||
-              agent.y > size.height
+              agent.x < insetX ||
+              agent.x > size.width - insetX ||
+              agent.y < insetY ||
+              agent.y > size.height - insetY
             ) {
-              const screenTargetX = clamp(agent.x, 0, size.width);
-              const screenTargetY = clamp(agent.y, 0, size.height);
+              const screenTargetX = clamp(agent.x, insetX, size.width - insetX);
+              const screenTargetY = clamp(agent.y, insetY, size.height - insetY);
               const reentryDir = normalize2D(
                 screenTargetX - agent.x,
                 screenTargetY - agent.y,
@@ -2164,26 +2167,26 @@ export function App({ controls, onGpuErrorChange, isPaused = false, displayState
                 y: reentryDir.x,
               };
               const preferClockwise =
-                agent.x < 0
+                agent.x < insetX
                   ? agent.y < metrics.centerY
-                  : agent.x > size.width
+                  : agent.x > size.width - insetX
                     ? agent.y >= metrics.centerY
-                    : agent.y < 0
+                    : agent.y < insetY
                       ? agent.x >= metrics.centerX
                       : agent.x < metrics.centerX;
               const tangentialSign = preferClockwise ? 1 : -1;
               const swirlSign = Math.sign(agent.slotY || 1);
               const reentryDistanceRatio = clamp(
                 Math.max(
-                  agent.x < 0
-                    ? -agent.x / Math.max(screenMargin, 1)
-                    : agent.x > size.width
-                      ? (agent.x - size.width) / Math.max(screenMargin, 1)
+                  agent.x < insetX
+                    ? (insetX - agent.x) / Math.max(screenMargin, 1)
+                    : agent.x > size.width - insetX
+                      ? (agent.x - size.width + insetX) / Math.max(screenMargin, 1)
                       : 0,
-                  agent.y < 0
-                    ? -agent.y / Math.max(screenMargin, 1)
-                    : agent.y > size.height
-                      ? (agent.y - size.height) / Math.max(screenMargin, 1)
+                  agent.y < insetY
+                    ? (insetY - agent.y) / Math.max(screenMargin, 1)
+                    : agent.y > size.height - insetY
+                      ? (agent.y - size.height + insetY) / Math.max(screenMargin, 1)
                       : 0,
                 ),
                 0,

@@ -1,4 +1,6 @@
+import { responsiveBoundaryInset } from "../../utils/responsiveBoundary.js";
 import React from "react";
+import { createPopulationTransition } from "../../utils/populationTransition";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
 import { createSimulationFrameScheduler } from "../../utils/simulationFrameScheduler.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
@@ -384,10 +386,10 @@ const getEdgeAvoidanceForce = (
   halfHeight,
   avoidZonePx,
 ) => {
-  const minX = halfWidth;
-  const maxX = width - halfWidth;
-  const minY = halfHeight;
-  const maxY = height - halfHeight;
+  const minX = responsiveBoundaryInset(width, height, halfWidth + avoidZonePx, "x") - avoidZonePx;
+  const maxX = width - minX;
+  const minY = responsiveBoundaryInset(width, height, halfHeight + avoidZonePx, "y") - avoidZonePx;
+  const maxY = height - minY;
   const force = { x: 0, y: 0 };
 
   if (agent.x - minX < avoidZonePx) {
@@ -406,18 +408,20 @@ const getEdgeAvoidanceForce = (
 };
 
 const getReturnBandForce = (agent, width, height, marginPx) => {
+  const insetX = responsiveBoundaryInset(width, height, 0, "x");
+  const insetY = responsiveBoundaryInset(width, height, 0, "y");
   const force = { x: 0, y: 0 };
 
-  if (agent.x < 0) {
-    force.x += clamp(-agent.x / marginPx, 0, 1);
-  } else if (agent.x > width) {
-    force.x -= clamp((agent.x - width) / marginPx, 0, 1);
+  if (agent.x < insetX) {
+    force.x += clamp((insetX - agent.x) / marginPx, 0, 1);
+  } else if (agent.x > width - insetX) {
+    force.x -= clamp((agent.x - width + insetX) / marginPx, 0, 1);
   }
 
-  if (agent.y < 0) {
-    force.y += clamp(-agent.y / marginPx, 0, 1);
-  } else if (agent.y > height) {
-    force.y -= clamp((agent.y - height) / marginPx, 0, 1);
+  if (agent.y < insetY) {
+    force.y += clamp((insetY - agent.y) / marginPx, 0, 1);
+  } else if (agent.y > height - insetY) {
+    force.y -= clamp((agent.y - height + insetY) / marginPx, 0, 1);
   }
 
   return force;
@@ -504,16 +508,6 @@ const sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => ({
     getControlField("WIND_SPEED_MPS")?.max,
   ),
 });
-
-const resizeAgents = (agents, count, width, height) => {
-  if (agents.length > count) {
-    agents.length = count;
-  }
-
-  while (agents.length < count) {
-    agents.push(createAgent(width, height));
-  }
-};
 
 const resumeFromPause = (agent, pauseTimer) => {
   if (pauseTimer <= PARAMS.SHORT_PAUSE_REORIENTATION_S) {
@@ -1253,6 +1247,10 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const [simulationFrames] = React.useState(createSimulationFrameScheduler);
   const animationFrameRef = React.useRef(0);
   const agentsRef = React.useRef([]);
+  const populationRef = React.useRef(null);
+  if (populationRef.current === null) {
+    populationRef.current = createPopulationTransition({ margin: 24 });
+  }
   const frameSizeRef = React.useRef(
     resolveAtlasFrameSize(ATLAS, { width: 64, height: 64 }),
   );
@@ -1314,11 +1312,12 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
 
       const size = syncCanvasSize(canvas, ctx);
       const frameSize = frameSizeRef.current;
-      resizeAgents(
+      populationRef.current.sync(
         agentsRef.current,
         resolvedControls.COUNT,
         size.width,
         size.height,
+        () => createAgent(size.width, size.height),
       );
 
       frame.advance((dt, now) => {
@@ -1332,6 +1331,33 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           now,
           frameSize,
         );
+        populationRef.current.advance(dt, (agent, _dt, path) => {
+          const canFly = resolvedControls.ADULT_FLIGHT_MODE &&
+            resolvedControls.TEMPERATURE_C >= PARAMS.FLIGHT_TEMPERATURE_MIN_C &&
+            resolvedControls.TEMPERATURE_C <= PARAMS.FLIGHT_TEMPERATURE_MAX_C &&
+            resolvedControls.WIND_SPEED_MPS <= PARAMS.FLIGHT_WIND_MAX_ACTIVITY_MPS;
+          const hopPeriod = PARAMS.HOP_VISUAL_DURATION_REAL_S + PARAMS.HOP_COOLDOWN_REAL_S;
+          path.hopOffset ??= Math.random() * hopPeriod;
+          const cycle = (path.elapsed + path.hopOffset) % hopPeriod;
+          const jumping = !canFly && cycle < PARAMS.HOP_VISUAL_DURATION_REAL_S;
+          agent.state = AGENT_STATES.MARCHING;
+          agent.hopVisualTimer = jumping ? PARAMS.HOP_VISUAL_DURATION_REAL_S - cycle : 0;
+          agent.spriteState = {
+            ...agent.spriteState, isFlying: canFly, isJumping: jumping, isTakingOff: false,
+            jumpProgress: jumping ? cycle / PARAMS.HOP_VISUAL_DURATION_REAL_S : 1,
+            directionX: Math.cos(agent.heading), directionY: Math.sin(agent.heading),
+          };
+          const bodyLengthPx = cmToPx(PARAMS.BODY_LENGTH_CM);
+          if (canFly) {
+            const readiness = clamp((resolvedControls.TEMPERATURE_C - PARAMS.FLIGHT_TEMPERATURE_MIN_C) / PARAMS.FLIGHT_TEMPERATURE_READY_RANGE_C, 0, 1);
+            return bodyLengthPx * (PARAMS.FLIGHT_SPEED_CM_S / PARAMS.REFERENCE_BODY_LENGTH_CM) * PARAMS.FLIGHT_VISUAL_SPEED_SCALE *
+              (PARAMS.FLIGHT_COOL_SPEED_MIN + readiness * (1 - PARAMS.FLIGHT_COOL_SPEED_MIN));
+          }
+          const activity = clamp((resolvedControls.TEMPERATURE_C - PARAMS.GROUND_TEMPERATURE_ACTIVITY_MIN_C) /
+            (PARAMS.GROUND_TEMPERATURE_FULL_ACTIVITY_C - PARAMS.GROUND_TEMPERATURE_ACTIVITY_MIN_C), 0, 1);
+          return jumping ? bodyLengthPx * (PARAMS.BASE_SPEED_BODY_LENGTHS_S *
+            (PARAMS.GROUND_COLD_SPEED_MIN + activity * (1 - PARAMS.GROUND_COLD_SPEED_MIN)) + PARAMS.HOP_SPEED_BONUS_BODY_LENGTHS_S) : 0;
+        });
       }
 
       }, isPaused);
@@ -1344,7 +1370,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         return;
       }
 
-      agentsRef.current.forEach((agent, index) => {
+      populationRef.current.renderAgents(agentsRef.current).forEach((agent) => {
         const renderPosition = { x: agent.x, y: agent.y };
         const sprite = resolveCanvasAtlasSprite(ATLAS, {
           space: agent.spriteSpace || "2d",
@@ -1375,7 +1401,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             ? bodyLengthsToPx(PARAMS.MARCH_BOB_BODY_LENGTHS)
             : bodyLengthsToPx(PARAMS.REST_BOB_BODY_LENGTHS);
         const bobOffset =
-          Math.sin(now * PARAMS.BOB_RATE + index * 0.7) * bobAmplitude;
+          Math.sin(now * PARAMS.BOB_RATE + agent.stageOffset * 0.01) * bobAmplitude;
         const drawWidth = frameSize.width * PARAMS.SPRITE_SCALE;
         const drawHeight = frameSize.height * PARAMS.SPRITE_SCALE;
         agent.previousScreenPosition = sprite.pose.screenPosition;

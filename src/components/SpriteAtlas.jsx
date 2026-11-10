@@ -1,6 +1,7 @@
 import React from "react";
 import {
   getAtlasFrameStyle,
+  getIsolatedFramePadding,
   resolveAtlasAspectRatio,
   resolveStageFrameSequence,
 } from "../utils/spriteAtlas";
@@ -130,12 +131,13 @@ function SpriteAtlas({
   };
 
   const frameSource = isolatedFrames?.frameSources.get(`${activeFrame.x}:${activeFrame.y}`);
+  const padding = getIsolatedFramePadding(atlas, imageSize);
   const imageStyle = {
     position: "absolute",
-    left: 0,
-    top: 0,
-    width: "100%",
-    height: "100%",
+    left: `${-padding.x * 100}%`,
+    top: `${-padding.y * 100}%`,
+    width: `${100 + padding.x * 200}%`,
+    height: `${100 + padding.y * 200}%`,
     maxWidth: "none",
     display: "block",
     userSelect: "none",

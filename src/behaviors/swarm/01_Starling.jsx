@@ -1,4 +1,5 @@
 import React from "react";
+import { resolvePopulationExitTarget } from "../../utils/populationExit.js";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
 import { createSimulationFrameScheduler } from "../../utils/simulationFrameScheduler.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
@@ -413,6 +414,11 @@ const getPredatorInfluence = (boid, width, height, pointer) => {
 };
 
 const getVisibleAvoidance = (boid, width, height) => {
+  // Preserve desktop distances while keeping opposing edge zones apart on phones.
+  const edgeZoneX = Math.max(1, Math.min(PARAMS.EDGE_AVOID_ZONE, width * 0.25));
+  const edgeZoneY = Math.max(1, Math.min(PARAMS.EDGE_AVOID_ZONE, height * 0.4, width * 0.25));
+  const outsideX = (PARAMS.EDGE_AVOID_ZONE - edgeZoneX) * 0.5;
+  const outsideY = (PARAMS.EDGE_AVOID_ZONE - edgeZoneY) * 0.5;
   const futureX =
     boid.position.x +
     boid.direction.x * boid.speed * PARAMS.EDGE_LOOKAHEAD_TIME;
@@ -450,56 +456,56 @@ const getVisibleAvoidance = (boid, width, height) => {
       predictedPerspective;
   const leftPush = Math.max(
     clamp(
-      (PARAMS.SCREEN_MARGIN + PARAMS.EDGE_AVOID_ZONE - projectedX) /
-        PARAMS.EDGE_AVOID_ZONE,
+      (PARAMS.SCREEN_MARGIN - outsideX + edgeZoneX - projectedX) /
+        edgeZoneX,
       0,
       1,
     ),
     clamp(
-      (PARAMS.SCREEN_MARGIN + PARAMS.EDGE_AVOID_ZONE - predictedX) /
-        PARAMS.EDGE_AVOID_ZONE,
+      (PARAMS.SCREEN_MARGIN - outsideX + edgeZoneX - predictedX) /
+        edgeZoneX,
       0,
       1,
     ),
   );
   const rightPush = Math.max(
     clamp(
-      (projectedX - (width - PARAMS.SCREEN_MARGIN - PARAMS.EDGE_AVOID_ZONE)) /
-        PARAMS.EDGE_AVOID_ZONE,
+      (projectedX - (width + outsideX - PARAMS.SCREEN_MARGIN - edgeZoneX)) /
+        edgeZoneX,
       0,
       1,
     ),
     clamp(
-      (predictedX - (width - PARAMS.SCREEN_MARGIN - PARAMS.EDGE_AVOID_ZONE)) /
-        PARAMS.EDGE_AVOID_ZONE,
+      (predictedX - (width + outsideX - PARAMS.SCREEN_MARGIN - edgeZoneX)) /
+        edgeZoneX,
       0,
       1,
     ),
   );
   const topPush = Math.max(
     clamp(
-      (PARAMS.SCREEN_MARGIN + PARAMS.EDGE_AVOID_ZONE - projectedY) /
-        PARAMS.EDGE_AVOID_ZONE,
+      (PARAMS.SCREEN_MARGIN - outsideY + edgeZoneY - projectedY) /
+        edgeZoneY,
       0,
       1,
     ),
     clamp(
-      (PARAMS.SCREEN_MARGIN + PARAMS.EDGE_AVOID_ZONE - predictedY) /
-        PARAMS.EDGE_AVOID_ZONE,
+      (PARAMS.SCREEN_MARGIN - outsideY + edgeZoneY - predictedY) /
+        edgeZoneY,
       0,
       1,
     ),
   );
   const bottomPush = Math.max(
     clamp(
-      (projectedY - (height - PARAMS.SCREEN_MARGIN - PARAMS.EDGE_AVOID_ZONE)) /
-        PARAMS.EDGE_AVOID_ZONE,
+      (projectedY - (height + outsideY - PARAMS.SCREEN_MARGIN - edgeZoneY)) /
+        edgeZoneY,
       0,
       1,
     ),
     clamp(
-      (predictedY - (height - PARAMS.SCREEN_MARGIN - PARAMS.EDGE_AVOID_ZONE)) /
-        PARAMS.EDGE_AVOID_ZONE,
+      (predictedY - (height + outsideY - PARAMS.SCREEN_MARGIN - edgeZoneY)) /
+        edgeZoneY,
       0,
       1,
     ),
@@ -557,11 +563,14 @@ const keepBoidVisible = (
     PARAMS.VISIBLE_DEPTH_MAX,
   );
 
+  // Keep the emergency position clamp outside the visible mobile viewport.
+  const outsideX = PARAMS.EDGE_AVOID_ZONE - Math.max(1, Math.min(PARAMS.EDGE_AVOID_ZONE, width * 0.25));
+  const outsideY = PARAMS.EDGE_AVOID_ZONE - Math.max(1, Math.min(PARAMS.EDGE_AVOID_ZONE, height * 0.4, width * 0.25));
   const perspective = 0.92 + (boid.position.z + 240) / 1400;
-  const minCameraX = (margin - width * 0.5) / perspective;
-  const maxCameraX = (width - margin - width * 0.5) / perspective;
-  const minCameraY = (margin - height * 0.5) / perspective;
-  const maxCameraY = (height - margin - height * 0.5) / perspective;
+  const minCameraX = (margin - outsideX - width * 0.5) / perspective;
+  const maxCameraX = (width + outsideX - margin - width * 0.5) / perspective;
+  const minCameraY = (margin - outsideY - height * 0.5) / perspective;
+  const maxCameraY = (height + outsideY - margin - height * 0.5) / perspective;
 
   const clampedCameraX = clamp(
     boid.position.x * 0.9 + boid.position.z * 0.28,
@@ -1254,26 +1263,7 @@ const createInitialScreenBoid = (id, center, dimensions, width, height) => {
 
 const getExitScreenTarget = (boid, width, height, margin = 190) => {
   const projected = projectBoid(boid, width, height);
-  const fromCenterX = projected.x - width * 0.5;
-  const fromCenterY = projected.y - height * 0.5;
-  const absX = Math.abs(fromCenterX);
-  const absY = Math.abs(fromCenterY);
-
-  if (absX < 1 && absY < 1) {
-    return getOutsideScreenPoint(width, height, margin);
-  }
-
-  if (absX > absY) {
-    return {
-      x: fromCenterX < 0 ? -margin : width + margin,
-      y: clamp(projected.y + fromCenterY * 0.28, -margin, height + margin),
-    };
-  }
-
-  return {
-    x: clamp(projected.x + fromCenterX * 0.28, -margin, width + margin),
-    y: fromCenterY < 0 ? -margin : height + margin,
-  };
+  return resolvePopulationExitTarget(projected, width, height, margin);
 };
 
 const startBoidExit = (boid, width, height) => {

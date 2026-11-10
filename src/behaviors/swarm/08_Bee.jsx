@@ -1,3 +1,4 @@
+import { responsiveBoundaryInset } from "../../utils/responsiveBoundary.js";
 import React from "react";
 import {
   getFlowerBlossomPosition,
@@ -599,13 +600,13 @@ const chooseExplorationTarget = (agent, env) => {
   );
   const targetX = clamp(
     agent.x + Math.cos(outwardAngle) * distance,
-    cmToPx(PARAMS.EDGE_MARGIN_CM),
-    env.width - cmToPx(PARAMS.EDGE_MARGIN_CM),
+    responsiveBoundaryInset(env.width, env.height, cmToPx(PARAMS.EDGE_MARGIN_CM), "x"),
+    env.width - responsiveBoundaryInset(env.width, env.height, cmToPx(PARAMS.EDGE_MARGIN_CM), "x"),
   );
   const targetY = clamp(
     agent.y + Math.sin(outwardAngle) * distance,
-    cmToPx(PARAMS.EDGE_MARGIN_CM),
-    env.height - cmToPx(PARAMS.EDGE_MARGIN_CM),
+    responsiveBoundaryInset(env.width, env.height, cmToPx(PARAMS.EDGE_MARGIN_CM), "y"),
+    env.height - responsiveBoundaryInset(env.width, env.height, cmToPx(PARAMS.EDGE_MARGIN_CM), "y"),
   );
   agent.scoutExploreTargetX = targetX;
   agent.scoutExploreTargetY = targetY;
@@ -749,13 +750,13 @@ const setRecruitmentSearchTarget = (agent, env) => {
   );
   agent.targetX = clamp(
     agent.forageMemoryX + Math.cos(angle) * radius,
-    cmToPx(PARAMS.EDGE_MARGIN_CM),
-    env.width - cmToPx(PARAMS.EDGE_MARGIN_CM),
+    responsiveBoundaryInset(env.width, env.height, cmToPx(PARAMS.EDGE_MARGIN_CM), "x"),
+    env.width - responsiveBoundaryInset(env.width, env.height, cmToPx(PARAMS.EDGE_MARGIN_CM), "x"),
   );
   agent.targetY = clamp(
     agent.forageMemoryY + Math.sin(angle) * radius,
-    cmToPx(PARAMS.EDGE_MARGIN_CM),
-    env.height - cmToPx(PARAMS.EDGE_MARGIN_CM),
+    responsiveBoundaryInset(env.width, env.height, cmToPx(PARAMS.EDGE_MARGIN_CM), "y"),
+    env.height - responsiveBoundaryInset(env.width, env.height, cmToPx(PARAMS.EDGE_MARGIN_CM), "y"),
   );
   clearFlowerTarget(agent);
   clearFlowerCollectionState(agent);
@@ -1625,7 +1626,8 @@ const hasExplicitSlotTarget = (target) =>
 
 const shouldReengageHornet = (agent, env) => {
   if (
-    getThreatType(env.controls || DEFAULT_CONTROL_STATE) === THREAT_TYPES.NONE
+    getThreatType(env.controls || DEFAULT_CONTROL_STATE) === THREAT_TYPES.NONE ||
+    !env.predator.pointerState
   ) {
     return false;
   }
@@ -3207,7 +3209,7 @@ const updateShakingSignal = (
 };
 
 const updateDefenseTask = (agent, env, controls, neighbors, dt) => {
-  if (getThreatType(controls) === THREAT_TYPES.NONE) {
+  if (getThreatType(controls) === THREAT_TYPES.NONE || !env.predator.pointerState) {
     if (
       agent.activityState === ACTIVITY_STATES.DEFENDING ||
       agent.activityState === ACTIVITY_STATES.HEAT_BALLING
@@ -3316,7 +3318,8 @@ const updateDefenseTask = (agent, env, controls, neighbors, dt) => {
 const updateReturningHome = (agent, neighbors, env, dt) => {
   const isAirReturn = agent.returningFromThrowOff;
   const threatActive =
-    getThreatType(env.controls || DEFAULT_CONTROL_STATE) !== THREAT_TYPES.NONE;
+    getThreatType(env.controls || DEFAULT_CONTROL_STATE) !== THREAT_TYPES.NONE &&
+    Boolean(env.predator.pointerState);
   if (
     (isAirReturn && shouldReengageHornet(agent, env)) ||
     (threatActive &&
@@ -3497,7 +3500,7 @@ const updateCulling = (agent, env, dt) => {
 };
 
 const updateHeatBalling = (agent, neighbors, env, controls, dt) => {
-  if (getThreatType(controls) === THREAT_TYPES.NONE) {
+  if (getThreatType(controls) === THREAT_TYPES.NONE || !env.predator.pointerState) {
     agent.activityState = ACTIVITY_STATES.RETURNING;
     agent.isAnchoredOnHornet = false;
     agent.heatBalling = false;
@@ -4720,7 +4723,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     [controls],
   );
 
-  const handlePointerLeave = React.useCallback(() => {
+  const handlePointerLeave = React.useCallback((event) => {
     const timeS = performance.now() * 0.001;
     pointerRef.current = {
       ...pointerRef.current,
@@ -4734,7 +4737,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       lastShakeTriggerTimeS:
         pointerRef.current.lastShakeTriggerTimeS || -Infinity,
       timeS,
-      hasPointer: true,
+      hasPointer: event?.pointerType !== "touch" && event?.pointerType !== "pen",
     };
     flowerDragRef.current.active = false;
   }, []);

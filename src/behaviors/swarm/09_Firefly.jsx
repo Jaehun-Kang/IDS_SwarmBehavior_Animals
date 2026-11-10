@@ -1,4 +1,7 @@
+import { responsiveBoundaryInset } from "../../utils/responsiveBoundary.js";
 import React from "react";
+import { createPopulationTransition } from "../../utils/populationTransition";
+import { createPointerTapGesture } from "../../utils/pointerTapGesture.js";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
 import { createSimulationFrameScheduler } from "../../utils/simulationFrameScheduler.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
@@ -1025,16 +1028,20 @@ const updatePerchedAgent = (agent, dt) => {
 const applyScreenReturn = (agent, width, height) => {
   const margin = PARAMS.SCREEN_RETURN_MARGIN_PX;
   const targetInset = PARAMS.SCREEN_RETURN_TARGET_INSET_PX;
+  const marginX = -responsiveBoundaryInset(width, height, -margin, "x");
+  const marginY = -responsiveBoundaryInset(width, height, -margin, "y");
+  const insetX = responsiveBoundaryInset(width, height, targetInset, "x");
+  const insetY = responsiveBoundaryInset(width, height, targetInset, "y");
   const isBeyondOuterBounds =
-    agent.x < -margin ||
-    agent.x > width + margin ||
-    agent.y < -margin ||
-    agent.y > height + margin;
+    agent.x < -marginX ||
+    agent.x > width + marginX ||
+    agent.y < -marginY ||
+    agent.y > height + marginY;
   const isInsideReturnTarget =
-    agent.x >= targetInset &&
-    agent.x <= width - targetInset &&
-    agent.y >= targetInset &&
-    agent.y <= height - targetInset;
+    agent.x >= insetX &&
+    agent.x <= width - insetX &&
+    agent.y >= insetY &&
+    agent.y <= height - insetY;
 
   if (isBeyondOuterBounds) {
     agent.screenReturnActive = true;
@@ -1051,28 +1058,28 @@ const applyScreenReturn = (agent, width, height) => {
   let targetX = agent.x;
   let targetY = agent.y;
 
-  if (agent.x < -margin) {
-    overflowX = -margin - agent.x;
-  } else if (agent.x > width + margin) {
-    overflowX = width + margin - agent.x;
+  if (agent.x < -marginX) {
+    overflowX = -marginX - agent.x;
+  } else if (agent.x > width + marginX) {
+    overflowX = width + marginX - agent.x;
   }
 
-  if (agent.y < -margin) {
-    overflowY = -margin - agent.y;
-  } else if (agent.y > height + margin) {
-    overflowY = height + margin - agent.y;
+  if (agent.y < -marginY) {
+    overflowY = -marginY - agent.y;
+  } else if (agent.y > height + marginY) {
+    overflowY = height + marginY - agent.y;
   }
 
-  if (agent.x < targetInset) {
-    targetX = targetInset;
-  } else if (agent.x > width - targetInset) {
-    targetX = width - targetInset;
+  if (agent.x < insetX) {
+    targetX = insetX;
+  } else if (agent.x > width - insetX) {
+    targetX = width - insetX;
   }
 
-  if (agent.y < targetInset) {
-    targetY = targetInset;
-  } else if (agent.y > height - targetInset) {
-    targetY = height - targetInset;
+  if (agent.y < insetY) {
+    targetY = insetY;
+  } else if (agent.y > height - insetY) {
+    targetY = height - insetY;
   }
   const direction = normalize3D(
     { x: targetX - agent.x, y: targetY - agent.y, z: 0 },
@@ -1374,22 +1381,6 @@ const createAgents = (count, width, height, obstacles) =>
     createAgent(index + 1, width, height, obstacles),
   );
 
-const syncAgentCount = (agents, targetCount, width, height, obstacles) => {
-  if (agents.length === targetCount) {
-    return agents;
-  }
-
-  if (agents.length > targetCount) {
-    return agents.slice(0, targetCount);
-  }
-
-  const nextAgents = [...agents];
-  for (let index = agents.length; index < targetCount; index += 1) {
-    nextAgents.push(createAgent(index + 1, width, height, obstacles));
-  }
-  return nextAgents;
-};
-
 const sanitizeControlState = (rawControls = DEFAULT_CONTROL_STATE) => {
   const nextControls = {
     ...DEFAULT_CONTROL_STATE,
@@ -1439,6 +1430,14 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const [simulationFrames] = React.useState(createSimulationFrameScheduler);
   const animationFrameRef = React.useRef(0);
   const agentsRef = React.useRef([]);
+  const populationRef = React.useRef(null);
+  if (populationRef.current === null) {
+    populationRef.current = createPopulationTransition({
+      speed: Math.min(PARAMS.LATE_BURST_SPEED_MAX_MPS + PARAMS.THREAT_SPEED_BOOST_MPS, PARAMS.THREAT_MAX_SPEED_MPS) * PARAMS.METERS_TO_PIXELS,
+      margin: 24,
+      project: projectPoint,
+    });
+  }
   const obstaclesRef = React.useRef([]);
   const pointerThreatRef = React.useRef({
     x: 0,
@@ -1581,7 +1580,9 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       };
     };
 
+    const tapGesture = createPointerTapGesture();
     const handlePointerMove = (event) => {
+      tapGesture.move(event);
       const rect = canvas.getBoundingClientRect();
       const nextX = event.clientX - rect.left;
       const nextY = event.clientY - rect.top;
@@ -1615,8 +1616,12 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       }
     };
 
-    const handlePointerDown = (event) => {
+    const handlePointerDown = (event, fromTap = false) => {
       if (sanitizedControls.INTERACTION_MODE === "light_threat") {
+        if (!fromTap && tapGesture.defer(event)) {
+          handlePointerMove(event);
+          return;
+        }
         const rect = canvas.getBoundingClientRect();
         flashlightToggleRef.current = !flashlightToggleRef.current;
         pointerThreatRef.current = {
@@ -1642,11 +1647,13 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       }
     };
 
-    const handlePointerUp = () => {
+    const handlePointerUp = (event) => {
+      if (tapGesture.finish(event)) handlePointerDown(event, true);
       perturbationPulseRef.current.dragging = false;
     };
 
     const handlePointerLeave = () => {
+      tapGesture.cancel();
       pointerThreatRef.current.active = false;
       perturbationPulseRef.current.dragging = false;
     };
@@ -1655,12 +1662,14 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     canvas.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
     canvas.addEventListener("pointerleave", handlePointerLeave);
+    window.addEventListener("pointercancel", handlePointerLeave);
 
     return () => {
       canvas.removeEventListener("pointerdown", handlePointerDown);
       canvas.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
       canvas.removeEventListener("pointerleave", handlePointerLeave);
+      window.removeEventListener("pointercancel", handlePointerLeave);
     };
   }, [
     sanitizedControls.INTERACTIONS_ENABLED,
@@ -1692,15 +1701,14 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           height,
           obstaclesRef.current,
         );
-      } else {
-        agentsRef.current = syncAgentCount(
+      }
+        populationRef.current.sync(
           agentsRef.current,
           sanitizedControls.COUNT,
           width,
           height,
-          obstaclesRef.current,
+          id => createAgent(id, width, height, obstaclesRef.current),
         );
-      }
 
     };
 
@@ -1853,6 +1861,25 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             );
             agent.spriteState = { glow: agent.isGlowActive, idle: false };
           });
+
+          // Departing agents retain their current flash cycle until offscreen.
+          // Entering agents already receive this update in the normal loop.
+          populationRef.current.forEachLeaving((agent) => {
+            agent.isPerched = false;
+            updateThreatState(
+              agent, pointerThreatRef.current, sanitizedControls.INTERACTION_MODE, dt,
+            );
+            applyArtificialPerturbation(agent, perturbationPulseRef.current);
+            updateIntegrateAndFire(
+              agent,
+              agents,
+              gatherNeighborIndices(agent, grid, agents, radiusPx),
+              obstaclesRef.current,
+              sanitizedControls.COUPLING_BETA,
+              dt,
+              sanitizedControls.INTERACTIONS_ENABLED,
+            );
+          });
         }
 
         if (isLightThreatActive) {
@@ -1876,6 +1903,10 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         } else {
           flashlightPulseClockRef.current = PARAMS.FLASHLIGHT_PULSE_INTERVAL_S;
         }
+        populationRef.current.advance(elapsedDt, agent => {
+          agent.isPerched = false;
+          agent.spriteState = { glow: agent.isGlowActive, idle: false };
+        });
       }, isPaused);
 
       clearTransparentCanvas2d(ctx, size.width, size.height);
@@ -1895,7 +1926,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
       }
 
       if (image) {
-        const sortedAgents = [...agentsRef.current].sort(
+        const sortedAgents = [...populationRef.current.renderAgents(agentsRef.current)].sort(
           (left, right) => left.depth - right.depth,
         );
 
@@ -1921,9 +1952,17 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
             animationOffsetMs: agent.stageOffset,
           });
           const projected = projectPoint(worldPosition);
-          const bobOffset = agent.isGlowActive
-            ? Math.sin(now * 12 + agent.stageOffset * 0.01) * 1.8
-            : Math.sin(now * 2 + agent.stageOffset * 0.01) * 0.8;
+          const glowBobTarget = agent.isGlowActive ? 1 : 0;
+          agent.glowBobBlend = lerp(
+            agent.glowBobBlend ?? glowBobTarget,
+            glowBobTarget,
+            isPaused ? 0 : 1 - Math.exp(-frame.dt / 0.12),
+          );
+          const bobOffset = lerp(
+            Math.sin(now * 2 + agent.stageOffset * 0.01) * 0.8,
+            Math.sin(now * 12 + agent.stageOffset * 0.01) * 1.8,
+            agent.glowBobBlend,
+          );
           const renderScale = projected.scale;
           const drawWidth = frameSize.width * PARAMS.SPRITE_SCALE;
           const drawHeight = frameSize.height * PARAMS.SPRITE_SCALE;

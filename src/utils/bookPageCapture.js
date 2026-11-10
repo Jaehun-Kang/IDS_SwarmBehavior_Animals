@@ -73,8 +73,8 @@ export async function captureBookPage(node) {
   if (node.querySelector('[role="alert"]')) {
     throw new Error('Book preview failed to load');
   }
-  const rect = node.getBoundingClientRect();
-  const width = rect.width, height = rect.height;
+  // Capture native layout pixels; the enclosing stage applies viewport scaling.
+  const width = node.offsetWidth, height = node.offsetHeight;
   const clone = node.cloneNode(true);
   const sources = [node, ...node.querySelectorAll('*')];
   const targets = [clone, ...clone.querySelectorAll('*')];

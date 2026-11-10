@@ -2,6 +2,14 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const texturedAtlasCache = new Map();
 const imageLoadCache = new Map();
 const isolatedAtlasCache = new Map();
+const FRAME_PADDING = 2;
+
+export const getIsolatedFramePadding = (atlas, imageSize) => {
+  const size = resolveAtlasFrameSize(atlas, imageSize);
+  return isSvgSource(atlas?.src)
+    ? { x: FRAME_PADDING / size.width, y: FRAME_PADDING / size.height }
+    : { x: 0, y: 0 };
+};
 
 const loadImage = (src) => {
   if (!src) {
@@ -254,11 +262,12 @@ const getAxisPosition = (index, cellCount) => {
 export const getAtlasFrameStyle = ({ atlas, imageSize, frame, frameSources }) => {
   if (frameSources !== undefined) {
     const src = frameSources?.get(getFrameKey(frame));
+    const padding = getIsolatedFramePadding(atlas, imageSize);
     return {
       backgroundImage: src ? `url("${src}")` : "none",
       backgroundRepeat: "no-repeat",
-      backgroundSize: "100% 100%",
-      backgroundPosition: "0 0",
+      backgroundSize: `${100 + padding.x * 200}% ${100 + padding.y * 200}%`,
+      backgroundPosition: "50% 50%",
     };
   }
   const resolvedFrame = toFrameCoordinate(frame) || { x: 0, y: 0 };
@@ -336,7 +345,8 @@ const createAtlasFrameCanvasesFromSvg = async (src, frameSize, grid) => {
       const context = frameCanvas.getContext("2d");
       if (context) {
         context.clearRect(0, 0, frameWidth, frameHeight);
-        context.drawImage(image, 0, 0, frameWidth, frameHeight);
+        context.drawImage(image, FRAME_PADDING, FRAME_PADDING,
+          frameSize.width, frameSize.height, 0, 0, frameWidth, frameHeight);
       }
 
       frames.set(`${x}:${y}`, frameCanvas);
@@ -365,31 +375,45 @@ export const loadIsolatedAtlasFrames = (atlas) => {
       const doc = new DOMParser().parseFromString(await readSvgText(atlas.src), "image/svg+xml");
       if (doc.querySelector("parsererror")) throw new Error("invalid-atlas-svg");
       const serializer = new XMLSerializer();
+      // The exported SVGs contain one artwork group per frame. Remove the
+      // other groups entirely: clipping the sheet alone can sample a neighbor.
+      const probe = document.importNode(doc.documentElement, true);
+      probe.style.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden;pointer-events:none";
+      document.body.appendChild(probe);
+      const frameGroupIndices = new Map();
+      try {
+        const layer = Array.from(probe.children).find(node => node.tagName === "g");
+        const groups = Array.from(layer?.children || []);
+        if (groups.length !== grid.columns * grid.rows || groups.some(node => node.tagName !== "g")) {
+          throw new Error("atlas-frame-groups-mismatch");
+        }
+        groups.forEach((group, index) => {
+          const bounds = group.getBBox();
+          const column = Math.floor((bounds.x + bounds.width / 2) / frameSize.width);
+          const row = Math.floor((bounds.y + bounds.height / 2) / frameSize.height);
+          const frameKey = `${column}:${row}`;
+          if (column < 0 || column >= grid.columns || row < 0 || row >= grid.rows || frameGroupIndices.has(frameKey)) {
+            throw new Error("atlas-frame-group-out-of-range");
+          }
+          frameGroupIndices.set(frameKey, index);
+        });
+      } finally {
+        probe.remove();
+      }
       for (let y = 0; y < grid.rows; y += 1) {
         for (let x = 0; x < grid.columns; x += 1) {
           // Isolate the viewport before scaling, retaining vector detail.
           const svg = doc.documentElement.cloneNode(true);
-          svg.setAttribute("viewBox", `${x * frameSize.width} ${y * frameSize.height} ${frameSize.width} ${frameSize.height}`);
-          svg.setAttribute("width", String(Math.ceil(frameSize.width)));
-          svg.setAttribute("height", String(Math.ceil(frameSize.height)));
+          const layer = Array.from(svg.children).find(node => node.tagName === "g");
+          const selectedIndex = frameGroupIndices.get(`${x}:${y}`);
+          Array.from(layer.children).forEach((group, index) => {
+            if (index !== selectedIndex) group.remove();
+          });
+          svg.setAttribute("viewBox", `${x * frameSize.width - FRAME_PADDING} ${y * frameSize.height - FRAME_PADDING} ${frameSize.width + FRAME_PADDING * 2} ${frameSize.height + FRAME_PADDING * 2}`);
+          svg.setAttribute("width", String(frameSize.width + FRAME_PADDING * 2));
+          svg.setAttribute("height", String(frameSize.height + FRAME_PADDING * 2));
           svg.setAttribute("preserveAspectRatio", "none");
           svg.style.overflow = "hidden";
-          // A half-unit guard keeps boundary antialiasing from the adjacent cell out.
-          const ns = "http://www.w3.org/2000/svg";
-          const group = doc.createElementNS(ns, "g");
-          while (svg.firstChild) group.appendChild(svg.firstChild);
-          const clip = doc.createElementNS(ns, "clipPath");
-          clip.id = "atlas-frame-guard";
-          clip.setAttribute("clipPathUnits", "userSpaceOnUse");
-          const rect = doc.createElementNS(ns, "rect");
-          const inset = Math.min(0.5, frameSize.width / 4, frameSize.height / 4);
-          rect.setAttribute("x", String(x * frameSize.width + inset));
-          rect.setAttribute("y", String(y * frameSize.height + inset));
-          rect.setAttribute("width", String(frameSize.width - inset * 2));
-          rect.setAttribute("height", String(frameSize.height - inset * 2));
-          clip.appendChild(rect);
-          group.setAttribute("clip-path", "url(#atlas-frame-guard)");
-          svg.append(clip, group);
           frameSources.set(`${x}:${y}`, `data:image/svg+xml;charset=utf-8,${encodeURIComponent(serializer.serializeToString(svg))}`);
         }
       }

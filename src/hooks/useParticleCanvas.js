@@ -122,7 +122,7 @@ const getSubtitleBounds = (homeRef, subtitleRef) => {
   };
 };
 
-const getTextLayout = (speciesId, fontSize, canvasWidth) => {
+const getBaseTextLayout = (speciesId, fontSize, canvasWidth) => {
   const english = speciesId ? getAnimalDetails(speciesId)?.english : null;
 
   if (!speciesId || !english) {
@@ -197,6 +197,21 @@ const getTextLayout = (speciesId, fontSize, canvasWidth) => {
   };
 };
 
+// Fit glyphs to the viewport without changing the original size ceiling or line spacing.
+const getTextLayout = (speciesId, fontSize, canvasWidth) => {
+  const layout = getBaseTextLayout(speciesId, fontSize, canvasWidth);
+  const widest = Math.max(...layout.lines.map(line => measureTextWidth(line.text, line.fontSize)));
+  const scale = Math.min(1, canvasWidth * 0.72 / Math.max(1, widest));
+  return {
+    ...layout,
+    lines: layout.lines.map(line => ({
+      ...line,
+      fontSize: line.fontSize * scale,
+      offsetY: line.offsetY,
+    })),
+  };
+};
+
 export function useParticleCanvas(
   homeRef,
   fontsLoaded,
@@ -268,8 +283,7 @@ export function useParticleCanvas(
       );
       effectRef.current.particles = [];
       currentLineCountRef.current = layout.lineCount;
-      effectRef.current.wrapText("Swarm", 0);
-      effectRef.current.wrapText("Behavior", effectRef.current.fontSize);
+      effectRef.current.setText(layout.lines);
       currentTitleBoundsRef.current = getTitleBounds(
         effectRef.current,
         getLayoutBounds(

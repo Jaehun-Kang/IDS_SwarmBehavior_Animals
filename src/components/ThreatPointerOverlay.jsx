@@ -40,12 +40,19 @@ export default function ThreatPointerOverlay({ enabled, containerRef, marker = "
       canvas.style.display = 'block';
       canvas.style.transform = `translate(${event.clientX-13}px,${event.clientY-13}px)`;
     };
+    const releaseTouch = event => {
+      if (event.pointerType === 'touch' || event.pointerType === 'pen') hide();
+    };
     window.addEventListener('pointermove',move);
+    window.addEventListener('pointerup',releaseTouch);
+    window.addEventListener('pointercancel',releaseTouch);
     window.addEventListener('blur',hide);
     container.addEventListener('pointerleave',hide);
     container.addEventListener('pointercancel',hide);
     return () => {
       hide();window.removeEventListener('pointermove',move);
+      window.removeEventListener('pointerup',releaseTouch);
+      window.removeEventListener('pointercancel',releaseTouch);
       window.removeEventListener('blur',hide);
       container.removeEventListener('pointerleave',hide);container.removeEventListener('pointercancel',hide);
     };

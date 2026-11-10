@@ -1,4 +1,6 @@
+import { responsiveBoundaryInset } from "../../utils/responsiveBoundary.js";
 import React from "react";
+import { createPopulationTransition } from "../../utils/populationTransition";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
 import { createSimulationFrameScheduler } from "../../utils/simulationFrameScheduler.js";
 import { HOME_SPRITE_ATLASES } from "../../data/spriteAtlases";
@@ -667,24 +669,17 @@ const createAgents = (count, width, height) =>
     createAgent(index, width, height),
   );
 
-const ensureAgents = (agentsRef, config, width, height) => {
-  if (agentsRef.current.length < config.count) {
-    const nextAgents = [...agentsRef.current];
-    const startIndex = nextAgents.length;
-    for (let index = startIndex; index < config.count; index += 1) {
-      nextAgents.push(createAgent(index, width, height));
-    }
-    agentsRef.current = nextAgents;
-  } else if (agentsRef.current.length > config.count) {
-    agentsRef.current = agentsRef.current.slice(0, config.count);
-  }
+const ensureAgents = (agentsRef, config, width, height, population) => {
+  population.sync(agentsRef.current, config.count, width, height,
+    id => createAgent(id, width, height));
 
-  const minX = -PARAMS.OFFSCREEN_ALLOWANCE_PX;
-  const maxX = width + PARAMS.OFFSCREEN_ALLOWANCE_PX;
-  const minY = -PARAMS.OFFSCREEN_ALLOWANCE_PX;
-  const maxY = height + PARAMS.OFFSCREEN_ALLOWANCE_PX;
+  const minX = responsiveBoundaryInset(width, height, -PARAMS.OFFSCREEN_ALLOWANCE_PX, "x", true);
+  const maxX = width - minX;
+  const minY = responsiveBoundaryInset(width, height, -PARAMS.OFFSCREEN_ALLOWANCE_PX, "y", true);
+  const maxY = height - minY;
 
   agentsRef.current.forEach((agent) => {
+    if (population.isEntering(agent)) return;
     agent.x = clamp(agent.x, minX, maxX);
     agent.y = clamp(agent.y, minY, maxY);
   });
@@ -809,19 +804,21 @@ const calculateDvmForce = (agent, targetDepthY, height) => {
 };
 
 const calculateBoundaryForce = (agent, width, height) => {
+  const insetX = responsiveBoundaryInset(width, height, PARAMS.WORLD_MARGIN_PX, "x");
+  const insetY = responsiveBoundaryInset(width, height, PARAMS.WORLD_MARGIN_PX, "y");
   let forceX = 0;
   let forceY = 0;
 
-  if (agent.x < PARAMS.WORLD_MARGIN_PX) {
-    forceX += 1 - agent.x / PARAMS.WORLD_MARGIN_PX;
-  } else if (agent.x > width - PARAMS.WORLD_MARGIN_PX) {
-    forceX -= 1 - (width - agent.x) / PARAMS.WORLD_MARGIN_PX;
+  if (agent.x < insetX) {
+    forceX += (insetX - agent.x) / PARAMS.WORLD_MARGIN_PX;
+  } else if (agent.x > width - insetX) {
+    forceX -= (agent.x - width + insetX) / PARAMS.WORLD_MARGIN_PX;
   }
 
-  if (agent.y < PARAMS.WORLD_MARGIN_PX) {
-    forceY += 1 - agent.y / PARAMS.WORLD_MARGIN_PX;
-  } else if (agent.y > height - PARAMS.WORLD_MARGIN_PX) {
-    forceY -= 1 - (height - agent.y) / PARAMS.WORLD_MARGIN_PX;
+  if (agent.y < insetY) {
+    forceY += (insetY - agent.y) / PARAMS.WORLD_MARGIN_PX;
+  } else if (agent.y > height - insetY) {
+    forceY -= (agent.y - height + insetY) / PARAMS.WORLD_MARGIN_PX;
   }
 
   return {
@@ -933,16 +930,16 @@ const calculateNightClusterForce = (agent, width, height, targetDepthY) => {
 };
 
 const calculateScreenReentryForce = (agent, width, height) => {
-  const minX = 0;
-  const maxX = width;
-  const minY = 0;
-  const maxY = height;
+  const minX = responsiveBoundaryInset(width, height, 0, "x");
+  const maxX = width - minX;
+  const minY = responsiveBoundaryInset(width, height, 0, "y");
+  const maxY = height - minY;
   const insetX = width * (1 - PARAMS.SCREEN_REENTRY_START_RATIO) * 0.5;
   const insetY = height * (1 - PARAMS.SCREEN_REENTRY_START_RATIO) * 0.5;
-  const safeMinX = minX + insetX;
-  const safeMaxX = maxX - insetX;
-  const safeMinY = minY + insetY;
-  const safeMaxY = maxY - insetY;
+  const safeMinX = responsiveBoundaryInset(width, height, insetX, "x");
+  const safeMaxX = width - safeMinX;
+  const safeMinY = responsiveBoundaryInset(width, height, insetY, "y");
+  const safeMaxY = height - safeMinY;
   const outsideX = agent.x < minX || agent.x > maxX;
   const outsideY = agent.y < minY || agent.y > maxY;
   const nearEdgeX = agent.x < safeMinX || agent.x > safeMaxX;
@@ -2106,6 +2103,10 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const [simulationFrames] = React.useState(createSimulationFrameScheduler);
   const animationFrameRef = React.useRef(0);
   const agentsRef = React.useRef([]);
+  const populationRef = React.useRef(null);
+  if (populationRef.current === null) {
+    populationRef.current = createPopulationTransition({ speed: resolveModeParameters("panic_split").speedPx, margin: 24 });
+  }
   const foodFieldRef = React.useRef([]);
   const pointerRef = React.useRef({ active: false, x: 0, y: 0 });
   const frameSizeRef = React.useRef(
@@ -2260,7 +2261,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         resetSimulation(size.width, size.height);
       }
 
-      ensureAgents(agentsRef, behaviorConfig, size.width, size.height);
+      ensureAgents(agentsRef, behaviorConfig, size.width, size.height, populationRef.current);
 
       frame.advance((dt, stepNow) => {
         if (!Number.isFinite(dt) || dt <= 0) return;
@@ -2291,6 +2292,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           // Later agents must see earlier agents at their updated positions.
           updateNeighborGrid(context.neighborGrid, agent, index);
         });
+        populationRef.current.advance(dt);
       }, isPaused);
 
       const renderTimeFlags = resolvePhaseFlags(
@@ -2318,7 +2320,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           frameVariantsRef.current?.[lightLevelKey] || frameCanvasesRef.current;
         const emissiveFrameCanvases =
           lightLevelKey === "day" ? null : emissiveFrameCanvasesRef.current;
-        agentsRef.current.forEach((agent, index) => {
+        populationRef.current.renderAgents(agentsRef.current).forEach((agent) => {
           const sprite = resolveCanvasAtlasSprite(ATLAS, {
             space: agent.spriteSpace || "2d",
             position: agent.spritePosition || { x: agent.x, y: agent.y },
@@ -2336,7 +2338,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
           const bobAmplitude = agent.isParachuting ? 1.25 : 3.4;
           const bobRate = agent.isParachuting ? 0.8 : 2.1;
           const bobOffset =
-            Math.sin(now * bobRate + index * 0.55) * bobAmplitude;
+            Math.sin(now * bobRate + agent.stageOffset * 0.01) * bobAmplitude;
           const drawWidth = agent.renderWidth;
           const drawHeight = agent.renderHeight;
           const drawY = agent.y + bobOffset;

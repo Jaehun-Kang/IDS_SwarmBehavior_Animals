@@ -703,38 +703,45 @@ const BookIntroSpread = React.memo(function BookIntroSpread({
       clientY <= bookRect.bottom;
 
     const home = introLayoutRef.current;
-    const artworkHomeX = rect.left + (home?.x ?? rect.width * 0.74);
-    const artworkHomeY = rect.top + (home?.y ?? rect.height * 0.42);
+    // Pointer positions are viewport pixels; animation uses unscaled book pixels.
+    const width = node.clientWidth;
+    const height = node.clientHeight;
+    const scaleX = rect.width / width || 1;
+    const scaleY = rect.height / height || 1;
+    const localX = (clientX - rect.left) / scaleX;
+    const localY = (clientY - rect.top) / scaleY;
+    const artworkHomeX = home?.x ?? width * 0.74;
+    const artworkHomeY = home?.y ?? height * 0.42;
     const nextVector = {
-      x: clientX - artworkHomeX,
-      y: clientY - artworkHomeY,
+      x: localX - artworkHomeX,
+      y: localY - artworkHomeY,
     };
 
     if (isInsideBook) {
-      const targetInsetX = rect.width * INTRO_BOUNDARY_MARGIN_RATIO;
-      const targetInsetY = rect.height * INTRO_BOUNDARY_MARGIN_RATIO;
+      const targetInsetX = width * INTRO_BOUNDARY_MARGIN_RATIO;
+      const targetInsetY = height * INTRO_BOUNDARY_MARGIN_RATIO;
       const targetX = clamp(
-        clientX,
-        rect.left + targetInsetX,
-        rect.right - targetInsetX,
+        localX,
+        targetInsetX,
+        width - targetInsetX,
       );
       const targetY = clamp(
-        clientY,
-        rect.top + targetInsetY,
-        rect.bottom - targetInsetY,
+        localY,
+        targetInsetY,
+        height - targetInsetY,
       );
 
       introPointerTargetRef.current = {
-        x: targetX - rect.left,
-        y: targetY - rect.top,
+        x: targetX,
+        y: targetY,
         isInsideBook: true,
         lookX: nextVector.x,
         lookY: nextVector.y,
       };
     } else {
       introPointerTargetRef.current = {
-        x: home?.x ?? rect.width * 0.74,
-        y: home?.y ?? rect.height * 0.42,
+        x: home?.x ?? width * 0.74,
+        y: home?.y ?? height * 0.42,
         isInsideBook: false,
         lookX: nextVector.x,
         lookY: nextVector.y,
@@ -788,13 +795,29 @@ const BookIntroSpread = React.memo(function BookIntroSpread({
     }
 
     const handlePointerMove = (event) => {
+      if (event.pointerType !== "mouse" && event.type === "pointermove" && !event.buttons) return;
       updateIntroPointerVector(event.clientX, event.clientY);
+    };
+    const handlePointerRelease = (event) => {
+      if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
+      introPointerTargetRef.current = {
+        ...introPointerTargetRef.current,
+        isInsideBook: false,
+        lookX: 1,
+        lookY: 0,
+      };
     };
 
     window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerdown", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerRelease);
+    window.addEventListener("pointercancel", handlePointerRelease);
 
     return () => {
       window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerdown", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerRelease);
+      window.removeEventListener("pointercancel", handlePointerRelease);
     };
   }, [activePageKey, isOpen, updateIntroPointerVector]);
 
@@ -811,7 +834,7 @@ const BookIntroSpread = React.memo(function BookIntroSpread({
       const behavior = behaviorMap[animalId];
 
       if (node && behavior?.init && behavior?.update) {
-        const rect = node.getBoundingClientRect();
+        const rect = { width: node.clientWidth, height: node.clientHeight };
         const spriteWidth = Math.max(36, rect.width * 0.12);
         const spriteHeight = Math.max(24, rect.height * 0.12);
         const home = introLayoutRef.current;
@@ -1086,7 +1109,7 @@ const BookIntroSpread = React.memo(function BookIntroSpread({
           ].join(" ")}
           aria-labelledby={`detail-intro-title${idSuffix}`}
           ref={surfaceRef}
-          style={bookSpreadStyle}
+          style={{ ...bookSpreadStyle, touchAction: "none" }}
         >
           {introSprite ? (
             <div
@@ -1277,15 +1300,65 @@ function Detail({
   }, [bookSpreads, turnCapturePageKey]);
   const isBookSpreadOpen = isOpen && isBookOpen;
   const isBookClosedSpread = !isBookSpreadOpen;
+  const [bookViewport, setBookViewport] = React.useState(() => ({
+    width: window.innerWidth, height: window.innerHeight,
+    rem: parseFloat(getComputedStyle(document.documentElement).fontSize) || 16,
+  }));
+  React.useLayoutEffect(() => {
+    const sync = () => setBookViewport({
+      width: window.innerWidth, height: window.innerHeight,
+      rem: parseFloat(getComputedStyle(document.documentElement).fontSize) || 16,
+    });
+    window.addEventListener("resize", sync);
+    return () => window.removeEventListener("resize", sync);
+  }, []);
+  const { width: viewportWidth, height: viewportHeight, rem } = bookViewport;
+  const isMobileBook = viewportWidth <= 600;
+  const [mobileBookClosing, setMobileBookClosing] = React.useState(false);
+  React.useEffect(() => {
+    if (!isOpen || !isMobileBook) {
+      setMobileBookClosing(false);
+      return undefined;
+    }
+    if (!mobileBookClosing) return undefined;
+    // Normally animationend closes the reader; retain a fallback for missing styles.
+    const duration = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1000;
+    const timer = window.setTimeout(onBackClick, duration);
+    return () => window.clearTimeout(timer);
+  }, [isOpen, isMobileBook, mobileBookClosing, onBackClick]);
+  const nativeWidth = 94 * rem;
+  const nativeHeight = 58 * rem;
+  const compactBookNavigation = viewportWidth < nativeWidth + 12 * rem;
+  const bookScale = Math.min(1,
+    Math.max(1, viewportWidth - (compactBookNavigation ? 24 : 12 * rem)) / nativeWidth,
+    Math.max(1, viewportHeight - (compactBookNavigation ? 128 : 16)) / nativeHeight,
+  );
+  const bookLeft = (viewportWidth - nativeWidth * bookScale) / 2;
+  const bookTop = (viewportHeight - nativeHeight * bookScale) / 2;
+  const closeButtonStyle = bookTop < 3.75 * rem
+    ? { top: `${bookTop + 8}px`, right: `${bookLeft + 8}px`, filter: "brightness(0.3)" }
+    : undefined;
+  const closedScale = Math.min(viewportWidth * 0.285, viewportHeight * 0.206) / nativeHeight;
+  const atClosedPosition = !isOpen || isBookLaunching || isBookReturning;
+  const stageScale = atClosedPosition ? closedScale : bookScale;
+  const stageLeft = atClosedPosition ? viewportWidth - 2 * rem - nativeWidth * closedScale : bookLeft;
+  const stageTop = atClosedPosition ? viewportHeight - 2 * rem - nativeHeight * closedScale : (viewportHeight - nativeHeight * bookScale) / 2;
   const bookStageStyle = {
-    position: "relative",
-    width: "min(94rem, calc(100% - 1.5rem))",
-    height: "min(58rem, calc(100vh - 1rem))",
-    margin: "0 auto",
-    padding: 0,
-    boxSizing: "border-box",
-    perspective: "90rem",
+    "--book-native-width": `${nativeWidth}px`,
+    "--book-native-height": `${nativeHeight}px`,
+    "--book-transform": `translate(${stageLeft}px, ${stageTop}px) scale(${stageScale})`,
   };
+  const navigationStyle = (direction) => ({
+    position: "fixed",
+    left: compactBookNavigation ? `${direction < 0 ? bookLeft + 8 : bookLeft + nativeWidth * bookScale - 52}px` : `${direction < 0 ? bookLeft - 6 * rem : bookLeft + nativeWidth * bookScale}px`,
+    right: "auto",
+    top: compactBookNavigation ? `${(viewportHeight + nativeHeight * bookScale) / 2 - 52}px` : "50%",
+    bottom: "auto",
+    width: compactBookNavigation ? "44px" : "6rem",
+    height: compactBookNavigation ? "44px" : "6rem",
+    transform: compactBookNavigation ? "none" : "translateY(-50%)",
+    visibility: isBookOpen && !isBookReturning ? "visible" : "hidden",
+  });
   const bookContainerStyle = {
     width: "100%",
     padding: 0,
@@ -1359,7 +1432,8 @@ function Detail({
 
   const captureTurnPages = React.useCallback(
     async (pageNode, nextPageKey) => {
-      const { width, height } = pageNode.getBoundingClientRect();
+      const width = pageNode.offsetWidth;
+      const height = pageNode.offsetHeight;
       const snapshots = await Promise.allSettled([
         captureHtmlNodeAsImage(pageNode, coverTextureUrl),
         capturePreparedPage(nextPageKey, { width, height }),
@@ -1485,6 +1559,11 @@ function Detail({
   const animatePageTurn = React.useCallback(
     async (nextIndex) => {
       const nextPage = bookSpreads[nextIndex];
+
+      if (isMobileBook) {
+        if (nextPage) setActivePageKey(nextPage.key);
+        return;
+      }
 
       if (
         !nextPage ||
@@ -1647,6 +1726,7 @@ function Detail({
       }
     },
     [
+      isMobileBook,
       activePage,
       activePageIndex,
       bookSpreads,
@@ -1772,6 +1852,7 @@ function Detail({
       !isOpen ||
       !isBookOpen ||
       activePageKey !== "cover" ||
+      isMobileBook ||
       didAutoFirstTurnRef.current ||
       pendingCloseAfterCoverRef.current
     ) {
@@ -1788,7 +1869,7 @@ function Detail({
     return () => {
       window.clearTimeout(timerId);
     };
-  }, [activePageKey, animatePageTurn, isBookOpen, isOpen]);
+  }, [activePageKey, animatePageTurn, isBookOpen, isOpen, isMobileBook]);
 
   React.useEffect(() => {
     if (
@@ -1966,6 +2047,11 @@ function Detail({
   );
 
   const handleBookPointerDown = (event) => {
+    // Touch and pen turn pages via navigation buttons, leaving gestures to the content.
+    if (event.pointerType === "touch" || event.pointerType === "pen") {
+      dragStartXRef.current = null;
+      return;
+    }
     if (!isOpen) {
       dragStartXRef.current = null;
       return;
@@ -2154,7 +2240,7 @@ function Detail({
           </div>
           <div className="detail-book-page detail-book-page--notes" style={forwardPageStyle}>
             <div className="detail-page-inner">
-              <div className="rule-header">
+              <div className="rule-header" data-has-copy={Boolean(page.ruleGroup.title?.trim() || page.ruleGroup.summary?.trim())}>
                 <h2
                   id={`detail-page-title-${page.key}${idSuffix}`}
                   className="rule-category"
@@ -2219,6 +2305,50 @@ function Detail({
     return <div>동물 정보를 찾을 수 없습니다.</div>;
   }
 
+  if (isMobileBook && isOpen) {
+    // The mobile reader starts at the introduction; the closed-book cover stays unchanged.
+    const mobilePageIndex = Math.max(1, activePageIndex);
+    const mobilePage = bookSpreads[mobilePageIndex];
+    const goMobile = (index) => {
+      if (index < 1) return;
+      const page = bookSpreads[index];
+      if (page) setActivePageKey(page.key);
+    };
+    return (
+      <div className={`detail-container detail-mobile-reader${mobileBookClosing ? " is-closing" : ""}`}
+        onAnimationEnd={(event) => {
+          if (mobileBookClosing && event.target === event.currentTarget && event.animationName === "mobile-book-slide-out") onBackClick();
+        }}
+        style={{
+          "--detail-cover-texture": coverTextureCssValue,
+          "--detail-paper-texture": `url(${paperTextureUrl})`,
+          "--detail-animal-accent": animalAccentColor,
+          "--detail-printed-font": DETAIL_PRINTED_FONT,
+        }}>
+        <header className="detail-mobile-reader__header">
+          <div className="detail-mobile-reader__title">
+            <span className="detail-mobile-reader__book-name">군집사전</span>
+            <span className="detail-mobile-reader__separator" aria-hidden="true">|</span>
+            <span className="detail-mobile-reader__animal-name">{animal.korean}</span>
+          </div>
+          <button type="button" aria-label="책 접기" onClick={() => setMobileBookClosing(true)} disabled={mobileBookClosing}>
+            <img src={closeIconUrl} alt="" />
+          </button>
+        </header>
+        <main className={`detail-mobile-reader__content detail-mobile-reader__content--${mobilePage?.type}`}>
+          {renderBookSpread(mobilePage, { surfaceRef: pageSurfaceRef })}
+        </main>
+        <nav className="detail-mobile-reader__navigation" aria-label="책 페이지 이동">
+          <button type="button" aria-label="이전 페이지" disabled={mobilePageIndex <= 1}
+            onClick={() => goMobile(mobilePageIndex - 1)}><img src={chevronLeftIconUrl} alt="" /></button>
+          <span style={{ color: animalAccentColor }}>{mobilePage?.type === "rule" ? mobilePage.ruleGroup.category : null}</span>
+          <button type="button" aria-label="다음 페이지" disabled={mobilePageIndex >= bookSpreads.length - 1}
+            onClick={() => goMobile(mobilePageIndex + 1)}><img src={chevronRightIconUrl} alt="" /></button>
+        </nav>
+      </div>
+    );
+  }
+
   return (
     <div
       className={[
@@ -2241,6 +2371,7 @@ function Detail({
       <button
         type="button"
         className="detail-book-close"
+        style={closeButtonStyle}
         aria-label="책 접기"
         onClick={handleBack}
       >
@@ -2277,10 +2408,21 @@ function Detail({
           >
             {renderBookSpread(activePage, { surfaceRef: pageSurfaceRef })}
           </main>
+          <canvas
+            layoutsubtree=""
+            ref={turnCanvasRef}
+            className={`detail-book-turn-canvas${
+              isTurningPage && isTurnSnapshotReady ? " is-active" : ""
+            }`}
+            style={turnCanvasStyle}
+            aria-hidden="true"
+          />
+        </div>
           {navigationPageIndex > 0 ? (
             <button
               type="button"
               className="detail-page-chevron detail-page-chevron--prev"
+              style={navigationStyle(-1)}
               aria-label="이전 페이지"
               onClick={() => goToPage(activePageIndex - 1)}
             >
@@ -2292,22 +2434,13 @@ function Detail({
             <button
               type="button"
               className="detail-page-chevron detail-page-chevron--next"
+              style={navigationStyle(1)}
               aria-label="다음 페이지"
               onClick={() => goToPage(activePageIndex + 1)}
             >
               <img src={chevronRightIconUrl} alt="" draggable="false" />
             </button>
           ) : null}
-          <canvas
-            layoutsubtree=""
-            ref={turnCanvasRef}
-            className={`detail-book-turn-canvas${
-              isTurningPage && isTurnSnapshotReady ? " is-active" : ""
-            }`}
-            style={turnCanvasStyle}
-            aria-hidden="true"
-          />
-        </div>
       </div>
       {turnCapturePage && turnCaptureWrapperStyle ? (
         <div

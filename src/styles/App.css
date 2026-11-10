@@ -5,6 +5,25 @@
   font-weight: 200 900;
   font-display: swap;
 }
+html {
+  font-size: 16px;
+}
+
+@media (any-pointer: coarse) {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+@media (width > 600px) {
+  html:has(.sim-control-panel[data-compact-rem=true]) {
+    font-size: 15px;
+  }
+}
+@media (width <= 600px) {
+  html {
+    font-size: 14px;
+  }
+}
 :root {
   --theme-bg: oklch(0.9909 0.0123 91.51);
   --theme-bg-hex: #faf8f5;

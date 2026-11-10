@@ -1,4 +1,6 @@
+import { responsiveBoundaryInset } from "../../utils/responsiveBoundary.js";
 import React from "react";
+import { createPopulationTransition } from "../../utils/populationTransition";
 import { createPausedFrameGate } from "../../utils/pausedFrameGate.js";
 
 import { createSimulationFrameScheduler } from "../../utils/simulationFrameScheduler.js";
@@ -255,24 +257,26 @@ const resolveDogTarget = (width, height) => ({
 });
 
 const applyAgentReentry = (agent, width, height, marginPx) => {
+  const marginX = -responsiveBoundaryInset(width, height, -marginPx, "x", true);
+  const marginY = -responsiveBoundaryInset(width, height, -marginPx, "y", true);
   let didReenter = false;
 
-  if (agent.x < -marginPx) {
-    agent.x = -marginPx * 0.65;
+  if (agent.x < -marginX) {
+    agent.x = -marginX * 0.65;
     agent.vx = Math.abs(agent.vx);
     didReenter = true;
-  } else if (agent.x > width + marginPx) {
-    agent.x = width + marginPx * 0.65;
+  } else if (agent.x > width + marginX) {
+    agent.x = width + marginX * 0.65;
     agent.vx = -Math.abs(agent.vx);
     didReenter = true;
   }
 
-  if (agent.y < -marginPx) {
-    agent.y = -marginPx * 0.65;
+  if (agent.y < -marginY) {
+    agent.y = -marginY * 0.65;
     agent.vy = Math.abs(agent.vy);
     didReenter = true;
-  } else if (agent.y > height + marginPx) {
-    agent.y = height + marginPx * 0.65;
+  } else if (agent.y > height + marginY) {
+    agent.y = height + marginY * 0.65;
     agent.vy = -Math.abs(agent.vy);
     didReenter = true;
   }
@@ -353,6 +357,13 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
   const [simulationFrames] = React.useState(createSimulationFrameScheduler);
   const animationFrameRef = React.useRef(0);
   const agentsRef = React.useRef([]);
+  const populationRef = React.useRef(null);
+  if (populationRef.current === null) {
+    populationRef.current = createPopulationTransition({
+      speed: PARAMS.MAX_ESCAPE_SPEED_MPS * PARAMS.PIXELS_PER_METER * PARAMS.SIMULATION_TIME_SCALE,
+      margin: 20,
+    });
+  }
   const dogRef = React.useRef({
     x: 0,
     y: 0,
@@ -459,6 +470,8 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
     const ensureAgents = (width, height, count) => {
       if (agentsRef.current.length === 0) {
         agentsRef.current = createAgents(count, width, height);
+        populationRef.current.sync(agentsRef.current, count, width, height,
+          id => createAgent(id - 1, width, height));
         dogRef.current = {
           x: width * 0.2,
           y: height * 0.5,
@@ -470,21 +483,14 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         return;
       }
 
-      if (agentsRef.current.length < count) {
-        const nextAgents = createAgents(
-          count - agentsRef.current.length,
-          width,
-          height,
-        );
-        agentsRef.current = [...agentsRef.current, ...nextAgents];
-      } else if (agentsRef.current.length > count) {
-        agentsRef.current = agentsRef.current.slice(0, count);
-      }
+      populationRef.current.sync(agentsRef.current, count, width, height,
+        id => createAgent(id - 1, width, height));
 
       agentsRef.current.forEach((agent) => {
+        if (populationRef.current.isEntering(agent)) return;
         const marginPx = PARAMS.REENTRY_MARGIN_M * PARAMS.PIXELS_PER_METER;
-        agent.x = clamp(agent.x, -marginPx, width + marginPx);
-        agent.y = clamp(agent.y, -marginPx, height + marginPx);
+        agent.x = clamp(agent.x, responsiveBoundaryInset(width, height, -marginPx, "x", true), width - responsiveBoundaryInset(width, height, -marginPx, "x", true));
+        agent.y = clamp(agent.y, responsiveBoundaryInset(width, height, -marginPx, "y", true), height - responsiveBoundaryInset(width, height, -marginPx, "y", true));
       });
     };
 
@@ -1584,6 +1590,9 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         }
       }
 
+      populationRef.current.advance(dt, agent => {
+        agent.state = SHEEP_STATES.RUNNING;
+      });
       }, isPaused);
 
       if (!shouldRenderFrame(isPaused, size.width, size.height,
@@ -1602,14 +1611,14 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
         ctx.restore();
       }
 
-      const renderAgents = [...agentsRef.current].sort((left, right) => {
+      const renderAgents = [...populationRef.current.renderAgents(agentsRef.current)].sort((left, right) => {
         if (left.y === right.y) {
           return left.id - right.id;
         }
         return left.y - right.y;
       });
 
-      renderAgents.forEach((agent, index) => {
+      renderAgents.forEach((agent) => {
         if (!image) {
           return;
         }
@@ -1659,7 +1668,7 @@ export function App({ controls, onGpuErrorChange, isPaused = false }) {
               PARAMS.GRAZE_SWAY_RAD
             : 0;
         const bobOffset =
-          Math.sin(simTime * PARAMS.BOB_RATE + agent.bobOffset + index * 0.21) *
+          Math.sin(simTime * PARAMS.BOB_RATE + agent.bobOffset) *
           speedScaledBobAmplitude;
         previousScreenPositions.set(agent, sprite.pose.screenPosition);
 

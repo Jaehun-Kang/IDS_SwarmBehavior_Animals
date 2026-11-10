@@ -125,8 +125,8 @@ export class Effect {
     this.canvasWidth = canvasWidth;
     this.canvasHeight = canvasHeight;
     this.textX = this.canvasWidth / 2;
+    this.fontSize = Math.min(this.canvasHeight, 2560) * 0.12;
     this.textY = this.canvasHeight / 2 - 80;
-    this.fontSize = this.canvasHeight * 0.12;
     this.gap = 2;
     this.particles = [];
     this.mouse = {
@@ -143,8 +143,8 @@ export class Effect {
     this.canvasWidth = canvasWidth;
     this.canvasHeight = canvasHeight;
     this.textX = this.canvasWidth / 2;
+    this.fontSize = Math.min(this.canvasHeight, 2560) * 0.12;
     this.textY = this.canvasHeight / 2 - 80;
-    this.fontSize = this.canvasHeight * 0.12;
   }
 
   setMouseListener(callback) {
@@ -153,7 +153,8 @@ export class Effect {
       this.mouse.y = e.clientY;
       if (callback) callback();
     };
-    window.addEventListener("mousemove", this.mouseListener);
+    window.addEventListener("pointermove", this.mouseListener);
+    window.addEventListener("pointerdown", this.mouseListener);
   }
 
   setMouseRepulsionEnabled(enabled) {
@@ -422,7 +423,8 @@ export class Effect {
 
   cleanup() {
     if (this.mouseListener) {
-      window.removeEventListener("mousemove", this.mouseListener);
+      window.removeEventListener("pointermove", this.mouseListener);
+      window.removeEventListener("pointerdown", this.mouseListener);
     }
     this.particles = [];
     this.context = null;
